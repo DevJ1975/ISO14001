@@ -1,0 +1,148 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isPlatformSuperadmin() {
+      return signedIn()
+        && request.auth.token.platform == true
+        && request.auth.token.role == 'platformSuperadmin';
+    }
+
+    function tenantClaim() {
+      return request.auth.token.tenantId;
+    }
+
+    function role() {
+      return request.auth.token.role;
+    }
+
+    function inTenant(tenantId) {
+      return signedIn() && tenantClaim() == tenantId;
+    }
+
+    function tenantAdmin(tenantId) {
+      return inTenant(tenantId) && role() == 'tenantAdmin';
+    }
+
+    function leadAuditor(tenantId) {
+      return inTenant(tenantId) && role() == 'leadAuditor';
+    }
+
+    function auditorRole(tenantId) {
+      return inTenant(tenantId) && role() in ['leadAuditor', 'auditor'];
+    }
+
+    function assignedToAudit(tenantId, auditId) {
+      return auditorRole(tenantId)
+        && request.auth.uid in get(/databases/$(database)/documents/tenants/$(tenantId)/audits/$(auditId)).data.assignedMembers;
+    }
+
+    function clientViewerForAuditee(tenantId, auditeeId) {
+      return inTenant(tenantId)
+        && role() == 'clientViewer'
+        && auditeeId in get(/databases/$(database)/documents/tenants/$(tenantId)/members/$(request.auth.uid)).data.auditeeScope;
+    }
+
+    match /platform/config {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+
+    match /platform/superadmins/{uid} {
+      allow read: if isPlatformSuperadmin() && request.auth.uid == uid;
+      allow write: if false;
+    }
+
+    match /platform/standards/{edition} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+
+    match /tenants/{tenantId} {
+      allow read: if inTenant(tenantId) || isPlatformSuperadmin();
+      allow create, update, delete: if false;
+
+      match /members/{uid} {
+        allow read: if inTenant(tenantId) && (tenantAdmin(tenantId) || request.auth.uid == uid);
+        allow write: if false;
+      }
+
+      match /invites/{inviteId} {
+        allow read: if tenantAdmin(tenantId);
+        allow write: if false;
+      }
+
+      match /auditees/{auditeeId} {
+        allow read: if tenantAdmin(tenantId) || leadAuditor(tenantId) || clientViewerForAuditee(tenantId, auditeeId);
+        allow write: if tenantAdmin(tenantId) || leadAuditor(tenantId);
+      }
+
+      match /checklistTemplates/{templateId} {
+        allow read: if inTenant(tenantId) && role() in ['tenantAdmin', 'leadAuditor', 'auditor'];
+        allow write: if tenantAdmin(tenantId);
+      }
+
+      match /audits/{auditId} {
+        allow read: if tenantAdmin(tenantId) || assignedToAudit(tenantId, auditId);
+        allow create: if tenantAdmin(tenantId) || leadAuditor(tenantId);
+        allow update: if tenantAdmin(tenantId) || leadAuditor(tenantId);
+        allow delete: if false;
+
+        match /checklistItems/{itemId} {
+          allow read: if tenantAdmin(tenantId) || assignedToAudit(tenantId, auditId);
+          allow write: if tenantAdmin(tenantId) || assignedToAudit(tenantId, auditId);
+        }
+
+        match /evidence/{evidenceId} {
+          allow read: if tenantAdmin(tenantId) || assignedToAudit(tenantId, auditId);
+          allow create: if assignedToAudit(tenantId, auditId)
+            && request.resource.data.createdBy == request.auth.uid
+            && request.resource.data.tenantId == tenantId;
+          allow update: if assignedToAudit(tenantId, auditId)
+            && resource.data.createdBy == request.auth.uid;
+          allow delete: if false;
+        }
+
+        match /photoAnalyses/{analysisId} {
+          allow read: if tenantAdmin(tenantId) || assignedToAudit(tenantId, auditId);
+          allow write: if false;
+        }
+
+        match /findings/{findingId} {
+          allow read: if tenantAdmin(tenantId) || assignedToAudit(tenantId, auditId);
+          allow create, update: if assignedToAudit(tenantId, auditId)
+            && request.resource.data.tenantId == tenantId;
+          allow delete: if false;
+        }
+
+        match /capa/{capaId} {
+          allow read: if tenantAdmin(tenantId) || assignedToAudit(tenantId, auditId);
+          allow write: if tenantAdmin(tenantId) || leadAuditor(tenantId);
+        }
+
+        match /report/{reportId} {
+          allow read: if tenantAdmin(tenantId) || assignedToAudit(tenantId, auditId);
+          allow write: if leadAuditor(tenantId);
+        }
+      }
+
+      match /emsKnowledgeBase/{auditeeId}/docs/{docId} {
+        allow read: if tenantAdmin(tenantId) || leadAuditor(tenantId);
+        allow write: if tenantAdmin(tenantId) || leadAuditor(tenantId);
+      }
+
+      match /ai/conversations/{uid}/messages/{messageId} {
+        allow read, write: if inTenant(tenantId) && request.auth.uid == uid;
+      }
+
+      match /changeLog/{changeId} {
+        allow read: if tenantAdmin(tenantId) || leadAuditor(tenantId);
+        allow write: if false;
+      }
+    }
+  }
+}

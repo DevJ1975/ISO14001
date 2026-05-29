@@ -1,0 +1,35 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function inTenant(tenantId) {
+      return signedIn() && request.auth.token.tenantId == tenantId;
+    }
+
+    function auditMember(tenantId) {
+      return inTenant(tenantId) && request.auth.token.role in ['tenantAdmin', 'leadAuditor', 'auditor'];
+    }
+
+    match /tenants/{tenantId}/audits/{auditId}/evidence/photos/{fileName} {
+      allow read: if auditMember(tenantId);
+      allow write: if auditMember(tenantId)
+        && request.resource.size < 25 * 1024 * 1024
+        && request.resource.contentType.matches('image/(jpeg|png|webp|heic)');
+    }
+
+    match /tenants/{tenantId}/audits/{auditId}/evidence/files/{fileName} {
+      allow read: if auditMember(tenantId);
+      allow write: if auditMember(tenantId)
+        && request.resource.size < 25 * 1024 * 1024;
+    }
+
+    match /tenants/{tenantId}/audits/{auditId}/reports/{fileName} {
+      allow read: if auditMember(tenantId);
+      allow write: if inTenant(tenantId) && request.auth.token.role == 'leadAuditor';
+    }
+  }
+}

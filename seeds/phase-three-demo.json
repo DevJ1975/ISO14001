@@ -1,0 +1,29 @@
+{
+  "tenantId": "tenant-greenline",
+  "auditeeId": "auditee-northstar",
+  "auditId": "audit-transition-1",
+  "knowledgeDocs": [
+    {
+      "id": "ems-doc-aspects",
+      "title": "EMS aspects and impacts register",
+      "status": "embedded",
+      "chunkCount": 42
+    },
+    {
+      "id": "ems-doc-objectives",
+      "title": "Environmental objectives tracker",
+      "status": "embedded",
+      "chunkCount": 18
+    }
+  ],
+  "rag": {
+    "query": "What records support transition readiness for planning controls?",
+    "citations": ["ems-doc-objectives#chunk-7", "ems-doc-aspects#chunk-12"]
+  },
+  "reviewQueue": [
+    "ai-finding-draft-1",
+    "loi-1",
+    "transition-gap-1",
+    "photo-analysis-1"
+  ]
+}

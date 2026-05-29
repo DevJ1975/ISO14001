@@ -1,0 +1,9 @@
+{
+  "name": "Trainovate ISO 14001 Audit Platform",
+  "short_name": "ISO14001",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f7faf8",
+  "theme_color": "#0f5f56",
+  "icons": []
+}

@@ -1,0 +1,22 @@
+{
+  "theme": "Soteria",
+  "tenantId": "tenant-greenline",
+  "hardeningControls": [
+    "control-tenant-rules",
+    "control-storage-rules",
+    "control-offline-replay",
+    "control-wcag-core",
+    "control-observability",
+    "control-deploy"
+  ],
+  "securityProbes": [
+    "probe-cross-tenant-audit-read",
+    "probe-unassigned-evidence-write"
+  ],
+  "pilotChecklist": [
+    "pilot-security-rules",
+    "pilot-offline-audit",
+    "pilot-a11y",
+    "pilot-friendly-firm"
+  ]
+}

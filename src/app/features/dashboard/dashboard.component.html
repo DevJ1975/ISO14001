@@ -1,0 +1,771 @@
+<mat-sidenav-container class="shell">
+  <mat-sidenav mode="side" opened class="rail">
+    <div class="brand">
+      <span class="brand-mark">
+        <mat-icon aria-hidden="true">shield</mat-icon>
+      </span>
+      <span>
+        <strong>Trainovate</strong>
+        <small>Soteria assurance</small>
+      </span>
+    </div>
+
+    <nav aria-label="Primary">
+      <a class="nav-item active" href="/">
+        <mat-icon aria-hidden="true">dashboard</mat-icon>
+        Workspace
+      </a>
+      <a class="nav-item" href="/">
+        <mat-icon aria-hidden="true">business</mat-icon>
+        Tenants
+      </a>
+      <a class="nav-item" href="/">
+        <mat-icon aria-hidden="true">fact_check</mat-icon>
+        Audits
+      </a>
+      <a class="nav-item" href="/">
+        <mat-icon aria-hidden="true">rule</mat-icon>
+        Standards
+      </a>
+    </nav>
+  </mat-sidenav>
+
+  <mat-sidenav-content>
+    <mat-toolbar class="topbar">
+      <span>ISO 14001 Soteria Console</span>
+      <span class="spacer"></span>
+      <button mat-stroked-button type="button">Tenant admin</button>
+    </mat-toolbar>
+
+    <main class="content">
+      <section class="hero">
+        <div>
+          <h1>Protected environmental audit operations, from field evidence to signed reports.</h1>
+          <p>
+            A Soteria-styled command center for tenant-isolated audits, offline capture,
+            auditor-confirmed AI, CAPA follow-up, and pilot readiness.
+          </p>
+          <div class="actions">
+            <button mat-flat-button color="primary" type="button">Create audit</button>
+            <button mat-stroked-button type="button">Invite member</button>
+          </div>
+        </div>
+
+        <div class="status-panel" aria-label="Foundation status">
+          <span class="panel-label">Current default decisions</span>
+          <dl>
+            <div>
+              <dt>Tenancy</dt>
+              <dd>App-level claims</dd>
+            </div>
+            <div>
+              <dt>Offline merge</dt>
+              <dd>Section ownership + change log</dd>
+            </div>
+            <div>
+              <dt>AI boundary</dt>
+              <dd>Tenant and auditee namespaced RAG</dd>
+            </div>
+            <div>
+              <dt>Firebase backend</dt>
+              <dd>{{ firebaseProjectId }}</dd>
+            </div>
+          </dl>
+        </div>
+      </section>
+
+      <section class="phase-grid" aria-label="Phase status">
+        @for (card of phaseCards; track card.title) {
+          <article>
+            <span>{{ card.status }}</span>
+            <h2>{{ card.title }}</h2>
+            <p>{{ card.body }}</p>
+          </article>
+        }
+      </section>
+
+      <section class="photo-section">
+        <div class="photo-copy">
+          <h2>Photo evidence intelligence</h2>
+          <p>
+            Capture field photos as evidence, preserve source metadata, and route a tenant-scoped copy through
+            AI image identification for auditor review.
+          </p>
+
+          <div class="photo-actions">
+            <label class="capture-button" for="photo-capture">
+              <mat-icon aria-hidden="true">photo_camera</mat-icon>
+              Take picture evidence
+            </label>
+            <input
+              id="photo-capture"
+              class="visually-hidden"
+              type="file"
+              accept="image/*"
+              capture="environment"
+              (change)="onPhotoSelected($event)"
+            >
+            <span class="file-status">
+              @if (capturedPhotoName(); as photoName) {
+                {{ photoName }} ready for upload
+              } @else {
+                No photo selected
+              }
+            </span>
+          </div>
+        </div>
+
+        <div class="analysis-flow" aria-label="AI photo analysis workflow">
+          <div class="flow-step">
+            <mat-icon aria-hidden="true">add_a_photo</mat-icon>
+            <strong>Capture</strong>
+            <span>Photo, timestamp, GPS, member attribution</span>
+          </div>
+          <div class="flow-step">
+            <mat-icon aria-hidden="true">psychology</mat-icon>
+            <strong>Identify</strong>
+            <span>Objects, labels, visible text, environmental signals</span>
+          </div>
+          <div class="flow-step">
+            <mat-icon aria-hidden="true">verified_user</mat-icon>
+            <strong>Confirm</strong>
+            <span>Auditor accepts, edits, or rejects suggestions</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="phase-one-section">
+        <div class="section-heading">
+          <div>
+            <h2>Phase 1 planning workspace</h2>
+            <p>Auditee setup, tenant-authored checklist templates, and audit planning with assigned member teams.</p>
+          </div>
+          <div class="summary-strip" aria-label="Phase 1 summary">
+            @for (item of phaseOneSummary(); track item.label) {
+              <span>
+                <strong>{{ item.value }}</strong>
+                {{ item.label }}
+              </span>
+            }
+          </div>
+        </div>
+
+        <div class="planning-grid">
+          <article class="planning-panel">
+            <div class="panel-header">
+              <mat-icon aria-hidden="true">domain</mat-icon>
+              <div>
+                <h3>Auditees</h3>
+                <p>Client organizations, sites, and contacts.</p>
+              </div>
+            </div>
+            <div class="auditee-list">
+              @for (auditee of auditees; track auditee.id) {
+                <div class="auditee-row">
+                  <div>
+                    <strong>{{ auditee.name }}</strong>
+                    <small>{{ auditee.sites.length }} site(s) · {{ auditee.contacts[0]?.name }}</small>
+                  </div>
+                  <span>{{ auditee.status }}</span>
+                </div>
+              }
+            </div>
+          </article>
+
+          <article class="planning-panel">
+            <div class="panel-header">
+              <mat-icon aria-hidden="true">playlist_add_check</mat-icon>
+              <div>
+                <h3>{{ checklistTemplate.name }}</h3>
+                <p>{{ checklistTemplate.criteria.replace('ISO_14001_', 'ISO 14001:') }} · {{ checklistTemplate.status }}</p>
+              </div>
+            </div>
+            <div class="template-items">
+              @for (item of checklistTemplate.items; track item.id) {
+                <div class="template-row">
+                  <strong>{{ item.clauseRef.clauseId }}</strong>
+                  <span>{{ item.question }}</span>
+                </div>
+              }
+            </div>
+          </article>
+
+          <article class="planning-panel wide">
+            <div class="panel-header">
+              <mat-icon aria-hidden="true">event_note</mat-icon>
+              <div>
+                <h3>Audit setup</h3>
+                <p>{{ selectedAuditee?.name }} · {{ leadAuditor?.profile?.displayName }} lead auditor</p>
+              </div>
+            </div>
+
+            <div class="audit-plan">
+              <div>
+                <span>Scope</span>
+                <strong>{{ auditSetup.scope }}</strong>
+              </div>
+              <div>
+                <span>Objectives</span>
+                <ul>
+                  @for (objective of auditSetup.objectives; track objective) {
+                    <li>{{ objective }}</li>
+                  }
+                </ul>
+              </div>
+              <div>
+                <span>Section owners</span>
+                <div class="owner-list">
+                  @for (assignment of sectionAssignments; track assignment.clauseId) {
+                    <span>
+                      Clause {{ assignment.clauseId }}:
+                      {{ assignment.auditorName }}
+                    </span>
+                  }
+                </div>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="phase-two-section">
+        <div class="section-heading">
+          <div>
+            <h2>Phase 2 field execution</h2>
+            <p>Offline evidence capture, checklist execution, findings drafts, and sync queue visibility.</p>
+          </div>
+          <div class="summary-strip" aria-label="Phase 2 summary">
+            @for (item of phaseTwoSummary(); track item.label) {
+              <span>
+                <strong>{{ item.value }}</strong>
+                {{ item.label }}
+              </span>
+            }
+          </div>
+        </div>
+
+        <div class="fieldwork-grid">
+          <article class="planning-panel wide">
+            <div class="panel-header">
+              <mat-icon aria-hidden="true">assignment_turned_in</mat-icon>
+              <div>
+                <h3>Checklist execution</h3>
+                <p>Each row keeps clause, owner, result, evidence, and finding references separate.</p>
+              </div>
+            </div>
+            <div class="execution-table">
+              @for (item of checklistExecutionItems; track item.id) {
+                <div class="execution-row">
+                  <strong>{{ item.clauseRef.clauseId }}</strong>
+                  <span>{{ item.question }}</span>
+                  <em>{{ item.result }}</em>
+                  <small>{{ item.evidenceRefs.length }} evidence · {{ item.findingRefs.length }} finding</small>
+                </div>
+              }
+            </div>
+          </article>
+
+          <article class="planning-panel">
+            <div class="panel-header">
+              <mat-icon aria-hidden="true">edit_note</mat-icon>
+              <div>
+                <h3>Evidence capture</h3>
+                <p>Simulate an offline note captured by an assigned auditor.</p>
+              </div>
+            </div>
+            <div class="field-actions">
+              <button mat-flat-button color="primary" type="button" (click)="captureDemoFieldNote()">
+                Capture field note
+              </button>
+              <button mat-stroked-button type="button" (click)="markDemoQueueSynced()" [disabled]="syncQueue().length === 0">
+                Mark queue synced
+              </button>
+            </div>
+            <div class="evidence-list">
+              @for (evidence of evidenceRecords(); track evidence.id) {
+                <div class="evidence-row">
+                  <strong>{{ evidence.type }}</strong>
+                  <span>{{ evidence.note }}</span>
+                </div>
+              }
+            </div>
+          </article>
+
+          <article class="planning-panel">
+            <div class="panel-header">
+              <mat-icon aria-hidden="true">report_problem</mat-icon>
+              <div>
+                <h3>Findings register</h3>
+                <p>Draft findings stay editable until auditor confirmation.</p>
+              </div>
+            </div>
+            <div class="finding-list">
+              @for (finding of findings; track finding.id) {
+                <div class="finding-row">
+                  <span>{{ finding.status }}</span>
+                  <strong>{{ finding.clauseRef.clauseId }} · {{ finding.type }}</strong>
+                  <small>{{ finding.description }}</small>
+                </div>
+              }
+            </div>
+          </article>
+
+          <article class="planning-panel wide">
+            <div class="panel-header">
+              <mat-icon aria-hidden="true">sync</mat-icon>
+              <div>
+                <h3>Offline sync and conflict handling</h3>
+                <p>Pending writes are visible, and conflicting checklist edits are flagged for review.</p>
+              </div>
+            </div>
+            <div class="sync-grid">
+              <div>
+                <span>Pending queue</span>
+                @if (syncQueue().length > 0) {
+                  @for (item of syncQueue(); track item.id) {
+                    <strong>{{ item.operation }} {{ item.documentId }} · {{ item.status }}</strong>
+                  }
+                } @else {
+                  <strong>All local changes synced</strong>
+                }
+              </div>
+              <div>
+                <span>Conflict review</span>
+                <strong>{{ conflict.resolution }}</strong>
+                <small>
+                  {{ conflictLocalAuditorName }} and {{ conflictRemoteAuditorName }} changed
+                  {{ conflict.fieldPaths.join(', ') }}.
+                </small>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="phase-three-section">
+        <div class="section-heading">
+          <div>
+            <h2>Phase 3 AI copilot</h2>
+            <p>Tenant-isolated RAG, finding drafts, clause suggestions, severity assist, and photo analysis review.</p>
+          </div>
+          <div class="summary-strip" aria-label="Phase 3 summary">
+            @for (item of phaseThreeSummary(); track item.label) {
+              <span>
+                <strong>{{ item.value }}</strong>
+                {{ item.label }}
+              </span>
+            }
+          </div>
+        </div>
+
+        <div class="ai-grid">
+          <article class="planning-panel">
+            <div class="panel-header">
+              <mat-icon aria-hidden="true">folder_managed</mat-icon>
+              <div>
+                <h3>EMS knowledge base</h3>
+                <p>Documents are namespaced by tenant and auditee before retrieval.</p>
+              </div>
+            </div>
+            <div class="knowledge-list">
+              @for (doc of knowledgeDocs; track doc.id) {
+                <div class="knowledge-row">
+                  <strong>{{ doc.title }}</strong>
+                  <span>{{ doc.status }} · {{ doc.chunkCount }} chunks</span>
+                </div>
+              }
+            </div>
+          </article>
+
+          <article class="planning-panel">
+            <div class="panel-header">
+              <mat-icon aria-hidden="true">travel_explore</mat-icon>
+              <div>
+                <h3>RAG answer</h3>
+                <p>{{ emsAnswer.question }}</p>
+              </div>
+            </div>
+            <div class="answer-card">
+              <strong>{{ emsAnswer.status }}</strong>
+              <span>{{ emsAnswer.answer }}</span>
+              <small>
+                @for (citation of emsAnswer.citations; track citation.chunkId) {
+                  {{ citation.sourceTitle }} · {{ citation.chunkId }}
+                }
+              </small>
+            </div>
+          </article>
+
+          <article class="planning-panel wide">
+            <div class="panel-header">
+              <mat-icon aria-hidden="true">auto_awesome</mat-icon>
+              <div>
+                <h3>Finding draft and auditor review</h3>
+                <p>Drafts can suggest wording, clauses, and severity, but the auditor decides.</p>
+              </div>
+            </div>
+            <div class="ai-draft-list">
+              @for (draft of aiFindingDrafts(); track draft.id) {
+                <div class="ai-draft-card">
+                  <div>
+                    <span>{{ draft.status }}</span>
+                    <h4>{{ draft.severitySuggestion.suggestedType }} · {{ draft.severitySuggestion.suggestedSeverity }}</h4>
+                    <p>{{ draft.draftStatement }}</p>
+                  </div>
+                  <div class="ai-meta">
+                    <strong>Clause {{ draft.clauseSuggestions[0]?.clauseRef?.clauseId }}</strong>
+                    <small>{{ draft.clauseSuggestions[0]?.rationale }}</small>
+                  </div>
+                </div>
+              }
+            </div>
+            <div class="field-actions">
+              <button
+                mat-flat-button
+                color="primary"
+                type="button"
+                (click)="acceptDemoAiFindingDraft()"
+                [disabled]="aiFindingDrafts()[0]?.status === 'accepted'"
+              >
+                Accept AI draft
+              </button>
+            </div>
+          </article>
+
+          <article class="planning-panel">
+            <div class="panel-header">
+              <mat-icon aria-hidden="true">question_answer</mat-icon>
+              <div>
+                <h3>Line of inquiry</h3>
+                <p>Prompts help auditors ask better field questions.</p>
+              </div>
+            </div>
+            @for (prompt of lineOfInquiry; track prompt.id) {
+              <div class="answer-card">
+                <strong>Clause {{ prompt.clauseRef.clauseId }}</strong>
+                <span>{{ prompt.prompt }}</span>
+                <small>{{ prompt.rationale }}</small>
+              </div>
+            }
+          </article>
+
+          <article class="planning-panel">
+            <div class="panel-header">
+              <mat-icon aria-hidden="true">compare_arrows</mat-icon>
+              <div>
+                <h3>Transition gap candidate</h3>
+                <p>ISO 14001:2015 to ISO 14001:2026</p>
+              </div>
+            </div>
+            <div class="answer-card">
+              <strong>Clause {{ transitionGap.clauseRef.clauseId }}</strong>
+              <span>{{ transitionGap.summary }}</span>
+              <small>{{ transitionGap.evidenceNeeded.join(', ') }}</small>
+            </div>
+          </article>
+
+          <article class="planning-panel wide">
+            <div class="panel-header">
+              <mat-icon aria-hidden="true">image_search</mat-icon>
+              <div>
+                <h3>Photo identification review</h3>
+                <p>Image analysis can focus follow-up, but it cannot issue a finding.</p>
+              </div>
+            </div>
+            <div class="photo-ai-row">
+              <div>
+                <strong>{{ photoAiAnalysis.observations[0]?.label }}</strong>
+                <span>{{ photoAiAnalysis.observations[0]?.rationale }}</span>
+              </div>
+              <div>
+                <strong>{{ photoAiAnalysis.findingCandidates[0]?.suggestedType }}</strong>
+                <span>{{ photoAiAnalysis.findingCandidates[0]?.summary }}</span>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="phase-four-section">
+        <div class="section-heading">
+          <div>
+            <h2>Phase 4 reports and CAPA</h2>
+            <p>Generate report artifacts, sign as lead auditor, track corrective actions, and schedule reminders.</p>
+          </div>
+          <div class="summary-strip" aria-label="Phase 4 summary">
+            @for (item of phaseFourSummary(); track item.label) {
+              <span>
+                <strong>{{ item.value }}</strong>
+                {{ item.label }}
+              </span>
+            }
+          </div>
+        </div>
+
+        <div class="phase-four-grid">
+          <article class="planning-panel wide">
+            <div class="panel-header">
+              <mat-icon aria-hidden="true">picture_as_pdf</mat-icon>
+              <div>
+                <h3>Audit report</h3>
+                <p>Report PDF storage references are signed only after lead-auditor review.</p>
+              </div>
+            </div>
+            <div class="report-card">
+              <div>
+                <span>{{ report().status }}</span>
+                <h4>Version {{ report().version }} · {{ report().criteria.replace('ISO_14001_', 'ISO 14001:') }}</h4>
+                <p>{{ report().sections[0]?.body }}</p>
+              </div>
+              <div class="report-meta">
+                <strong>{{ report().pdfStorageRef ?? 'PDF pending signoff' }}</strong>
+                <small>
+                  @if (report().signedBy) {
+                    Signed by {{ report().signedBy }} at {{ report().signedAt }}
+                  } @else {
+                    Lead auditor signature required
+                  }
+                </small>
+              </div>
+            </div>
+            <div class="field-actions">
+              <button
+                mat-flat-button
+                color="primary"
+                type="button"
+                (click)="signDemoReport()"
+                [disabled]="report().status === 'signed'"
+              >
+                Sign report
+              </button>
+            </div>
+          </article>
+
+          <article class="planning-panel">
+            <div class="panel-header">
+              <mat-icon aria-hidden="true">task_alt</mat-icon>
+              <div>
+                <h3>Corrective actions</h3>
+                <p>CAPA records keep owners, due dates, verification, and evidence refs.</p>
+              </div>
+            </div>
+            <div class="capa-list">
+              @for (capa of correctiveActions(); track capa.id) {
+                <div class="capa-row">
+                  <span>{{ capa.status }}</span>
+                  <strong>{{ capa.owner }}</strong>
+                  <small>{{ capa.action }}</small>
+                </div>
+              }
+            </div>
+            <div class="field-actions">
+              <button mat-stroked-button type="button" (click)="verifyFirstCapa()">
+                Verify first CAPA
+              </button>
+            </div>
+          </article>
+
+          <article class="planning-panel">
+            <div class="panel-header">
+              <mat-icon aria-hidden="true">notifications_active</mat-icon>
+              <div>
+                <h3>Reminder schedule</h3>
+                <p>Reminders can be sent by email or FCM from server functions.</p>
+              </div>
+            </div>
+            <div class="reminder-list">
+              @for (reminder of capaReminders; track reminder.id) {
+                <div class="reminder-row">
+                  <strong>{{ reminder.channel }} · {{ reminder.status }}</strong>
+                  <span>{{ reminder.owner }}</span>
+                  <small>Send {{ reminder.sendAt }} · due {{ reminder.dueDate }}</small>
+                </div>
+              }
+            </div>
+          </article>
+
+          <article class="planning-panel wide">
+            <div class="panel-header">
+              <mat-icon aria-hidden="true">route</mat-icon>
+              <div>
+                <h3>Transition gap report</h3>
+                <p>2015 to 2026 transition evidence is packaged into the audit report workflow.</p>
+              </div>
+            </div>
+            <div class="answer-card">
+              <strong>{{ transitionGapReport.status }}</strong>
+              <span>{{ transitionGapReport.summary }}</span>
+              <small>{{ transitionGapReport.evidenceNeeded.join(', ') }}</small>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section id="phase-five" class="phase-five-section">
+        <div class="section-heading">
+          <div>
+            <h2>Phase 5 hardening and pilot</h2>
+            <p>Security probes, accessibility checks, observability, deployment gates, and pilot readiness.</p>
+          </div>
+          <div class="summary-strip" aria-label="Phase 5 summary">
+            @for (item of phaseFiveSummary(); track item.label) {
+              <span>
+                <strong>{{ item.value }}</strong>
+                {{ item.label }}
+              </span>
+            }
+          </div>
+        </div>
+
+        <div class="phase-five-grid">
+          <article class="planning-panel wide">
+            <div class="panel-header">
+              <mat-icon aria-hidden="true">health_and_safety</mat-icon>
+              <div>
+                <h3>Soteria controls</h3>
+                <p>Hardening work is tracked by control area, owner, status, and evidence.</p>
+              </div>
+            </div>
+            <div class="control-grid">
+              @for (control of hardeningControls; track control.id) {
+                <div class="control-row">
+                  <span>{{ control.status }}</span>
+                  <strong>{{ control.title }}</strong>
+                  <small>{{ control.area }} · {{ control.owner }}</small>
+                </div>
+              }
+            </div>
+          </article>
+
+          <article class="planning-panel">
+            <div class="panel-header">
+              <mat-icon aria-hidden="true">policy</mat-icon>
+              <div>
+                <h3>Security probes</h3>
+                <p>Tenant isolation probes define expected allow or deny decisions.</p>
+              </div>
+            </div>
+            <div class="probe-list">
+              @for (probe of securityProbes; track probe.id) {
+                <div class="probe-row">
+                  <strong>{{ probe.expectedDecision }} · {{ probe.status }}</strong>
+                  <span>{{ probe.attemptedPath }}</span>
+                </div>
+              }
+            </div>
+          </article>
+
+          <article class="planning-panel">
+            <div class="panel-header">
+              <mat-icon aria-hidden="true">accessibility_new</mat-icon>
+              <div>
+                <h3>Accessibility</h3>
+                <p>Core auditor flows are prepared for WCAG 2.1 AA validation.</p>
+              </div>
+            </div>
+            <div class="probe-list">
+              @for (check of accessibilityChecks; track check.id) {
+                <div class="probe-row">
+                  <strong>{{ check.status }} · {{ check.criterion }}</strong>
+                  <span>{{ check.flow }}</span>
+                </div>
+              }
+            </div>
+          </article>
+
+          <article class="planning-panel">
+            <div class="panel-header">
+              <mat-icon aria-hidden="true">monitor_heart</mat-icon>
+              <div>
+                <h3>Observability</h3>
+                <p>Audit-critical telemetry events have names, severity, tenant, and audit context.</p>
+              </div>
+            </div>
+            <div class="probe-list">
+              @for (event of observabilityEvents; track event.id) {
+                <div class="probe-row">
+                  <strong>{{ event.severity }} · {{ event.eventType }}</strong>
+                  <span>{{ event.occurredAt }}</span>
+                </div>
+              }
+            </div>
+          </article>
+
+          <article class="planning-panel">
+            <div class="panel-header">
+              <mat-icon aria-hidden="true">verified</mat-icon>
+              <div>
+                <h3>Pilot checklist</h3>
+                <p>Required exit criteria before a friendly-firm pilot audit.</p>
+              </div>
+            </div>
+            <div class="pilot-list">
+              @for (item of pilotChecklist; track item.id) {
+                <div class="pilot-row">
+                  <span>{{ item.status }}</span>
+                  <strong>{{ item.title }}</strong>
+                  <small>{{ item.exitCriteria }}</small>
+                </div>
+              }
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="wiki-section">
+        <div class="section-heading">
+          <div>
+            <h2>Auditor wiki</h2>
+            <p>Generated implementation and training manuals for tenant rollout and field auditor readiness.</p>
+          </div>
+        </div>
+
+        <div class="manual-list">
+          @for (manual of wikiManuals; track manual.href) {
+            <a class="manual-link" [href]="manual.href" target="_blank" rel="noreferrer">
+              <mat-icon aria-hidden="true">menu_book</mat-icon>
+              <span>
+                <strong>{{ manual.title }}</strong>
+                <small>{{ manual.body }}</small>
+              </span>
+            </a>
+          }
+        </div>
+      </section>
+
+      <section class="standards-section">
+        <div class="section-heading">
+          <div>
+            <h2>Shared standards framework</h2>
+            <p>Clause identifiers and short titles only; customer-authored checklist content layers on top.</p>
+          </div>
+          <div class="segmented" aria-label="ISO edition">
+            <button
+              type="button"
+              [class.selected]="selectedEdition() === 'ISO_14001_2026'"
+              (click)="setEdition('ISO_14001_2026')"
+            >
+              2026
+            </button>
+            <button
+              type="button"
+              [class.selected]="selectedEdition() === 'ISO_14001_2015'"
+              (click)="setEdition('ISO_14001_2015')"
+            >
+              2015
+            </button>
+          </div>
+        </div>
+
+        <div class="clause-list">
+          @for (clause of clauses(); track clause.clauseId) {
+            <div class="clause-row">
+              <strong>{{ clause.clauseId }}</strong>
+              <span>{{ clause.title }}</span>
+            </div>
+          }
+        </div>
+      </section>
+    </main>
+  </mat-sidenav-content>
+</mat-sidenav-container>

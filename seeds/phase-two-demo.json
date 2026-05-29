@@ -1,0 +1,40 @@
+{
+  "tenantId": "tenant-greenline",
+  "auditId": "audit-transition-1",
+  "checklistExecution": [
+    {
+      "clauseId": "4",
+      "result": "conforming",
+      "ownerUid": "uid-maya-lead",
+      "evidenceRefs": [],
+      "findingRefs": []
+    },
+    {
+      "clauseId": "6",
+      "result": "needsFollowUp",
+      "ownerUid": "uid-omar-auditor",
+      "evidenceRefs": ["evidence-note-1"],
+      "findingRefs": ["finding-draft-1"]
+    },
+    {
+      "clauseId": "8",
+      "result": "notStarted",
+      "ownerUid": "uid-ava-auditor",
+      "evidenceRefs": [],
+      "findingRefs": []
+    }
+  ],
+  "syncQueue": [
+    {
+      "id": "sync-evidence-note-1",
+      "documentId": "evidence-note-1",
+      "operation": "create",
+      "status": "pending"
+    }
+  ],
+  "conflict": {
+    "id": "conflict-checklist-6",
+    "resolution": "manualReviewRequired",
+    "fieldPaths": ["result", "updatedAt"]
+  }
+}

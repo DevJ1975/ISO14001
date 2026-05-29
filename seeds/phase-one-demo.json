@@ -1,0 +1,33 @@
+{
+  "tenantId": "tenant-greenline",
+  "auditees": [
+    {
+      "id": "auditee-northstar",
+      "name": "Northstar Components",
+      "sites": ["Denver Assembly Plant", "Lakewood Warehouse"],
+      "status": "active"
+    },
+    {
+      "id": "auditee-riverbend",
+      "name": "Riverbend Packaging",
+      "sites": ["Boise Converting Site"],
+      "status": "active"
+    }
+  ],
+  "checklistTemplate": {
+    "id": "template-transition-readiness",
+    "name": "ISO 14001 transition readiness",
+    "criteria": "ISO_14001_2026",
+    "items": ["4", "6", "8"]
+  },
+  "auditSetup": {
+    "auditeeId": "auditee-northstar",
+    "leadAuditor": "uid-maya-lead",
+    "assignedMembers": ["uid-maya-lead", "uid-omar-auditor", "uid-ava-auditor"],
+    "sectionOwners": {
+      "4": "uid-maya-lead",
+      "6": "uid-omar-auditor",
+      "8": "uid-ava-auditor"
+    }
+  }
+}

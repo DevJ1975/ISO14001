@@ -1,0 +1,27 @@
+{
+  "tenantId": "tenant-greenline",
+  "auditId": "audit-transition-1",
+  "report": {
+    "id": "report-transition-1",
+    "status": "draft",
+    "version": 1,
+    "capaRefs": ["capa-transition-planning"],
+    "transitionGapRefs": ["transition-gap-1"]
+  },
+  "capa": [
+    {
+      "id": "capa-transition-planning",
+      "status": "open",
+      "owner": "elena.ruiz@northstar.example",
+      "dueDate": "2026-07-15T23:59:00.000Z"
+    },
+    {
+      "id": "capa-secondary-containment",
+      "status": "verificationDue",
+      "owner": "maintenance.lead@northstar.example",
+      "dueDate": "2026-07-01T23:59:00.000Z"
+    }
+  ],
+  "reminders": ["reminder-capa-transition-planning", "reminder-capa-secondary-containment"],
+  "transitionGapReport": "transition-gap-report-1"
+}
