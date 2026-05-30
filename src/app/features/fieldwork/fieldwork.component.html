@@ -2,7 +2,7 @@
   <header class="screen-head fw-head">
     <div>
       <h1>Fieldwork</h1>
-      <p>{{ store.auditee }}</p>
+      <p>{{ store.auditee() }}</p>
     </div>
     <div class="progress">
       <div class="bar"><span [style.width.%]="store.progress().percent"></span></div>

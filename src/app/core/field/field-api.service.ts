@@ -20,6 +20,14 @@ import type {
   FieldResult,
 } from './field-audit-store';
 
+export interface Member {
+  uid: string;
+  email: string;
+  role: string;
+  displayName: string;
+  status: string;
+}
+
 export interface FieldStatePayload {
   audit?: AuditSummary | null;
   items: Array<Omit<FieldChecklistItem, 'sync'>>;
@@ -46,6 +54,27 @@ export class FieldApiService {
   async listAudits(): Promise<AuditSummary[]> {
     const result = await firstValueFrom(this.http.get<{ audits: AuditSummary[] }>(`${this.tenantBase()}/audits`));
     return result?.audits ?? [];
+  }
+
+  async listMembers(): Promise<Member[]> {
+    const result = await firstValueFrom(this.http.get<{ members: Member[] }>(`${this.tenantBase()}/members`));
+    return result?.members ?? [];
+  }
+
+  createMember(body: { email: string; displayName: string; role: string }): Promise<{ member: Member; tempPassword?: string }> {
+    return firstValueFrom(this.http.post<{ member: Member; tempPassword?: string }>(`${this.tenantBase()}/members`, body));
+  }
+
+  updateMember(uid: string, patch: { role?: string; status?: string; displayName?: string }): Promise<{ member: Member }> {
+    return firstValueFrom(this.http.put<{ member: Member }>(`${this.tenantBase()}/members/${encodeURIComponent(uid)}`, patch));
+  }
+
+  resetMemberPassword(uid: string): Promise<{ tempPassword?: string }> {
+    return firstValueFrom(this.http.post<{ tempPassword?: string }>(`${this.tenantBase()}/members/${encodeURIComponent(uid)}/password`, {}));
+  }
+
+  changeOwnPassword(currentPassword: string, newPassword: string): Promise<unknown> {
+    return firstValueFrom(this.http.post(`${this.config.apiBaseUrl}/auth/change-password`, { currentPassword, newPassword }));
   }
 
   createAudit(body: { auditee: string; scope: string; criteria: string }): Promise<AuditSummary> {

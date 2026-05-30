@@ -1,0 +1,118 @@
+<section class="screen">
+  <header class="screen-head">
+    <h1>Users</h1>
+    <p>Invite teammates, set their role, reset passwords, or deactivate access. Roles control what each person can do across the tenant.</p>
+  </header>
+
+  @if (handoff(); as h) {
+    <article class="panel handoff">
+      <mat-icon aria-hidden="true">vpn_key</mat-icon>
+      <div class="handoff-main">
+        <strong>One-time password for {{ h.email }}</strong>
+        <span>Share this securely — it won't be shown again. Ask them to change it after signing in.</span>
+        <code>{{ h.password }}</code>
+      </div>
+      <div class="handoff-actions">
+        <button mat-stroked-button type="button" (click)="copy(h.password)"><mat-icon aria-hidden="true">content_copy</mat-icon>Copy</button>
+        <button mat-button type="button" (click)="handoff.set(null)">Dismiss</button>
+      </div>
+    </article>
+  }
+
+  @if (loading()) {
+    <div class="panel empty"><mat-icon aria-hidden="true">hourglass_top</mat-icon><span>Loading users…</span></div>
+  } @else if (!live()) {
+    <div class="panel empty">
+      <mat-icon aria-hidden="true">cloud_off</mat-icon>
+      <strong>User management needs the live backend</strong>
+      <span>Sign in (Live) as a lead auditor or tenant admin to manage users.</span>
+    </div>
+  } @else {
+    @if (canManage()) {
+      <div class="actions">
+        <button mat-flat-button color="primary" type="button" (click)="showInvite.set(!showInvite())">
+          <mat-icon aria-hidden="true">{{ showInvite() ? 'close' : 'person_add' }}</mat-icon>
+          {{ showInvite() ? 'Cancel' : 'Invite user' }}
+        </button>
+      </div>
+    }
+
+    @if (showInvite()) {
+      <article class="panel form">
+        <h2>Invite user</h2>
+        <label class="fld"><span>Email</span>
+          <input #email type="email" placeholder="name@example.com" autocomplete="off" /></label>
+        <label class="fld"><span>Display name</span>
+          <input #displayName placeholder="e.g. Jordan Lee" autocomplete="off" /></label>
+        <label class="fld"><span>Role</span>
+          <select [value]="inviteRole()" (change)="inviteRole.set($any($event.target).value)">
+            @for (role of assignableRoles; track role) {
+              @if (canEditRole(role)) { <option [value]="role">{{ roleLabel(role) }}</option> }
+            }
+          </select></label>
+        @if (error(); as err) { <p class="err"><mat-icon aria-hidden="true">error</mat-icon>{{ err }}</p> }
+        <button mat-flat-button color="primary" type="button" [disabled]="inviting()" (click)="invite(email.value, displayName.value)">
+          <mat-icon aria-hidden="true">send</mat-icon>{{ inviting() ? 'Inviting…' : 'Invite & generate password' }}
+        </button>
+      </article>
+    }
+
+    @if (error() && !showInvite()) { <p class="err standalone"><mat-icon aria-hidden="true">error</mat-icon>{{ error() }}</p> }
+
+    <div class="list">
+      @for (member of members(); track member.uid) {
+        <article class="tile member" [class.disabled]="member.status !== 'active'">
+          <div class="member-main">
+            <strong>{{ member.displayName || member.email }}@if (member.uid === myUid()) { <span class="you">you</span> }</strong>
+            <small>{{ member.email }}</small>
+          </div>
+
+          @if (canManage() && canEditRole(member.role) && member.uid !== myUid()) {
+            <select class="role" [value]="member.role" (change)="setRole(member, $any($event.target).value)">
+              @for (role of assignableRoles; track role) {
+                @if (canEditRole(role)) { <option [value]="role">{{ roleLabel(role) }}</option> }
+              }
+            </select>
+          } @else {
+            <span class="role-static" [attr.data-tone]="'neutral'">{{ roleLabel(member.role) }}</span>
+          }
+
+          <span class="status" [attr.data-tone]="member.status === 'active' ? 'positive' : 'critical'">{{ member.status }}</span>
+
+          @if (canManage()) {
+            <div class="member-actions">
+              <button mat-icon-button type="button" title="Reset password" (click)="resetPassword(member)">
+                <mat-icon aria-hidden="true">key</mat-icon>
+              </button>
+              @if (member.uid !== myUid()) {
+                <button mat-icon-button type="button"
+                  [title]="member.status === 'active' ? 'Deactivate' : 'Reactivate'"
+                  (click)="toggleStatus(member)">
+                  <mat-icon aria-hidden="true">{{ member.status === 'active' ? 'block' : 'check_circle' }}</mat-icon>
+                </button>
+              }
+            </div>
+          }
+        </article>
+      } @empty {
+        <div class="panel empty"><mat-icon aria-hidden="true">group</mat-icon><span>No users yet.</span></div>
+      }
+    </div>
+  }
+
+  <article class="panel form self">
+    <h2>Change my password</h2>
+    <label class="fld"><span>Current password</span>
+      <input #cur type="password" autocomplete="current-password" /></label>
+    <label class="fld"><span>New password</span>
+      <input #next type="password" autocomplete="new-password" placeholder="At least 8 characters" /></label>
+    <label class="fld"><span>Confirm new password</span>
+      <input #conf type="password" autocomplete="new-password" /></label>
+    @if (pwError(); as err) { <p class="err"><mat-icon aria-hidden="true">error</mat-icon>{{ err }}</p> }
+    @if (pwMessage(); as msg) { <p class="ok"><mat-icon aria-hidden="true">check_circle</mat-icon>{{ msg }}</p> }
+    <button mat-flat-button color="primary" type="button" [disabled]="changingPw()"
+      (click)="changePassword(cur.value, next.value, conf.value); cur.value=''; next.value=''; conf.value=''">
+      <mat-icon aria-hidden="true">lock_reset</mat-icon>{{ changingPw() ? 'Updating…' : 'Update password' }}
+    </button>
+  </article>
+</section>

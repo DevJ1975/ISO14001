@@ -80,6 +80,36 @@ async function verifyPassword(password, stored) {
   );
   return timingSafeEqual(bits, expected);
 }
+function bytesToHex(bytes) {
+  let s = '';
+  for (const b of bytes) s += b.toString(16).padStart(2, '0');
+  return s;
+}
+async function hashPassword(password) {
+  const iterations = 100000;
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const keyMaterial = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveBits']);
+  const bits = new Uint8Array(
+    await crypto.subtle.deriveBits({ name: 'PBKDF2', salt, iterations, hash: 'SHA-256' }, keyMaterial, 256),
+  );
+  return `pbkdf2$${iterations}$${bytesToHex(salt)}$${bytesToHex(bits)}`;
+}
+// A readable, URL-safe one-time password the admin/lead shares out-of-band.
+function tempPassword() {
+  return b64url(crypto.getRandomValues(new Uint8Array(9)));
+}
+// Public shape of a member — never leaks the password hash.
+function toMember(row) {
+  return {
+    uid: row.uid,
+    email: row.email,
+    role: row.role,
+    displayName: row.display_name ?? '',
+    status: row.status ?? 'active',
+  };
+}
+const TENANT_ROLES = ['tenantAdmin', 'leadAuditor', 'auditor', 'clientViewer'];
+const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
 class AuthError extends Error {}
 
@@ -182,6 +212,118 @@ Deno.serve(async (req) => {
         expiresAt: new Date(exp * 1000).toISOString(),
         user: { uid: member.uid, tenantId: member.tenant_id, role: member.role, displayName: member.display_name, email: member.email },
       });
+    }
+
+    // Any signed-in user can change their own password (needs the current one).
+    if (method === 'POST' && seg[0] === 'auth' && seg[1] === 'change-password') {
+      const actor = await getActor(req);
+      const body = await readJson(req);
+      const current = String(body.currentPassword ?? '');
+      const next = String(body.newPassword ?? '');
+      if (next.length < 8) return json(400, { error: 'New password must be at least 8 characters.' });
+      const { data: member } = await db
+        .from('members')
+        .select('*')
+        .eq('tenant_id', actor.tenantId)
+        .eq('uid', actor.uid)
+        .maybeSingle();
+      if (!member || typeof member.password_hash !== 'string' || !(await verifyPassword(current, member.password_hash))) {
+        return json(401, { error: 'Current password is incorrect.' });
+      }
+      await db.from('members').update({ password_hash: await hashPassword(next) }).eq('tenant_id', actor.tenantId).eq('uid', actor.uid);
+      return json(200, { ok: true });
+    }
+
+    // Member management — tenantAdmin or leadAuditor. Guardrails below prevent
+    // privilege escalation (only an admin grants admin) and self-lockout.
+    if (seg[0] === 'tenants' && seg[2] === 'members') {
+      const tenantId = seg[1];
+      const actor = await getActor(req);
+      requireTenant(actor, tenantId);
+      requireRole(actor, ['tenantAdmin', 'leadAuditor']);
+      const targetUid = seg[3];
+
+      if (method === 'GET' && !targetUid) {
+        const { data } = await db
+          .from('members')
+          .select('uid,email,role,display_name,status,created_at')
+          .eq('tenant_id', tenantId)
+          .order('created_at', { ascending: true });
+        return json(200, { members: (data ?? []).map(toMember) });
+      }
+
+      if (method === 'POST' && !targetUid) {
+        const body = await readJson(req);
+        const email = String(body.email ?? '').toLowerCase().trim();
+        const displayName = String(body.displayName ?? '').trim();
+        const role = String(body.role ?? 'auditor');
+        if (!EMAIL_RE.test(email)) return json(400, { error: 'Enter a valid email address.' });
+        if (!TENANT_ROLES.includes(role)) return json(400, { error: 'Unknown role.' });
+        if (role === 'tenantAdmin' && actor.role !== 'tenantAdmin') {
+          return json(403, { error: 'Only a tenant admin can create another tenant admin.' });
+        }
+        const { data: existing } = await db.from('members').select('uid').ilike('email', email).maybeSingle();
+        if (existing) return json(409, { error: 'A user with that email already exists.' });
+        const provided = typeof body.password === 'string' && body.password.length >= 8 ? body.password : '';
+        const temp = provided ? '' : tempPassword();
+        const uid = `uid-${crypto.randomUUID()}`;
+        const doc = {
+          tenant_id: tenantId,
+          uid,
+          email,
+          role,
+          display_name: displayName || email.split('@')[0],
+          password_hash: await hashPassword(provided || temp),
+          status: 'active',
+        };
+        const { error } = await db.from('members').insert(doc);
+        if (error) return json(500, { error: 'Could not create the user.' });
+        return json(201, { member: toMember(doc), tempPassword: temp || undefined });
+      }
+
+      if (targetUid) {
+        const { data: target } = await db
+          .from('members')
+          .select('*')
+          .eq('tenant_id', tenantId)
+          .eq('uid', targetUid)
+          .maybeSingle();
+        if (!target) return json(404, { error: 'User not found.' });
+
+        if (method === 'POST' && seg[4] === 'password') {
+          const body = await readJson(req);
+          const provided = typeof body.password === 'string' && body.password.length >= 8 ? body.password : '';
+          const temp = provided ? '' : tempPassword();
+          await db.from('members').update({ password_hash: await hashPassword(provided || temp) }).eq('tenant_id', tenantId).eq('uid', targetUid);
+          return json(200, { ok: true, tempPassword: temp || undefined });
+        }
+
+        if (method === 'PUT') {
+          const body = await readJson(req);
+          const patch = {};
+          if (typeof body.displayName === 'string') patch.display_name = body.displayName.trim();
+          if (typeof body.role === 'string') {
+            if (!TENANT_ROLES.includes(body.role)) return json(400, { error: 'Unknown role.' });
+            if (body.role === 'tenantAdmin' && actor.role !== 'tenantAdmin') {
+              return json(403, { error: 'Only a tenant admin can grant tenant admin.' });
+            }
+            if (targetUid === actor.uid && body.role !== actor.role) {
+              return json(403, { error: 'You cannot change your own role.' });
+            }
+            patch.role = body.role;
+          }
+          if (typeof body.status === 'string') {
+            if (!['active', 'disabled'].includes(body.status)) return json(400, { error: 'Unknown status.' });
+            if (targetUid === actor.uid && body.status !== 'active') {
+              return json(403, { error: 'You cannot deactivate your own account.' });
+            }
+            patch.status = body.status;
+          }
+          if (Object.keys(patch).length === 0) return json(400, { error: 'Nothing to update.' });
+          await db.from('members').update(patch).eq('tenant_id', tenantId).eq('uid', targetUid);
+          return json(200, { member: toMember({ ...target, ...patch }) });
+        }
+      }
     }
 
     if (seg[0] === 'tenants' && seg[2] === 'programme') {
