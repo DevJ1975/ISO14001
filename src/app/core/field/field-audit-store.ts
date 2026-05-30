@@ -1,7 +1,18 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 
+import { AuditSelectionService } from './audit-selection.service';
 import { FieldApiService } from './field-api.service';
 import { idbDelete, idbGet, idbSet } from './idb';
+
+export interface AuditSummary {
+  id: string;
+  auditee: string;
+  scope?: string;
+  criteria: string;
+  status: string;
+  createdByName?: string;
+  createdAt?: string;
+}
 
 export type SyncState = 'synced' | 'queued' | 'syncing' | 'conflict';
 export type FieldResult = 'notStarted' | 'conform' | 'minorNc' | 'majorNc' | 'ofi' | 'na';
@@ -658,6 +669,34 @@ export class FieldAuditStore {
     await this.bootstrap();
   }
 
+  /** Load the tenant's audit list (live only; no-op offline). */
+  async loadAudits(): Promise<void> {
+    try {
+      const audits = await this.api.listAudits();
+      this.audits.set(audits);
+    } catch {
+      /* offline / local mode: leave the list as-is */
+    }
+  }
+
+  /** Create a new audit, switch to it, and load its (empty) state. */
+  async createAudit(input: { auditee: string; scope: string; criteria: string }): Promise<AuditSummary | null> {
+    try {
+      const audit = await this.api.createAudit(input);
+      this.selection.select(audit.id);
+      await this.bootstrap();
+      return audit;
+    } catch {
+      return null;
+    }
+  }
+
+  /** Switch the active audit and reload its state. */
+  async selectAudit(auditId: string): Promise<void> {
+    this.selection.select(auditId);
+    await this.bootstrap();
+  }
+
   private updateFinding(id: string, patch: Partial<FieldFinding>): void {
     this.findings.update((list) =>
       list.map((finding) => (finding.id === id ? { ...finding, ...patch, sync: 'queued' } : finding)),
@@ -862,9 +901,14 @@ export class FieldAuditStore {
       this.aspects.set((payload.aspects ?? []).map((a) => ({ ...a, sync: 'synced' as const })));
       this.obligations.set((payload.obligations ?? []).map((o) => ({ ...o, sync: 'synced' as const })));
       this.emergencyRecords.set((payload.emergencyRecords ?? []).map((e) => ({ ...e, sync: 'synced' as const })));
+      if (payload.audit) {
+        this.auditee.set(payload.audit.auditee || this.auditee());
+        this.criteria.set(payload.audit.criteria || this.criteria());
+      }
       this.source.set('live');
       this.online.set(true);
       this.persist();
+      void this.loadAudits();
     } catch {
       this.source.set('local');
       await this.hydrate();

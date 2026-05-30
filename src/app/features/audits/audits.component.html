@@ -1,0 +1,54 @@
+<section class="screen">
+  <header class="screen-head">
+    <h1>Audits</h1>
+    <p>Select an audit to work on, or start a new one. The active audit drives every other screen.</p>
+  </header>
+
+  @if (canCreate()) {
+    <div class="actions">
+      <button mat-flat-button color="primary" type="button" (click)="showForm.set(!showForm())">
+        <mat-icon aria-hidden="true">{{ showForm() ? 'close' : 'add' }}</mat-icon>
+        {{ showForm() ? 'Cancel' : 'New audit' }}
+      </button>
+    </div>
+  }
+
+  @if (showForm()) {
+    <article class="panel form">
+      <h2>New audit</h2>
+      <label class="fld"><span>Auditee / organization</span>
+        <input #auditee placeholder="e.g. Northstar Components — Denver Assembly Plant" /></label>
+      <label class="fld"><span>Scope</span>
+        <textarea #scope rows="2" placeholder="EMS scope, sites/areas, boundaries…"></textarea></label>
+      <label class="fld"><span>Criteria</span>
+        <select [value]="criteria()" (change)="criteria.set($any($event.target).value)">
+          <option value="ISO 14001:2026">ISO 14001:2026</option>
+          <option value="ISO 14001:2015">ISO 14001:2015</option>
+        </select></label>
+      @if (error(); as err) { <p class="err"><mat-icon aria-hidden="true">error</mat-icon>{{ err }}</p> }
+      <button mat-flat-button color="primary" type="button" [disabled]="creating()" (click)="create(auditee.value, scope.value)">
+        <mat-icon aria-hidden="true">save</mat-icon>{{ creating() ? 'Creating…' : 'Create & open' }}
+      </button>
+    </article>
+  }
+
+  <div class="list">
+    @for (audit of store.audits(); track audit.id) {
+      <button type="button" class="tile row" [class.active]="audit.id === store.selectedAuditId()" (click)="open(audit.id)">
+        <div class="row-main">
+          <strong>{{ audit.auditee || 'Untitled audit' }}</strong>
+          <small>{{ audit.criteria }}@if (audit.scope) { · {{ audit.scope }} }</small>
+        </div>
+        <span [attr.data-tone]="statusTone(audit.status)">{{ audit.status }}</span>
+        @if (audit.id === store.selectedAuditId()) { <mat-icon aria-hidden="true" class="cur">check_circle</mat-icon> }
+        @else { <mat-icon aria-hidden="true">chevron_right</mat-icon> }
+      </button>
+    } @empty {
+      <div class="panel empty">
+        <mat-icon aria-hidden="true">fact_check</mat-icon>
+        <strong>No audits yet</strong>
+        <span>{{ canCreate() ? 'Create your first audit to get started.' : 'Sign in as a lead auditor to create audits.' }}</span>
+      </div>
+    }
+  </div>
+</section>

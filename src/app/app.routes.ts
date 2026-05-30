@@ -20,6 +20,11 @@ export const routes: Routes = [
         title: 'Overview',
       },
       {
+        path: 'audits',
+        loadComponent: () => import('./features/audits/audits.component').then((m) => m.AuditsComponent),
+        title: 'Audits',
+      },
+      {
         path: 'audit',
         loadComponent: () => import('./features/audit/audit.component').then((m) => m.AuditComponent),
         title: 'Audit',

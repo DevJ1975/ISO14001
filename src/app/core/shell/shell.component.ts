@@ -49,6 +49,7 @@ export class ShellComponent {
 
   protected readonly nav: NavItem[] = [
     { path: '/', label: 'Overview', icon: 'dashboard', exact: true },
+    { path: '/audits', label: 'Audits', icon: 'folder_open', exact: false },
     { path: '/audit', label: 'Audit', icon: 'event', exact: false },
     { path: '/fieldwork', label: 'Fieldwork', icon: 'checklist', exact: false },
     { path: '/evidence', label: 'Evidence', icon: 'photo_camera', exact: false },
