@@ -1,0 +1,11 @@
+{
+  "manualMajorVersion": 1,
+  "title": "Trainovate Knowledge Base",
+  "categories": [
+    { "id": "getting-started", "title": "Getting Started", "icon": "rocket_launch", "order": 1 },
+    { "id": "using-the-app", "title": "Using the App", "icon": "touch_app", "order": 2 },
+    { "id": "iso-14001", "title": "ISO 14001 EMS", "icon": "eco", "order": 3 },
+    { "id": "records", "title": "Records & Documents", "icon": "folder_open", "order": 4 },
+    { "id": "faqs", "title": "FAQs", "icon": "help_center", "order": 5 }
+  ]
+}
