@@ -155,6 +155,10 @@
   color: var(--text);
   font-weight: 600;
   line-height: 1.35;
+  /* Long, space-less filenames (e.g. Gemini_Generated_Image_…) must wrap,
+     not run off the card and push the sync badge off-screen. */
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .meta small {
