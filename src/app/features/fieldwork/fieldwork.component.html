@@ -1,0 +1,114 @@
+<section class="screen fieldwork">
+  <header class="screen-head fw-head">
+    <div>
+      <h1>Fieldwork</h1>
+      <p>{{ store.auditee }}</p>
+    </div>
+    <div class="progress">
+      <div class="bar"><span [style.width.%]="store.progress().percent"></span></div>
+      <small>{{ store.progress().done }} / {{ store.progress().total }} clauses answered</small>
+    </div>
+  </header>
+
+  <div class="filters">
+    @for (option of filters; track option.value) {
+      <button type="button" class="chip" [class.on]="filter() === option.value" (click)="setFilter(option.value)">
+        {{ option.label }}
+      </button>
+    }
+  </div>
+
+  @if (current(); as item) {
+    <article class="panel fw-card">
+      <div class="fw-top">
+        <span class="clause">Clause {{ item.clauseId }}</span>
+        <span class="pos">{{ position() }} of {{ visibleItems().length }}</span>
+      </div>
+      <h2>{{ item.clauseTitle }}</h2>
+      <p class="q">{{ item.question }}</p>
+      @if (item.guidance) {
+        <p class="guide"><mat-icon aria-hidden="true">info</mat-icon>{{ item.guidance }}</p>
+      }
+
+      <div class="owner">
+        <span [attr.data-tone]="resultTone(item.result)">{{ resultLabel(item.result) }}</span>
+        <small>Section owner · {{ item.ownerName }}</small>
+      </div>
+
+      <label class="fw-note">
+        <span>Field note</span>
+        <textarea
+          rows="3"
+          #noteEl
+          [value]="item.note ?? ''"
+          (change)="saveNote(item, noteEl.value)"
+          placeholder="Observation, interview response, sample reference…"
+        ></textarea>
+      </label>
+
+      <div class="ev-strip">
+        @for (evidence of evidenceFor(item); track evidence.id) {
+          <div class="ev">
+            @if (evidence.thumbUrl) {
+              <img [src]="evidence.thumbUrl" alt="Captured evidence" />
+            } @else {
+              <mat-icon aria-hidden="true">sticky_note_2</mat-icon>
+            }
+            <span class="ev-sync" [attr.data-tone]="syncTone(evidence.sync)">{{ evidence.sync }}</span>
+          </div>
+        }
+        <label class="ev-add" for="fw-photo">
+          <mat-icon aria-hidden="true">add_a_photo</mat-icon>
+          Photo
+        </label>
+        <input
+          id="fw-photo"
+          class="hidden-input"
+          type="file"
+          accept="image/*"
+          capture="environment"
+          (change)="onPhoto($event, item)"
+        />
+      </div>
+
+      @if (canLogFinding(item)) {
+        <button mat-stroked-button type="button" class="log" (click)="logFinding(item)">
+          <mat-icon aria-hidden="true">flag</mat-icon>
+          Log finding from this clause
+        </button>
+      }
+    </article>
+
+    <div class="fw-actions">
+      <div class="decisions">
+        @for (decision of decisions; track decision.value) {
+          <button
+            type="button"
+            class="decide {{ decision.tone }}"
+            [class.sel]="item.result === decision.value"
+            (click)="choose(item, decision.value)"
+          >
+            <mat-icon aria-hidden="true">{{ decision.icon }}</mat-icon>
+            {{ decision.label }}
+          </button>
+        }
+      </div>
+      <div class="nav-row">
+        <button mat-stroked-button type="button" (click)="prev()" [disabled]="position() <= 1">
+          <mat-icon aria-hidden="true">chevron_left</mat-icon>
+          Prev
+        </button>
+        <button mat-flat-button color="primary" type="button" (click)="next()" [disabled]="position() >= visibleItems().length">
+          Next
+          <mat-icon aria-hidden="true">chevron_right</mat-icon>
+        </button>
+      </div>
+    </div>
+  } @else {
+    <div class="panel empty">
+      <mat-icon aria-hidden="true">task_alt</mat-icon>
+      <strong>All clear</strong>
+      <span>No clauses match this filter.</span>
+    </div>
+  }
+</section>

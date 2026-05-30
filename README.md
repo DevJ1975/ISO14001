@@ -38,6 +38,18 @@ npm run api
 
 MongoDB is accessed only from the Node API under `server/`. Do not expose `MONGODB_URI` to Angular or commit database credentials, JWT signing keys, API keys, private keys, or customer data.
 
+## Authentication
+
+The API authenticates requests with a signed **JWT bearer token** (HS256, verified server-side with `JWT_SECRET`). The Angular app signs in at `POST /api/auth/login`, stores the token, and an HTTP interceptor attaches it to every `/api` call. Passwords are stored as scrypt hashes on member records.
+
+```bash
+# 1. set MONGODB_URI + JWT_SECRET in .env, then seed a demo lead auditor:
+npm run mongo:init    # prints the demo email + password
+# 2. run the API and app, then sign in with the seeded credentials.
+```
+
+If the backend is unreachable, the sign-in screen offers **"Continue in offline demo mode"**, which runs the workspace on the local offline store. The `ALLOW_DEV_AUTH_HEADERS` path remains for local tooling only and must stay disabled in production; real production federation can swap the first-party HS256 tokens for an external IdP (JWKS).
+
 ## Standards Guardrail
 
 ISO standards are copyrighted. This repo stores only clause identifiers and short titles. Checklist content must be customer-authored or properly licensed before public release.

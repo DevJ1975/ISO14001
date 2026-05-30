@@ -1,0 +1,58 @@
+<section class="screen">
+  <header class="screen-head">
+    <h1>Evidence</h1>
+    <p>Photos and notes are stored on-device and queued for tenant-scoped upload.</p>
+  </header>
+
+  <div class="panel capture">
+    <label class="cap-photo" for="ev-photo">
+      <mat-icon aria-hidden="true">photo_camera</mat-icon>
+      Capture photo
+    </label>
+    <input id="ev-photo" class="hidden-input" type="file" accept="image/*" capture="environment" (change)="onPhoto($event)" />
+
+    <div class="cap-note">
+      <textarea #noteEl rows="2" placeholder="Write a quick note as evidence…"></textarea>
+      <button mat-flat-button color="primary" type="button" (click)="addNote(noteEl.value); noteEl.value = ''">
+        <mat-icon aria-hidden="true">note_add</mat-icon>
+        Add note
+      </button>
+    </div>
+  </div>
+
+  <div class="ev-grid">
+    @for (evidence of store.evidence(); track evidence.id) {
+      <article class="tile ev-card">
+        <div class="thumb">
+          @if (evidence.thumbUrl) {
+            <img [src]="evidence.thumbUrl" alt="Captured evidence" />
+          } @else {
+            <mat-icon aria-hidden="true">{{ evidence.kind === 'photo' ? 'image' : 'sticky_note_2' }}</mat-icon>
+          }
+        </div>
+        <div class="meta">
+          <div class="meta-row">
+            <span class="kind">{{ evidence.kind }}</span>
+            <span [attr.data-tone]="syncTone(evidence.sync)">{{ evidence.sync }}</span>
+          </div>
+          <strong>{{ evidence.label }}</strong>
+          <small>{{ evidence.capturedByName }} · {{ formatTime(evidence.capturedAt) }}</small>
+          <div class="tags">
+            @if (evidence.clauseId) {
+              <small class="tag"><mat-icon aria-hidden="true">rule</mat-icon>Clause {{ evidence.clauseId }}</small>
+            }
+            @if (evidence.geo) {
+              <small class="tag"><mat-icon aria-hidden="true">location_on</mat-icon>{{ evidence.geo.lat }}, {{ evidence.geo.lng }}</small>
+            }
+          </div>
+        </div>
+      </article>
+    } @empty {
+      <div class="panel empty">
+        <mat-icon aria-hidden="true">add_a_photo</mat-icon>
+        <strong>No evidence yet</strong>
+        <span>Capture a photo or note to get started.</span>
+      </div>
+    }
+  </div>
+</section>

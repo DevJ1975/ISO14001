@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { roleSchema } from '../src/app/core/domain/index.js';
 import { ServerConfig } from './config.js';
+import { signJwt, verifyJwt } from './jwt.js';
 
 export const actorContextSchema = z.discriminatedUnion('platform', [
   z.object({
@@ -42,6 +43,23 @@ function firstHeader(value: string | string[] | undefined): string | undefined {
 }
 
 export function authenticateRequest(request: HeaderReader, config: ServerConfig): ActorContext {
+  const authorization = firstHeader(request.headers.authorization);
+  if (authorization?.startsWith('Bearer ')) {
+    let claims;
+    try {
+      claims = verifyJwt(authorization.slice('Bearer '.length).trim(), config.jwtSecret);
+    } catch {
+      throw new ApiAuthError('Invalid or expired token.');
+    }
+    return actorContextSchema.parse({
+      uid: claims.sub,
+      tenantId: claims.tenantId,
+      role: claims.role,
+      platform: claims.platform === true,
+    });
+  }
+
+  // Local-development convenience only; gated behind ALLOW_DEV_AUTH_HEADERS.
   if (config.allowDevAuthHeaders) {
     return actorContextSchema.parse({
       uid: firstHeader(request.headers['x-iso-actor-uid']),
@@ -51,11 +69,19 @@ export function authenticateRequest(request: HeaderReader, config: ServerConfig)
     });
   }
 
-  if (!firstHeader(request.headers.authorization)?.startsWith('Bearer ')) {
-    throw new ApiAuthError('Missing bearer token.');
-  }
+  throw new ApiAuthError('Missing bearer token.');
+}
 
-  throw new ApiAuthError('Production JWT verification is not configured yet.');
+export function issueMemberToken(
+  member: { uid: string; tenantId: string; role: string },
+  config: ServerConfig,
+): { token: string; expiresAt: string } {
+  const token = signJwt(
+    { sub: member.uid, role: member.role, platform: false, tenantId: member.tenantId },
+    config.jwtSecret,
+    config.jwtTtlSeconds,
+  );
+  return { token, expiresAt: new Date(Date.now() + config.jwtTtlSeconds * 1000).toISOString() };
 }
 
 export function requireTenant(actor: ActorContext, tenantId: string): void {

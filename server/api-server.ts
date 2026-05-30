@@ -1,12 +1,18 @@
 import { createServer } from 'node:http';
 
 import { ensureMongoIndexes } from './collections.js';
-import { loadServerConfig } from './config.js';
+import { DEV_JWT_SECRET, loadServerConfig } from './config.js';
 import { getMongoDb } from './mongo.js';
 import { handleApiRequest } from './routes.js';
 
 async function main(): Promise<void> {
   const config = loadServerConfig();
+  if (config.jwtSecret === DEV_JWT_SECRET) {
+    console.warn('WARNING: using the insecure default JWT secret. Set JWT_SECRET before production use.');
+  }
+  if (config.allowDevAuthHeaders) {
+    console.warn('WARNING: ALLOW_DEV_AUTH_HEADERS is enabled — clients can assert identity. Disable in production.');
+  }
   const db = await getMongoDb(config);
   await ensureMongoIndexes(db);
 

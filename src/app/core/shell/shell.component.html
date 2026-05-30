@@ -1,0 +1,133 @@
+<div class="app-shell">
+  <aside class="rail">
+    <div class="brand">
+      <span class="brand-mark">
+        <mat-icon aria-hidden="true">eco</mat-icon>
+      </span>
+      <span class="brand-text">
+        <strong>Trainovate</strong>
+        <small>ISO 14001 audit</small>
+      </span>
+    </div>
+
+    <nav class="rail-nav" aria-label="Primary">
+      @for (item of nav; track item.path) {
+        <a
+          class="nav-item"
+          [routerLink]="item.path"
+          routerLinkActive="active"
+          [routerLinkActiveOptions]="{ exact: item.exact }"
+        >
+          <mat-icon aria-hidden="true">{{ item.icon }}</mat-icon>
+          {{ item.label }}
+        </a>
+      }
+    </nav>
+
+    <div class="rail-foot">
+      @if (auth.user(); as user) {
+        <div class="who">
+          <span class="avatar">{{ user.displayName.charAt(0) }}</span>
+          <span class="who-text">
+            <strong>{{ user.displayName || user.email }}</strong>
+            <small>{{ user.role }}</small>
+          </span>
+        </div>
+      }
+      <div class="conn" [class.offline]="!store.online()">
+        <mat-icon aria-hidden="true">{{ store.online() ? 'cloud_done' : 'cloud_off' }}</mat-icon>
+        <span>
+          <strong>{{ store.online() ? 'Online' : 'Offline' }}</strong>
+          <small>{{ store.source() === 'live' ? 'Live API' : 'Local' }} · {{ store.outboxCount() }} pending</small>
+        </span>
+      </div>
+      @if (store.outboxCount() > 0 && store.online()) {
+        <button mat-flat-button color="primary" type="button" (click)="sync()">
+          <mat-icon aria-hidden="true">sync</mat-icon>
+          Sync now
+        </button>
+      }
+    </div>
+  </aside>
+
+  <div class="frame">
+    <header class="topbar">
+      <span class="brand-mark compact">
+        <mat-icon aria-hidden="true">eco</mat-icon>
+      </span>
+
+      <button
+        class="source-pill"
+        type="button"
+        [attr.data-state]="sourceState()"
+        [class.busy]="store.online() && store.outboxCount() > 0"
+        (click)="sync()"
+        [title]="sourceHint()"
+        [attr.aria-label]="sourceHint() + ', ' + store.outboxCount() + ' pending. Tap to sync.'"
+      >
+        <span class="dot" aria-hidden="true"></span>
+        <span class="source-label">{{ sourceLabel() }}</span>
+        @if (store.outboxCount() > 0) {
+          <span class="source-badge">{{ store.outboxCount() }}</span>
+        }
+      </button>
+
+      <span class="spacer"></span>
+
+      <div class="conditions" aria-label="Local conditions">
+        <div class="weather" [attr.data-status]="conditions.status()">
+          <mat-icon aria-hidden="true">{{ conditions.conditions().icon }}</mat-icon>
+          <span class="w-text">
+            @if (conditions.weather(); as weather) {
+              <strong>{{ weather.tempF }}°F</strong>
+              <small>{{ conditions.conditions().label }}</small>
+            } @else if (conditions.status() === 'loading') {
+              <strong>--°</strong>
+              <small>Locating…</small>
+            } @else {
+              <strong>--°</strong>
+              <small>No signal</small>
+            }
+          </span>
+        </div>
+        <div class="clock">
+          <strong>{{ conditions.time() }}</strong>
+          <small>{{ conditions.date() }}</small>
+        </div>
+      </div>
+
+      <button
+        class="icon-btn"
+        type="button"
+        (click)="toggleTheme()"
+        [attr.aria-label]="theme.resolved() === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'"
+      >
+        <mat-icon aria-hidden="true">{{ theme.resolved() === 'dark' ? 'light_mode' : 'dark_mode' }}</mat-icon>
+      </button>
+
+      @if (auth.user()) {
+        <button class="icon-btn" type="button" (click)="logout()" aria-label="Sign out">
+          <mat-icon aria-hidden="true">logout</mat-icon>
+        </button>
+      }
+    </header>
+
+    <main class="outlet">
+      <router-outlet />
+    </main>
+
+    <nav class="tabbar" aria-label="Primary">
+      @for (item of nav; track item.path) {
+        <a
+          class="tab"
+          [routerLink]="item.path"
+          routerLinkActive="active"
+          [routerLinkActiveOptions]="{ exact: item.exact }"
+        >
+          <mat-icon aria-hidden="true">{{ item.icon }}</mat-icon>
+          <span>{{ item.label }}</span>
+        </a>
+      }
+    </nav>
+  </div>
+</div>

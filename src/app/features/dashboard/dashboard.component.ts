@@ -1,8 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatSidenavModule } from '@angular/material/sidenav';
-import { MatToolbarModule } from '@angular/material/toolbar';
 
 import { sharedClauseTitles } from '@domain/standards';
 import { createNoteEvidenceFromCapture } from '@domain/field-execution';
@@ -113,7 +111,7 @@ const wikiManuals = [
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [MatButtonModule, MatIconModule, MatSidenavModule, MatToolbarModule],
+  imports: [MatButtonModule, MatIconModule],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -236,6 +234,21 @@ export class DashboardComponent {
 
   protected setEdition(edition: 'ISO_14001_2026' | 'ISO_14001_2015'): void {
     this.selectedEdition.set(edition);
+  }
+
+  /** Map a workflow status string to a semantic colour tone for status pills. */
+  protected statusTone(value: string | null | undefined): 'positive' | 'progress' | 'critical' | 'neutral' {
+    const normalized = (value ?? '').toLowerCase();
+    if (/(verified|accepted|active|signed|ready|pass|conformity|allow|healthy|embedded|complete|done|met|approved|resolved|closed)/.test(normalized)) {
+      return 'positive';
+    }
+    if (/(overdue|major|fail|reject|block|deny|critical|error|suspend|breach|high)/.test(normalized)) {
+      return 'critical';
+    }
+    if (/(progress|pending|queued|scheduled|draft|review|planned|fieldwork|reporting|chunking|created|running|partial|invited|due|minor|open|warn|trial)/.test(normalized)) {
+      return 'progress';
+    }
+    return 'neutral';
   }
 
   protected onPhotoSelected(event: Event): void {

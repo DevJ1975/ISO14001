@@ -1,0 +1,55 @@
+<section class="screen">
+  <header class="screen-head">
+    <h1>Report</h1>
+    <p>{{ store.auditee }} · {{ store.criteria }}</p>
+  </header>
+
+  <div class="stat-grid">
+    <div class="stat"><strong>{{ store.progress().percent }}%</strong><span>Complete</span></div>
+    <div class="stat"><strong>{{ store.resultTotals().conform }}</strong><span>Conform</span></div>
+    <div class="stat"><strong>{{ store.resultTotals().majorNc + store.resultTotals().minorNc }}</strong><span>Non-conformities</span></div>
+    <div class="stat"><strong>{{ store.resultTotals().ofi }}</strong><span>Opportunities</span></div>
+    <div class="stat"><strong>{{ store.evidence().length }}</strong><span>Evidence</span></div>
+    <div class="stat"><strong>{{ store.findings().length }}</strong><span>Findings</span></div>
+  </div>
+
+  <article class="panel">
+    <h2>Pre-signoff readiness</h2>
+    <ul class="checks">
+      @for (check of checks(); track check.label) {
+        <li>
+          <mat-icon aria-hidden="true" [attr.data-ok]="check.ok">{{ check.ok ? 'check_circle' : 'radio_button_unchecked' }}</mat-icon>
+          <span>{{ check.label }}</span>
+          <small>{{ check.detail }}</small>
+        </li>
+      }
+    </ul>
+  </article>
+
+  <article class="panel signoff" [class.signed]="store.reportSignedAt()">
+    @if (store.reportSignedAt(); as signedAt) {
+      <div class="signed-state">
+        <mat-icon aria-hidden="true">verified</mat-icon>
+        <div>
+          <strong>Report signed</strong>
+          <small>Lead auditor · {{ formatTime(signedAt) }}</small>
+        </div>
+      </div>
+    } @else {
+      <div class="sign-copy">
+        <strong>Lead auditor sign-off</strong>
+        <small>
+          @if (ready()) {
+            All readiness checks pass — ready to sign.
+          } @else {
+            Sign-off is available, but some readiness checks are still open.
+          }
+        </small>
+      </div>
+      <button mat-flat-button color="primary" type="button" (click)="sign()">
+        <mat-icon aria-hidden="true">draw</mat-icon>
+        Sign report
+      </button>
+    }
+  </article>
+</section>
