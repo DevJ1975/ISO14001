@@ -84,6 +84,30 @@ async function seedDemoAudit(db: Db): Promise<void> {
     { ...base, id: 'review-1', reviewDate: dateOnly(-60), attendees: 'Plant Director, EHS Manager, Operations Manager', inputs: 'Internal audit results, compliance evaluation, objectives progress, incidents, interested-party feedback.', decisions: 'Reinstate quarterly evaluation of compliance; fund waste-diversion initiative.', actions: 'EHS to update the EMS calendar; Operations to scope a new waste contractor.', result: 'needsFollowUp', evidenceIds: [], updatedAt: now },
   ]);
 
+  await seedDocs(db, mongoCollections.risksOpportunities, ['tenantId', 'auditId', 'id'], [
+    { ...base, id: 'risk-1', description: 'Tightening VOC permit limits could cause non-compliance', kind: 'risk', significance: 'high', treatment: 'Upgrade carbon filtration ahead of the limit change.', result: 'needsFollowUp', evidenceIds: [], updatedAt: now },
+    { ...base, id: 'risk-2', description: 'Solvent recovery could cut waste cost and impact', kind: 'opportunity', significance: 'medium', treatment: 'Pilot a recovery still on the coating line.', result: 'conforming', evidenceIds: [], updatedAt: now },
+  ]);
+
+  await seedDocs(db, mongoCollections.resourceRecords, ['tenantId', 'auditId', 'id'], [
+    { ...base, id: 'res-1', resource: 'EHS team (2 FTE)', category: 'people', adequacy: 'partial', notes: 'Stretched during the transition; recruitment approved.', result: 'needsFollowUp', evidenceIds: [], updatedAt: now },
+    { ...base, id: 'res-2', resource: 'Continuous emissions monitoring system', category: 'infrastructure', adequacy: 'adequate', notes: 'Calibrated and maintained.', result: 'conforming', evidenceIds: [], updatedAt: now },
+  ]);
+
+  await seedDocs(db, mongoCollections.competenceRecords, ['tenantId', 'auditId', 'id'], [
+    { ...base, id: 'comp-1', role: 'Coating line operators', requiredCompetence: 'Safe solvent handling; spill response', trainingEvidence: 'Annual training records on file.', status: 'competent', result: 'conforming', evidenceIds: [], updatedAt: now },
+    { ...base, id: 'comp-2', role: 'Internal EMS auditors', requiredCompetence: 'ISO 14001 internal auditing', trainingEvidence: 'One auditor pending refresher.', status: 'inTraining', result: 'needsFollowUp', evidenceIds: [], updatedAt: now },
+  ]);
+
+  await seedDocs(db, mongoCollections.awarenessRecords, ['tenantId', 'auditId', 'id'], [
+    { ...base, id: 'aware-1', topic: 'Environmental policy & significant aspects', audience: 'All site staff', method: 'Induction + annual refresher', result: 'conforming', evidenceIds: [], updatedAt: now },
+  ]);
+
+  await seedDocs(db, mongoCollections.documentedInfo, ['tenantId', 'auditId', 'id'], [
+    { ...base, id: 'doc-1', document: 'EMS Manual', docType: 'Manual', controlStatus: 'controlled', retention: 'Current + 1 superseded', result: 'conforming', evidenceIds: [], updatedAt: now },
+    { ...base, id: 'doc-2', document: 'Spill response procedure EOP-03', docType: 'Procedure', controlStatus: 'controlled', retention: '3 years', result: 'conforming', evidenceIds: [], updatedAt: now },
+  ]);
+
   await seedDocs(db, mongoCollections.auditMeetings, ['tenantId', 'auditId', 'id'], [
     { ...base, id: 'meeting-opening', kind: 'opening', datetimeAt: now, attendees: ['Maya Chen (Lead)', 'Omar Patel', 'Ava Brooks', 'Elena Ruiz (EHS Manager)'], agendaPoints: ['Confirm scope and criteria', 'Audit methods and sampling', 'Confidentiality and safety', 'Schedule and logistics'], notes: 'Scope confirmed for the Denver Assembly Plant EMS transition audit.', acknowledged: true, updatedAt: now },
     { ...base, id: 'meeting-closing', kind: 'closing', datetimeAt: now, attendees: ['Maya Chen (Lead)', 'Elena Ruiz (EHS Manager)'], agendaPoints: ['Present findings', 'Agree corrective-action timelines', 'Next steps and report timing'], notes: 'One major and one minor nonconformity presented; timelines agreed with the auditee.', acknowledged: true, updatedAt: now },

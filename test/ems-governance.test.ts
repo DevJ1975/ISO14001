@@ -2,10 +2,15 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import {
+  awarenessRecordSchema,
   communicationRecordSchema,
+  competenceRecordSchema,
+  documentedInfoSchema,
   environmentalObjectiveSchema,
   interestedPartySchema,
   managementReviewSchema,
+  resourceRecordSchema,
+  riskOpportunitySchema,
   sharedClauseTitles,
 } from '../src/app/core/domain';
 
@@ -60,6 +65,15 @@ describe('EMS governance registers (clause-gap closure)', () => {
     });
     assert.equal(review.result, 'notStarted');
     assert.match(review.decisions ?? '', /compliance/);
+  });
+
+  it('validates the Clause 7 registers and the 6.1 risk/opportunity register', () => {
+    const base = { tenantId: 'tenant-a', auditId: 'audit-1', updatedAt: '2026-05-30T12:00:00.000Z' };
+    assert.equal(riskOpportunitySchema.parse({ ...base, id: 'r1', description: 'Permit limit risk', kind: 'risk', significance: 'high' }).kind, 'risk');
+    assert.equal(resourceRecordSchema.parse({ ...base, id: 'res1', resource: 'EHS team', category: 'people', adequacy: 'partial' }).adequacy, 'partial');
+    assert.equal(competenceRecordSchema.parse({ ...base, id: 'c1', role: 'Operators', status: 'inTraining' }).status, 'inTraining');
+    assert.equal(awarenessRecordSchema.parse({ ...base, id: 'a1', topic: 'Policy' }).result, 'notStarted');
+    assert.equal(documentedInfoSchema.parse({ ...base, id: 'd1', document: 'EMS Manual', controlStatus: 'controlled' }).controlStatus, 'controlled');
   });
 
   it('exposes the management-review and communication sub-clauses for precise NC referencing', () => {

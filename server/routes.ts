@@ -299,6 +299,50 @@ const managementReviewUpsertCommandSchema = z.object({
   result: registerResultSchema.default('notStarted'),
 });
 
+const riskOpportunityUpsertCommandSchema = z.object({
+  id: z.string().min(1),
+  description: z.string().max(500).default(''),
+  kind: z.enum(['risk', 'opportunity']).default('risk'),
+  significance: z.enum(['low', 'medium', 'high']).default('medium'),
+  treatment: z.string().max(2000).optional(),
+  result: registerResultSchema.default('notStarted'),
+});
+
+const resourceUpsertCommandSchema = z.object({
+  id: z.string().min(1),
+  resource: z.string().max(300).default(''),
+  category: z.enum(['people', 'infrastructure', 'financial', 'technology']).default('people'),
+  adequacy: z.enum(['adequate', 'partial', 'inadequate']).default('adequate'),
+  notes: z.string().max(2000).optional(),
+  result: registerResultSchema.default('notStarted'),
+});
+
+const competenceUpsertCommandSchema = z.object({
+  id: z.string().min(1),
+  role: z.string().max(300).default(''),
+  requiredCompetence: z.string().max(2000).optional(),
+  trainingEvidence: z.string().max(2000).optional(),
+  status: z.enum(['competent', 'inTraining', 'gap']).default('competent'),
+  result: registerResultSchema.default('notStarted'),
+});
+
+const awarenessUpsertCommandSchema = z.object({
+  id: z.string().min(1),
+  topic: z.string().max(300).default(''),
+  audience: z.string().max(300).optional(),
+  method: z.string().max(300).optional(),
+  result: registerResultSchema.default('notStarted'),
+});
+
+const documentedInfoUpsertCommandSchema = z.object({
+  id: z.string().min(1),
+  document: z.string().max(300).default(''),
+  docType: z.string().max(120).optional(),
+  controlStatus: z.enum(['controlled', 'uncontrolled', 'draft', 'obsolete']).default('controlled'),
+  retention: z.string().max(300).optional(),
+  result: registerResultSchema.default('notStarted'),
+});
+
 const programmeUpsertSchema = z.object({
   cycleYear: z.number().int(),
   criteria: z.string().min(1),
@@ -724,6 +768,13 @@ export async function handleApiRequest(
           dependencies.db.collection(mongoCollections.communicationRecords).find({ tenantId, auditId }, { projection: { _id: 0 } }).toArray(),
           dependencies.db.collection(mongoCollections.managementReviews).find({ tenantId, auditId }, { projection: { _id: 0 } }).toArray(),
         ]);
+      const [risksOpportunities, resources, competence, awareness, documentedInfo] = await Promise.all([
+        dependencies.db.collection(mongoCollections.risksOpportunities).find({ tenantId, auditId }, { projection: { _id: 0 } }).toArray(),
+        dependencies.db.collection(mongoCollections.resourceRecords).find({ tenantId, auditId }, { projection: { _id: 0 } }).toArray(),
+        dependencies.db.collection(mongoCollections.competenceRecords).find({ tenantId, auditId }, { projection: { _id: 0 } }).toArray(),
+        dependencies.db.collection(mongoCollections.awarenessRecords).find({ tenantId, auditId }, { projection: { _id: 0 } }).toArray(),
+        dependencies.db.collection(mongoCollections.documentedInfo).find({ tenantId, auditId }, { projection: { _id: 0 } }).toArray(),
+      ]);
       sendJson(
         response,
         200,
@@ -742,6 +793,11 @@ export async function handleApiRequest(
           objectives,
           communications,
           managementReviews,
+          risksOpportunities,
+          resources,
+          competence,
+          awareness,
+          documentedInfo,
         },
         corsOrigin,
       );
@@ -1138,6 +1194,101 @@ export async function handleApiRequest(
         .collection(mongoCollections.managementReviews)
         .updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
       sendJson(response, 200, { managementReview: record }, corsOrigin);
+      return;
+    }
+
+    const riskMatch = matchPath(
+      new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/risks-opportunities/([^/]+)$`),
+      url.pathname,
+      ['tenantId', 'auditId', 'id'],
+    );
+    if (request.method === 'PUT' && riskMatch && actor) {
+      const tenantId = riskMatch.params['tenantId']!;
+      const auditId = riskMatch.params['auditId']!;
+      requireTenant(actor, tenantId);
+      requireAnyRole(actor, ['leadAuditor', 'auditor']);
+      const command = await readJson(request, riskOpportunityUpsertCommandSchema);
+      const record = { ...command, tenantId, auditId, updatedAt: new Date().toISOString() };
+      await dependencies.db
+        .collection(mongoCollections.risksOpportunities)
+        .updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
+      sendJson(response, 200, { riskOpportunity: record }, corsOrigin);
+      return;
+    }
+
+    const resourceMatch = matchPath(
+      new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/resources/([^/]+)$`),
+      url.pathname,
+      ['tenantId', 'auditId', 'id'],
+    );
+    if (request.method === 'PUT' && resourceMatch && actor) {
+      const tenantId = resourceMatch.params['tenantId']!;
+      const auditId = resourceMatch.params['auditId']!;
+      requireTenant(actor, tenantId);
+      requireAnyRole(actor, ['leadAuditor', 'auditor']);
+      const command = await readJson(request, resourceUpsertCommandSchema);
+      const record = { ...command, tenantId, auditId, updatedAt: new Date().toISOString() };
+      await dependencies.db
+        .collection(mongoCollections.resourceRecords)
+        .updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
+      sendJson(response, 200, { resource: record }, corsOrigin);
+      return;
+    }
+
+    const competenceMatch = matchPath(
+      new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/competence/([^/]+)$`),
+      url.pathname,
+      ['tenantId', 'auditId', 'id'],
+    );
+    if (request.method === 'PUT' && competenceMatch && actor) {
+      const tenantId = competenceMatch.params['tenantId']!;
+      const auditId = competenceMatch.params['auditId']!;
+      requireTenant(actor, tenantId);
+      requireAnyRole(actor, ['leadAuditor', 'auditor']);
+      const command = await readJson(request, competenceUpsertCommandSchema);
+      const record = { ...command, tenantId, auditId, updatedAt: new Date().toISOString() };
+      await dependencies.db
+        .collection(mongoCollections.competenceRecords)
+        .updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
+      sendJson(response, 200, { competence: record }, corsOrigin);
+      return;
+    }
+
+    const awarenessMatch = matchPath(
+      new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/awareness/([^/]+)$`),
+      url.pathname,
+      ['tenantId', 'auditId', 'id'],
+    );
+    if (request.method === 'PUT' && awarenessMatch && actor) {
+      const tenantId = awarenessMatch.params['tenantId']!;
+      const auditId = awarenessMatch.params['auditId']!;
+      requireTenant(actor, tenantId);
+      requireAnyRole(actor, ['leadAuditor', 'auditor']);
+      const command = await readJson(request, awarenessUpsertCommandSchema);
+      const record = { ...command, tenantId, auditId, updatedAt: new Date().toISOString() };
+      await dependencies.db
+        .collection(mongoCollections.awarenessRecords)
+        .updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
+      sendJson(response, 200, { awareness: record }, corsOrigin);
+      return;
+    }
+
+    const documentedInfoMatch = matchPath(
+      new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/documented-info/([^/]+)$`),
+      url.pathname,
+      ['tenantId', 'auditId', 'id'],
+    );
+    if (request.method === 'PUT' && documentedInfoMatch && actor) {
+      const tenantId = documentedInfoMatch.params['tenantId']!;
+      const auditId = documentedInfoMatch.params['auditId']!;
+      requireTenant(actor, tenantId);
+      requireAnyRole(actor, ['leadAuditor', 'auditor']);
+      const command = await readJson(request, documentedInfoUpsertCommandSchema);
+      const record = { ...command, tenantId, auditId, updatedAt: new Date().toISOString() };
+      await dependencies.db
+        .collection(mongoCollections.documentedInfo)
+        .updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
+      sendJson(response, 200, { documentedInfo: record }, corsOrigin);
       return;
     }
 

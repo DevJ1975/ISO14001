@@ -1,7 +1,7 @@
 <section class="screen">
   <header class="screen-head">
     <h1>EMS registers</h1>
-    <p>Aspects, compliance, emergency preparedness, interested parties, objectives, communication and management review (ISO 14001 cl. 4.2, 6.1.2, 6.2, 7.4, 8.2, 9.1.2, 9.3).</p>
+    <p>Full clause-4–10 coverage: aspects, risks &amp; opportunities, compliance, objectives, resources, competence, awareness, communication, documented information, emergency preparedness, interested parties and management review (ISO 14001 cl. 4.2, 6.1.1, 6.1.2, 6.2, 7.1–7.5, 8.2, 9.1.2, 9.3).</p>
   </header>
 
   <div class="seg">
@@ -193,6 +193,154 @@
           </article>
         } @empty {
           <div class="panel empty"><mat-icon aria-hidden="true">forum</mat-icon><strong>No communications yet</strong><span>Record internal/external communication arrangements (cl. 7.4).</span></div>
+        }
+      </div>
+    }
+    @case ('risks') {
+      <div class="reg">
+        <div class="reg-head">
+          <h2>Risks &amp; opportunities</h2>
+          <button mat-flat-button color="primary" type="button" (click)="store.addRiskOpportunity()"><mat-icon aria-hidden="true">add</mat-icon>Add</button>
+        </div>
+        @for (row of store.risksOpportunities(); track row.id) {
+          <article class="tile row">
+            <label class="fld"><span>Description</span><input [value]="row.description" (change)="store.updateRiskOpportunity(row.id, { description: $any($event.target).value })" /></label>
+            <div class="grid2">
+              <label class="fld"><span>Type</span>
+                <select [value]="row.kind" (change)="store.updateRiskOpportunity(row.id, { kind: $any($event.target).value })">
+                  <option value="risk">Risk</option><option value="opportunity">Opportunity</option>
+                </select>
+              </label>
+              <label class="fld"><span>Significance</span>
+                <select [value]="row.significance" (change)="store.updateRiskOpportunity(row.id, { significance: $any($event.target).value })">
+                  <option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option>
+                </select>
+              </label>
+            </div>
+            <label class="fld"><span>Treatment / action</span><input [value]="row.treatment || ''" (change)="store.updateRiskOpportunity(row.id, { treatment: $any($event.target).value })" /></label>
+            <div class="results">
+              @for (r of results; track r.value) {
+                <button type="button" class="rp {{ r.tone }}" [class.on]="row.result === r.value" (click)="store.updateRiskOpportunity(row.id, { result: r.value })">{{ r.label }}</button>
+              }
+            </div>
+          </article>
+        } @empty {
+          <div class="panel empty"><mat-icon aria-hidden="true">balance</mat-icon><strong>No risks or opportunities yet</strong><span>Record risks &amp; opportunities and their treatment (cl. 6.1.1).</span></div>
+        }
+      </div>
+    }
+    @case ('resources') {
+      <div class="reg">
+        <div class="reg-head">
+          <h2>Resources</h2>
+          <button mat-flat-button color="primary" type="button" (click)="store.addResource()"><mat-icon aria-hidden="true">add</mat-icon>Add</button>
+        </div>
+        @for (row of store.resources(); track row.id) {
+          <article class="tile row">
+            <label class="fld"><span>Resource</span><input [value]="row.resource" (change)="store.updateResource(row.id, { resource: $any($event.target).value })" /></label>
+            <div class="grid2">
+              <label class="fld"><span>Category</span>
+                <select [value]="row.category" (change)="store.updateResource(row.id, { category: $any($event.target).value })">
+                  <option value="people">People</option><option value="infrastructure">Infrastructure</option><option value="financial">Financial</option><option value="technology">Technology</option>
+                </select>
+              </label>
+              <label class="fld"><span>Adequacy</span>
+                <select [value]="row.adequacy" (change)="store.updateResource(row.id, { adequacy: $any($event.target).value })">
+                  <option value="adequate">Adequate</option><option value="partial">Partial</option><option value="inadequate">Inadequate</option>
+                </select>
+              </label>
+            </div>
+            <label class="fld"><span>Notes</span><input [value]="row.notes || ''" (change)="store.updateResource(row.id, { notes: $any($event.target).value })" /></label>
+            <div class="results">
+              @for (r of results; track r.value) {
+                <button type="button" class="rp {{ r.tone }}" [class.on]="row.result === r.value" (click)="store.updateResource(row.id, { result: r.value })">{{ r.label }}</button>
+              }
+            </div>
+          </article>
+        } @empty {
+          <div class="panel empty"><mat-icon aria-hidden="true">inventory_2</mat-icon><strong>No resources yet</strong><span>Record resources provided for the EMS (cl. 7.1).</span></div>
+        }
+      </div>
+    }
+    @case ('competence') {
+      <div class="reg">
+        <div class="reg-head">
+          <h2>Competence &amp; training</h2>
+          <button mat-flat-button color="primary" type="button" (click)="store.addCompetence()"><mat-icon aria-hidden="true">add</mat-icon>Add</button>
+        </div>
+        @for (row of store.competence(); track row.id) {
+          <article class="tile row">
+            <label class="fld"><span>Role / function</span><input [value]="row.role" (change)="store.updateCompetence(row.id, { role: $any($event.target).value })" /></label>
+            <label class="fld"><span>Required competence</span><input [value]="row.requiredCompetence || ''" (change)="store.updateCompetence(row.id, { requiredCompetence: $any($event.target).value })" /></label>
+            <div class="grid2">
+              <label class="fld"><span>Training evidence</span><input [value]="row.trainingEvidence || ''" (change)="store.updateCompetence(row.id, { trainingEvidence: $any($event.target).value })" /></label>
+              <label class="fld"><span>Status</span>
+                <select [value]="row.status" (change)="store.updateCompetence(row.id, { status: $any($event.target).value })">
+                  <option value="competent">Competent</option><option value="inTraining">In training</option><option value="gap">Gap</option>
+                </select>
+              </label>
+            </div>
+            <div class="results">
+              @for (r of results; track r.value) {
+                <button type="button" class="rp {{ r.tone }}" [class.on]="row.result === r.value" (click)="store.updateCompetence(row.id, { result: r.value })">{{ r.label }}</button>
+              }
+            </div>
+          </article>
+        } @empty {
+          <div class="panel empty"><mat-icon aria-hidden="true">school</mat-icon><strong>No competence records yet</strong><span>Record required competence and training evidence (cl. 7.2).</span></div>
+        }
+      </div>
+    }
+    @case ('awareness') {
+      <div class="reg">
+        <div class="reg-head">
+          <h2>Awareness</h2>
+          <button mat-flat-button color="primary" type="button" (click)="store.addAwareness()"><mat-icon aria-hidden="true">add</mat-icon>Add</button>
+        </div>
+        @for (row of store.awareness(); track row.id) {
+          <article class="tile row">
+            <label class="fld"><span>Topic</span><input [value]="row.topic" (change)="store.updateAwareness(row.id, { topic: $any($event.target).value })" /></label>
+            <div class="grid2">
+              <label class="fld"><span>Audience</span><input [value]="row.audience || ''" (change)="store.updateAwareness(row.id, { audience: $any($event.target).value })" /></label>
+              <label class="fld"><span>Method</span><input [value]="row.method || ''" (change)="store.updateAwareness(row.id, { method: $any($event.target).value })" /></label>
+            </div>
+            <div class="results">
+              @for (r of results; track r.value) {
+                <button type="button" class="rp {{ r.tone }}" [class.on]="row.result === r.value" (click)="store.updateAwareness(row.id, { result: r.value })">{{ r.label }}</button>
+              }
+            </div>
+          </article>
+        } @empty {
+          <div class="panel empty"><mat-icon aria-hidden="true">campaign</mat-icon><strong>No awareness records yet</strong><span>Record how awareness of policy, aspects and roles is achieved (cl. 7.3).</span></div>
+        }
+      </div>
+    }
+    @case ('documents') {
+      <div class="reg">
+        <div class="reg-head">
+          <h2>Documented information</h2>
+          <button mat-flat-button color="primary" type="button" (click)="store.addDocumentedInfo()"><mat-icon aria-hidden="true">add</mat-icon>Add</button>
+        </div>
+        @for (row of store.documentedInfo(); track row.id) {
+          <article class="tile row">
+            <label class="fld"><span>Document</span><input [value]="row.document" (change)="store.updateDocumentedInfo(row.id, { document: $any($event.target).value })" /></label>
+            <div class="grid2">
+              <label class="fld"><span>Type</span><input [value]="row.docType || ''" (change)="store.updateDocumentedInfo(row.id, { docType: $any($event.target).value })" /></label>
+              <label class="fld"><span>Control status</span>
+                <select [value]="row.controlStatus" (change)="store.updateDocumentedInfo(row.id, { controlStatus: $any($event.target).value })">
+                  <option value="controlled">Controlled</option><option value="uncontrolled">Uncontrolled</option><option value="draft">Draft</option><option value="obsolete">Obsolete</option>
+                </select>
+              </label>
+            </div>
+            <label class="fld"><span>Retention</span><input [value]="row.retention || ''" (change)="store.updateDocumentedInfo(row.id, { retention: $any($event.target).value })" /></label>
+            <div class="results">
+              @for (r of results; track r.value) {
+                <button type="button" class="rp {{ r.tone }}" [class.on]="row.result === r.value" (click)="store.updateDocumentedInfo(row.id, { result: r.value })">{{ r.label }}</button>
+              }
+            </div>
+          </article>
+        } @empty {
+          <div class="panel empty"><mat-icon aria-hidden="true">description</mat-icon><strong>No documented information yet</strong><span>Record controlled documents and retention (cl. 7.5).</span></div>
         }
       </div>
     }

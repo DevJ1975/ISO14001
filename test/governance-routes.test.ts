@@ -91,6 +91,11 @@ describe('EMS governance API routes', () => {
     { path: 'objectives', collection: 'environmentalObjectives', body: { id: 'obj-1', objective: 'Cut VOCs', progress: 'onTrack', result: 'needsFollowUp' }, check: 'objective' },
     { path: 'communications', collection: 'communicationRecords', body: { id: 'comm-1', topic: 'Policy', direction: 'internal', result: 'conforming' }, check: 'topic' },
     { path: 'management-reviews', collection: 'managementReviews', body: { id: 'review-1', inputs: 'audit results', decisions: 'reinstate evaluation', result: 'needsFollowUp' }, check: 'inputs' },
+    { path: 'risks-opportunities', collection: 'risksOpportunities', body: { id: 'risk-1', description: 'Permit limit risk', kind: 'risk', significance: 'high', result: 'needsFollowUp' }, check: 'description' },
+    { path: 'resources', collection: 'resourceRecords', body: { id: 'res-1', resource: 'EHS team', category: 'people', adequacy: 'partial', result: 'needsFollowUp' }, check: 'resource' },
+    { path: 'competence', collection: 'competenceRecords', body: { id: 'comp-1', role: 'Operators', status: 'competent', result: 'conforming' }, check: 'role' },
+    { path: 'awareness', collection: 'awarenessRecords', body: { id: 'aware-1', topic: 'Policy', audience: 'All staff', result: 'conforming' }, check: 'topic' },
+    { path: 'documented-info', collection: 'documentedInfo', body: { id: 'doc-1', document: 'EMS Manual', controlStatus: 'controlled', result: 'conforming' }, check: 'document' },
   ];
 
   for (const { path, collection, body, check } of cases) {
@@ -114,7 +119,13 @@ describe('EMS governance API routes', () => {
         { db, config },
       );
       const payload = JSON.parse(state.body) as Record<string, unknown[]>;
-      const key = path === 'interested-parties' ? 'interestedParties' : path === 'management-reviews' ? 'managementReviews' : path;
+      const keyMap: Record<string, string> = {
+        'interested-parties': 'interestedParties',
+        'management-reviews': 'managementReviews',
+        'risks-opportunities': 'risksOpportunities',
+        'documented-info': 'documentedInfo',
+      };
+      const key = keyMap[path] ?? path;
       assert.equal(payload[key]!.length, 1);
     });
   }

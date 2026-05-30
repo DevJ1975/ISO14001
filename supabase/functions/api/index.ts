@@ -443,6 +443,11 @@ Deno.serve(async (req) => {
           objectives: byKind('objective'),
           communications: byKind('communication'),
           managementReviews: byKind('managementReview'),
+          risksOpportunities: byKind('riskOpportunity'),
+          resources: byKind('resource'),
+          competence: byKind('competence'),
+          awareness: byKind('awareness'),
+          documentedInfo: byKind('documentedInfo'),
           meetings: byKind('meeting'),
           conclusion: single('conclusion'),
           auditStatus: statusDoc?.status ?? auditRow?.doc?.status ?? 'fieldwork',
@@ -584,6 +589,11 @@ Deno.serve(async (req) => {
         objectives: 'objective',
         communications: 'communication',
         'management-reviews': 'managementReview',
+        'risks-opportunities': 'riskOpportunity',
+        resources: 'resource',
+        competence: 'competence',
+        awareness: 'awareness',
+        'documented-info': 'documentedInfo',
       };
       if (method === 'PUT' && registerKinds[rest[0]] && rest[1]) {
         requireRole(actor, ['leadAuditor', 'auditor']);

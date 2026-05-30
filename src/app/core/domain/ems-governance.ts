@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { checklistItemResultSchema } from './checklists.js';
+import { significanceSchema } from './ems-registers.js';
 import { timestampSchema } from './models.js';
 
 /**
@@ -76,3 +77,77 @@ export const managementReviewSchema = z.object({
   updatedAt: timestampSchema,
 });
 export type ManagementReview = z.infer<typeof managementReviewSchema>;
+
+/** Risks & opportunities and their treatment (ISO 14001 cl. 6.1.1). */
+export const riskOpportunitySchema = z.object({
+  id: z.string().min(1),
+  tenantId: z.string().min(1),
+  auditId: z.string().min(1),
+  description: z.string().min(1).max(500),
+  kind: z.enum(['risk', 'opportunity']).default('risk'),
+  significance: significanceSchema.default('medium'),
+  treatment: z.string().max(1000).optional(),
+  result: checklistItemResultSchema.default('notStarted'),
+  evidenceIds: z.array(z.string().min(1)).default([]),
+  updatedAt: timestampSchema,
+});
+export type RiskOpportunity = z.infer<typeof riskOpportunitySchema>;
+
+/** Resources provided for the EMS (ISO 14001 cl. 7.1). */
+export const resourceRecordSchema = z.object({
+  id: z.string().min(1),
+  tenantId: z.string().min(1),
+  auditId: z.string().min(1),
+  resource: z.string().min(1).max(300),
+  category: z.enum(['people', 'infrastructure', 'financial', 'technology']).default('people'),
+  adequacy: z.enum(['adequate', 'partial', 'inadequate']).default('adequate'),
+  notes: z.string().max(1000).optional(),
+  result: checklistItemResultSchema.default('notStarted'),
+  evidenceIds: z.array(z.string().min(1)).default([]),
+  updatedAt: timestampSchema,
+});
+export type ResourceRecord = z.infer<typeof resourceRecordSchema>;
+
+/** Competence & training of persons doing work under the EMS (ISO 14001 cl. 7.2). */
+export const competenceRecordSchema = z.object({
+  id: z.string().min(1),
+  tenantId: z.string().min(1),
+  auditId: z.string().min(1),
+  role: z.string().min(1).max(300),
+  requiredCompetence: z.string().max(1000).optional(),
+  trainingEvidence: z.string().max(1000).optional(),
+  status: z.enum(['competent', 'inTraining', 'gap']).default('competent'),
+  result: checklistItemResultSchema.default('notStarted'),
+  evidenceIds: z.array(z.string().min(1)).default([]),
+  updatedAt: timestampSchema,
+});
+export type CompetenceRecord = z.infer<typeof competenceRecordSchema>;
+
+/** Awareness of policy, aspects and EMS roles (ISO 14001 cl. 7.3). */
+export const awarenessRecordSchema = z.object({
+  id: z.string().min(1),
+  tenantId: z.string().min(1),
+  auditId: z.string().min(1),
+  topic: z.string().min(1).max(300),
+  audience: z.string().max(300).optional(),
+  method: z.string().max(300).optional(),
+  result: checklistItemResultSchema.default('notStarted'),
+  evidenceIds: z.array(z.string().min(1)).default([]),
+  updatedAt: timestampSchema,
+});
+export type AwarenessRecord = z.infer<typeof awarenessRecordSchema>;
+
+/** Documented information & its control (ISO 14001 cl. 7.5). */
+export const documentedInfoSchema = z.object({
+  id: z.string().min(1),
+  tenantId: z.string().min(1),
+  auditId: z.string().min(1),
+  document: z.string().min(1).max(300),
+  docType: z.string().max(120).optional(),
+  controlStatus: z.enum(['controlled', 'uncontrolled', 'draft', 'obsolete']).default('controlled'),
+  retention: z.string().max(300).optional(),
+  result: checklistItemResultSchema.default('notStarted'),
+  evidenceIds: z.array(z.string().min(1)).default([]),
+  updatedAt: timestampSchema,
+});
+export type DocumentedInfo = z.infer<typeof documentedInfoSchema>;
