@@ -308,6 +308,11 @@
   background: var(--surface);
 }
 
+.icon-btn.active {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
 .source-pill {
   display: inline-flex;
   align-items: center;

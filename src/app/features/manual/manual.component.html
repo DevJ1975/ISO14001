@@ -1,0 +1,41 @@
+<section class="screen manual">
+  <header class="screen-head">
+    <h1>User manual</h1>
+    <p>How to run an ISO 14001 audit in Trainovate, from fieldwork to a signed report.</p>
+  </header>
+
+  <nav class="toc panel" aria-label="Contents">
+    @for (section of sections; track section.id) {
+      <a [href]="'#' + section.id">
+        <mat-icon aria-hidden="true">{{ section.icon }}</mat-icon>
+        {{ section.title }}
+      </a>
+    }
+  </nav>
+
+  @for (section of sections; track section.id) {
+    <article class="panel doc" [id]="section.id">
+      <h2><mat-icon aria-hidden="true">{{ section.icon }}</mat-icon>{{ section.title }}</h2>
+      @for (block of section.blocks; track $index) {
+        @switch (block.kind) {
+          @case ('p') {
+            <p>{{ block.text }}</p>
+          }
+          @case ('note') {
+            <p class="note"><mat-icon aria-hidden="true">info</mat-icon>{{ block.text }}</p>
+          }
+          @case ('ul') {
+            <ul>
+              @for (item of block.items; track $index) { <li>{{ item }}</li> }
+            </ul>
+          }
+          @case ('steps') {
+            <ol>
+              @for (item of block.items; track $index) { <li>{{ item }}</li> }
+            </ol>
+          }
+        }
+      }
+    </article>
+  }
+</section>
