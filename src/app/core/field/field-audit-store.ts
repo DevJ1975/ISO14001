@@ -11,6 +11,29 @@ export type FindingType = 'minorNc' | 'majorNc' | 'ofi' | 'conformity';
 export type NcStatus = 'open' | 'responded' | 'implemented' | 'verified' | 'closed' | 'rejected' | 'reopened';
 export type CapaStatus = 'open' | 'inProgress' | 'verificationDue' | 'verified' | 'overdue';
 export type DataSource = 'local' | 'live';
+export type AuditStatus = 'draft' | 'planned' | 'fieldwork' | 'reporting' | 'followUp' | 'closed' | 'archived';
+export type Recommendation = 'recommend' | 'conditional' | 'notRecommended' | 'satisfactory' | 'actionRequired';
+
+export interface AuditMeeting {
+  id: string;
+  kind: 'opening' | 'closing';
+  datetimeAt: string;
+  attendees: string[];
+  agendaPoints: string[];
+  notes?: string;
+  acknowledged: boolean;
+  sync: SyncState;
+}
+
+export interface AuditConclusion {
+  overallConformity: string;
+  emsEffectivenessOpinion?: string;
+  criteriaMetStatement?: string;
+  divergingOpinions?: string;
+  recommendation: Recommendation;
+  updatedAt: string;
+  sync: SyncState;
+}
 
 export interface FieldChecklistItem {
   id: string;
@@ -82,8 +105,13 @@ interface PersistedState {
   evidence: FieldEvidence[];
   findings: FieldFinding[];
   capas: FieldCapa[];
+  auditStatus: AuditStatus;
+  meetings: AuditMeeting[];
+  conclusion: AuditConclusion | null;
   reportSignedAt: string | null;
 }
+
+const AUDIT_STATUS_ORDER: AuditStatus[] = ['draft', 'planned', 'fieldwork', 'reporting', 'followUp', 'closed', 'archived'];
 
 const META_KEY = 'state';
 const AUDITOR = 'Ava Brooks';
@@ -203,6 +231,9 @@ export class FieldAuditStore {
   readonly evidence = signal<FieldEvidence[]>(seedEvidence());
   readonly findings = signal<FieldFinding[]>(seedFindings());
   readonly capas = signal<FieldCapa[]>(seedCapas());
+  readonly auditStatus = signal<AuditStatus>('fieldwork');
+  readonly meetings = signal<AuditMeeting[]>([]);
+  readonly conclusion = signal<AuditConclusion | null>(null);
   readonly reportSignedAt = signal<string | null>(null);
   readonly online = signal(typeof navigator === 'undefined' ? true : navigator.onLine);
   readonly source = signal<DataSource>('local');
@@ -221,8 +252,15 @@ export class FieldAuditStore {
       this.items().filter((i) => i.sync !== 'synced').length +
       this.evidence().filter((e) => e.sync !== 'synced').length +
       this.findings().filter((f) => f.sync !== 'synced').length +
-      this.capas().filter((c) => c.sync !== 'synced').length,
+      this.capas().filter((c) => c.sync !== 'synced').length +
+      this.meetings().filter((m) => m.sync !== 'synced').length +
+      (this.conclusion() && this.conclusion()!.sync !== 'synced' ? 1 : 0),
   );
+
+  readonly nextAuditStatuses = computed(() => {
+    const index = AUDIT_STATUS_ORDER.indexOf(this.auditStatus());
+    return AUDIT_STATUS_ORDER.slice(index + 1);
+  });
 
   readonly resultTotals = computed(() => {
     const totals: Record<FieldResult, number> = { notStarted: 0, conform: 0, minorNc: 0, majorNc: 0, ofi: 0, na: 0 };
@@ -429,9 +467,48 @@ export class FieldAuditStore {
     return true;
   }
 
-  signReport(): void {
+  setAuditStatus(status: AuditStatus): void {
+    this.auditStatus.set(status);
+    this.persist();
+    if (this.source() === 'live' && this.online()) {
+      void this.api.setAuditStatus(status).catch(() => undefined);
+    }
+  }
+
+  recordMeeting(
+    kind: 'opening' | 'closing',
+    input: { datetimeAt: string; attendees: string[]; agendaPoints: string[]; notes?: string; acknowledged: boolean },
+  ): void {
+    const existing = this.meetings().find((meeting) => meeting.kind === kind);
+    const meeting: AuditMeeting = { id: existing?.id ?? uid(`meeting-${kind}`), kind, ...input, sync: 'queued' };
+    this.meetings.update((list) => [meeting, ...list.filter((entry) => entry.kind !== kind)]);
+    this.persist();
+    this.autoFlush();
+  }
+
+  saveConclusion(patch: Partial<Omit<AuditConclusion, 'sync' | 'updatedAt'>>): void {
+    const current: AuditConclusion =
+      this.conclusion() ?? { overallConformity: '', recommendation: 'satisfactory', updatedAt: '', sync: 'queued' };
+    this.conclusion.set({ ...current, ...patch, updatedAt: new Date().toISOString(), sync: 'queued' });
+    this.persist();
+    this.autoFlush();
+  }
+
+  /** Lead-auditor sign-off. Persisted to the server when live; recorded locally otherwise. */
+  async signOff(attestation: string): Promise<boolean> {
+    if (this.source() === 'live' && this.online()) {
+      try {
+        const result = (await this.api.signReport({ attestation })) as { signedAt?: string };
+        this.reportSignedAt.set(result?.signedAt ?? new Date().toISOString());
+        this.persist();
+        return true;
+      } catch {
+        return false;
+      }
+    }
     this.reportSignedAt.set(new Date().toISOString());
     this.persist();
+    return true;
   }
 
   /** Flush the outbox: replays queued records to the API when live, else simulates. */
@@ -447,6 +524,7 @@ export class FieldAuditStore {
     this.evidence.update((list) => list.map(toSyncing));
     this.findings.update((list) => list.map(toSyncing));
     this.capas.update((list) => list.map(toSyncing));
+    this.meetings.update((list) => list.map(toSyncing));
 
     setTimeout(() => {
       const toSynced = <T extends { sync: SyncState }>(record: T): T =>
@@ -455,6 +533,9 @@ export class FieldAuditStore {
       this.evidence.update((list) => list.map(toSynced));
       this.findings.update((list) => list.map(toSynced));
       this.capas.update((list) => list.map(toSynced));
+      this.meetings.update((list) => list.map(toSynced));
+      const concl = this.conclusion();
+      if (concl) this.conclusion.set({ ...concl, sync: 'synced' });
       this.persist();
     }, 900);
   }
@@ -464,6 +545,9 @@ export class FieldAuditStore {
     this.evidence.set(seedEvidence());
     this.findings.set(seedFindings());
     this.capas.set(seedCapas());
+    this.auditStatus.set('fieldwork');
+    this.meetings.set([]);
+    this.conclusion.set(null);
     this.reportSignedAt.set(null);
     await idbDelete('meta', META_KEY);
   }
@@ -535,15 +619,37 @@ export class FieldAuditStore {
           this.setSync('capas', capa.id, 'queued');
         }
       }
+      for (const meeting of this.meetings().filter((entry) => entry.sync !== 'synced')) {
+        this.setSync('meetings', meeting.id, 'syncing');
+        try {
+          const { sync, ...payload } = meeting;
+          void sync;
+          await this.api.upsertMeeting(payload);
+          this.setSync('meetings', meeting.id, 'synced');
+        } catch {
+          this.setSync('meetings', meeting.id, 'queued');
+        }
+      }
+      const conclusion = this.conclusion();
+      if (conclusion && conclusion.sync !== 'synced') {
+        try {
+          const { sync, ...payload } = conclusion;
+          void sync;
+          await this.api.saveConclusion(payload);
+          this.conclusion.set({ ...conclusion, sync: 'synced' });
+        } catch {
+          this.conclusion.set({ ...conclusion, sync: 'queued' });
+        }
+      }
       this.persist();
     } finally {
       this.flushing = false;
     }
   }
 
-  private setSync(collection: 'items' | 'evidence' | 'findings' | 'capas', id: string, sync: SyncState): void {
+  private setSync(collection: 'items' | 'evidence' | 'findings' | 'capas' | 'meetings', id: string, sync: SyncState): void {
     type SyncRecord = { id: string; sync: SyncState };
-    const map = { items: this.items, evidence: this.evidence, findings: this.findings, capas: this.capas };
+    const map = { items: this.items, evidence: this.evidence, findings: this.findings, capas: this.capas, meetings: this.meetings };
     const ref = map[collection] as unknown as {
       update: (fn: (list: SyncRecord[]) => SyncRecord[]) => void;
     };
@@ -584,6 +690,9 @@ export class FieldAuditStore {
       evidence: this.evidence().map(({ thumbUrl, ...rest }) => rest),
       findings: this.findings(),
       capas: this.capas(),
+      auditStatus: this.auditStatus(),
+      meetings: this.meetings(),
+      conclusion: this.conclusion(),
       reportSignedAt: this.reportSignedAt(),
     };
     void idbSet('meta', META_KEY, snapshot);
@@ -597,6 +706,9 @@ export class FieldAuditStore {
       this.evidence.set(payload.evidence.map((record) => ({ ...record, sync: 'synced' as const })));
       this.findings.set(payload.findings.map((finding) => ({ ...finding, sync: 'synced' as const })));
       this.capas.set((payload.capas ?? []).map((capa) => ({ ...capa, sync: 'synced' as const })));
+      this.auditStatus.set(payload.auditStatus ?? 'fieldwork');
+      this.meetings.set((payload.meetings ?? []).map((meeting) => ({ ...meeting, sync: 'synced' as const })));
+      this.conclusion.set(payload.conclusion ? { ...payload.conclusion, sync: 'synced' } : null);
       this.source.set('live');
       this.online.set(true);
       this.persist();
@@ -612,6 +724,9 @@ export class FieldAuditStore {
     this.items.set(saved.items);
     this.findings.set(saved.findings.map(normalizeFinding));
     this.capas.set(saved.capas ?? []);
+    this.auditStatus.set(saved.auditStatus ?? 'fieldwork');
+    this.meetings.set(saved.meetings ?? []);
+    this.conclusion.set(saved.conclusion ?? null);
     this.reportSignedAt.set(saved.reportSignedAt ?? null);
     const restored = await Promise.all(
       saved.evidence.map(async (record) => {

@@ -1,0 +1,147 @@
+.panel h2 {
+  margin: 0 0 12px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.stepper {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.stepper li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.stepper .dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid var(--border-strong);
+  background: var(--surface);
+}
+
+.stepper li.done {
+  color: var(--text);
+}
+
+.stepper li.done .dot {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+
+.stepper li.current {
+  color: var(--primary);
+}
+
+.stepper li.current .dot {
+  background: var(--primary-bright);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary) 18%, transparent);
+}
+
+.advance {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.advance button {
+  min-height: 44px;
+  border-radius: 11px;
+  text-transform: capitalize;
+}
+
+.recorded {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.line {
+  margin: 0 0 8px;
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.agenda {
+  margin: 0 0 8px;
+  padding-left: 20px;
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.form {
+  margin-top: 10px;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: var(--surface-guard);
+  padding: 14px;
+}
+
+.form summary {
+  cursor: pointer;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.form[open] summary {
+  margin-bottom: 12px;
+}
+
+.fld {
+  display: grid;
+  gap: 5px;
+  margin-bottom: 10px;
+}
+
+.fld > span {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.fld textarea {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: var(--surface);
+  padding: 10px 12px;
+  color: var(--text);
+  font: inherit;
+  line-height: 1.45;
+  resize: vertical;
+}
+
+.fld textarea:focus-visible {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--ring);
+}
+
+.chk {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  color: var(--text);
+}
+
+.form button {
+  min-height: 48px;
+  border-radius: 11px;
+}

@@ -296,4 +296,80 @@ describe('field-audit API routes', () => {
     assert.equal(store.get('capa')!.find((d) => d['id'] === 'capa-1')?.['status'], 'verified');
     assert.equal(store.get('findings')!.find((d) => d['id'] === 'nc-1')?.['status'], 'closed');
   });
+
+  it('lets only the lead auditor advance the audit status', async () => {
+    const { db, store } = createFakeDb();
+    const denied = makeRes();
+    await handleApiRequest(
+      makeReq({ method: 'PUT', url: '/api/tenants/t/audits/a/status', headers: authHeaders('t'), body: { status: 'reporting' } }),
+      denied,
+      { db, config },
+    );
+    assert.equal(denied.statusCode, 401);
+
+    const ok = makeRes();
+    await handleApiRequest(
+      makeReq({ method: 'PUT', url: '/api/tenants/t/audits/a/status', headers: leadHeaders('t'), body: { status: 'reporting' } }),
+      ok,
+      { db, config },
+    );
+    assert.equal(ok.statusCode, 200);
+    assert.equal(store.get('audits')!.find((d) => d['id'] === 'a')?.['status'], 'reporting');
+  });
+
+  it('records an opening meeting (auditor allowed)', async () => {
+    const { db, store } = createFakeDb();
+    const res = makeRes();
+    await handleApiRequest(
+      makeReq({
+        method: 'PUT',
+        url: '/api/tenants/t/audits/a/meetings/meeting-opening-1',
+        headers: authHeaders('t'),
+        body: { id: 'meeting-opening-1', kind: 'opening', datetimeAt: '2026-06-15T09:00:00.000Z', attendees: ['Ava'], agendaPoints: ['Scope'], acknowledged: true },
+      }),
+      res,
+      { db, config },
+    );
+    assert.equal(res.statusCode, 200);
+    assert.equal(store.get('auditMeetings')!.find((d) => d['id'] === 'meeting-opening-1')?.['kind'], 'opening');
+  });
+
+  it('records audit conclusions and a lead-only signed report', async () => {
+    const { db, store } = createFakeDb();
+    const concl = makeRes();
+    await handleApiRequest(
+      makeReq({
+        method: 'PUT',
+        url: '/api/tenants/t/audits/a/conclusion',
+        headers: leadHeaders('t'),
+        body: { overallConformity: 'EMS broadly conforms with minor gaps.', recommendation: 'conditional' },
+      }),
+      concl,
+      { db, config },
+    );
+    assert.equal(concl.statusCode, 200);
+    assert.equal(store.get('auditConclusions')!.find((d) => d['auditId'] === 'a')?.['recommendation'], 'conditional');
+
+    const denied = makeRes();
+    await handleApiRequest(
+      makeReq({ method: 'POST', url: '/api/tenants/t/audits/a/reports/signoff', headers: authHeaders('t'), body: { attestation: 'x'.repeat(25) } }),
+      denied,
+      { db, config },
+    );
+    assert.equal(denied.statusCode, 401);
+
+    const signed = makeRes();
+    await handleApiRequest(
+      makeReq({
+        method: 'POST',
+        url: '/api/tenants/t/audits/a/reports/signoff',
+        headers: leadHeaders('t'),
+        body: { attestation: 'I attest this audit was conducted per ISO 19011.' },
+      }),
+      signed,
+      { db, config },
+    );
+    assert.equal(signed.statusCode, 200);
+    assert.equal(store.get('reports')!.find((d) => d['auditId'] === 'a')?.['status'], 'signed');
+  });
 });

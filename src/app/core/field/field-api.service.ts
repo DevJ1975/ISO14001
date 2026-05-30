@@ -4,13 +4,25 @@ import { firstValueFrom } from 'rxjs';
 
 import { AuthService } from '../auth/auth.service';
 import { APP_CONFIG } from '../config/app-config';
-import type { FieldCapa, FieldChecklistItem, FieldEvidence, FieldFinding, FieldResult } from './field-audit-store';
+import type {
+  AuditConclusion,
+  AuditMeeting,
+  AuditStatus,
+  FieldCapa,
+  FieldChecklistItem,
+  FieldEvidence,
+  FieldFinding,
+  FieldResult,
+} from './field-audit-store';
 
 export interface FieldStatePayload {
   items: Array<Omit<FieldChecklistItem, 'sync'>>;
   evidence: Array<Omit<FieldEvidence, 'sync' | 'thumbUrl'>>;
   findings: Array<Omit<FieldFinding, 'sync'>>;
   capas?: Array<Omit<FieldCapa, 'sync'>>;
+  auditStatus?: AuditStatus;
+  meetings?: Array<Omit<AuditMeeting, 'sync'>>;
+  conclusion?: Omit<AuditConclusion, 'sync'> | null;
 }
 
 /** Thin client over the tenant-scoped field-audit endpoints. The bearer token is
@@ -55,6 +67,22 @@ export class FieldApiService {
     body: { findingId: string; verification: string; effective: boolean; verificationEvidenceIds: string[] },
   ): Promise<unknown> {
     return firstValueFrom(this.http.post(`${this.base()}/capa/${encodeURIComponent(id)}/verify`, body));
+  }
+
+  setAuditStatus(status: AuditStatus): Promise<unknown> {
+    return firstValueFrom(this.http.put(`${this.base()}/status`, { status }));
+  }
+
+  upsertMeeting(body: Omit<AuditMeeting, 'sync'>): Promise<unknown> {
+    return firstValueFrom(this.http.put(`${this.base()}/meetings/${encodeURIComponent(body.id)}`, body));
+  }
+
+  saveConclusion(body: Omit<AuditConclusion, 'sync'>): Promise<unknown> {
+    return firstValueFrom(this.http.put(`${this.base()}/conclusion`, body));
+  }
+
+  signReport(body: { attestation: string }): Promise<{ signedAt?: string }> {
+    return firstValueFrom(this.http.post<{ signedAt?: string }>(`${this.base()}/reports/signoff`, body));
   }
 
   private base(): string {

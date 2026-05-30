@@ -201,6 +201,33 @@ const capaVerifyCommandSchema = z.object({
   verificationEvidenceIds: z.array(z.string().min(1)).default([]),
 });
 
+const auditStatusCommandSchema = z.object({
+  status: z.enum(['draft', 'planned', 'fieldwork', 'reporting', 'followUp', 'closed', 'archived']),
+});
+
+const meetingUpsertCommandSchema = z.object({
+  id: z.string().min(1),
+  kind: z.enum(['opening', 'closing']),
+  datetimeAt: z.string().min(1),
+  attendees: z.array(z.string()).default([]),
+  agendaPoints: z.array(z.string()).default([]),
+  notes: z.string().max(8000).optional(),
+  acknowledged: z.boolean().default(false),
+});
+
+const conclusionCommandSchema = z.object({
+  overallConformity: z.string().max(8000).default(''),
+  emsEffectivenessOpinion: z.string().max(8000).optional(),
+  criteriaMetStatement: z.string().max(4000).optional(),
+  divergingOpinions: z.string().max(4000).optional(),
+  recommendation: z.enum(['recommend', 'conditional', 'notRecommended', 'satisfactory', 'actionRequired']),
+  updatedAt: z.string().optional(),
+});
+
+const signoffCommandSchema = z.object({
+  attestation: z.string().min(20).max(1000),
+});
+
 interface SeedChecklistItem {
   id: string;
   clauseId: string;
@@ -582,13 +609,21 @@ export async function handleApiRequest(
       const evidenceCollection = dependencies.db.collection(mongoCollections.evidence);
       const findingsCollection = dependencies.db.collection(mongoCollections.findings);
       const capaCollection = dependencies.db.collection(mongoCollections.capa);
-      const [items, evidence, findings, capas] = await Promise.all([
+      const [items, evidence, findings, capas, auditDoc, meetings, conclusion] = await Promise.all([
         ensureChecklist(dependencies.db, tenantId, auditId),
         evidenceCollection.find({ tenantId, auditId }, { projection: { _id: 0 } }).sort({ capturedAt: -1 }).toArray(),
         findingsCollection.find({ tenantId, auditId }, { projection: { _id: 0 } }).sort({ createdAt: -1 }).toArray(),
         capaCollection.find({ tenantId, auditId }, { projection: { _id: 0 } }).sort({ createdAt: -1 }).toArray(),
+        dependencies.db.collection(mongoCollections.audits).findOne({ tenantId, id: auditId }, { projection: { _id: 0 } }),
+        dependencies.db.collection(mongoCollections.auditMeetings).find({ tenantId, auditId }, { projection: { _id: 0 } }).toArray(),
+        dependencies.db.collection(mongoCollections.auditConclusions).findOne({ tenantId, auditId }, { projection: { _id: 0 } }),
       ]);
-      sendJson(response, 200, { items, evidence, findings, capas }, corsOrigin);
+      sendJson(
+        response,
+        200,
+        { items, evidence, findings, capas, auditStatus: auditDoc?.['status'] ?? 'fieldwork', meetings, conclusion },
+        corsOrigin,
+      );
       return;
     }
 
@@ -755,6 +790,99 @@ export async function handleApiRequest(
         .collection(mongoCollections.capa)
         .updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
       sendJson(response, 200, { capa: record }, corsOrigin);
+      return;
+    }
+
+    const statusMatch = matchPath(
+      new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/status$`),
+      url.pathname,
+      ['tenantId', 'auditId'],
+    );
+    if (request.method === 'PUT' && statusMatch && actor) {
+      const tenantId = statusMatch.params['tenantId']!;
+      const auditId = statusMatch.params['auditId']!;
+      requireTenant(actor, tenantId);
+      requireAnyRole(actor, ['leadAuditor']);
+      const command = await readJson(request, auditStatusCommandSchema);
+      await dependencies.db
+        .collection(mongoCollections.audits)
+        .updateOne(
+          { tenantId, id: auditId },
+          { $set: { tenantId, id: auditId, status: command.status, updatedAt: new Date().toISOString() } },
+          { upsert: true },
+        );
+      sendJson(response, 200, { ok: true }, corsOrigin);
+      return;
+    }
+
+    const meetingMatch = matchPath(
+      new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/meetings/([^/]+)$`),
+      url.pathname,
+      ['tenantId', 'auditId', 'meetingId'],
+    );
+    if (request.method === 'PUT' && meetingMatch && actor) {
+      const tenantId = meetingMatch.params['tenantId']!;
+      const auditId = meetingMatch.params['auditId']!;
+      requireTenant(actor, tenantId);
+      requireAnyRole(actor, ['leadAuditor', 'auditor']);
+      const command = await readJson(request, meetingUpsertCommandSchema);
+      const record = { ...command, tenantId, auditId, updatedAt: new Date().toISOString() };
+      await dependencies.db
+        .collection(mongoCollections.auditMeetings)
+        .updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
+      sendJson(response, 200, { meeting: record }, corsOrigin);
+      return;
+    }
+
+    const conclusionMatch = matchPath(
+      new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/conclusion$`),
+      url.pathname,
+      ['tenantId', 'auditId'],
+    );
+    if (request.method === 'PUT' && conclusionMatch && actor) {
+      const tenantId = conclusionMatch.params['tenantId']!;
+      const auditId = conclusionMatch.params['auditId']!;
+      requireTenant(actor, tenantId);
+      requireAnyRole(actor, ['leadAuditor']);
+      const command = await readJson(request, conclusionCommandSchema);
+      const record = { ...command, tenantId, auditId, updatedAt: new Date().toISOString() };
+      await dependencies.db
+        .collection(mongoCollections.auditConclusions)
+        .updateOne({ tenantId, auditId }, { $set: record }, { upsert: true });
+      sendJson(response, 200, { conclusion: record }, corsOrigin);
+      return;
+    }
+
+    const signoffMatch = matchPath(
+      new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/reports/signoff$`),
+      url.pathname,
+      ['tenantId', 'auditId'],
+    );
+    if (request.method === 'POST' && signoffMatch && actor) {
+      const tenantId = signoffMatch.params['tenantId']!;
+      const auditId = signoffMatch.params['auditId']!;
+      requireTenant(actor, tenantId);
+      requireAnyRole(actor, ['leadAuditor']);
+      const command = await readJson(request, signoffCommandSchema);
+      const now = new Date().toISOString();
+      const reportId = `report-${auditId}`;
+      const report = {
+        id: reportId,
+        tenantId,
+        auditId,
+        status: 'signed',
+        version: 1,
+        generatedBy: actor.uid,
+        generatedAt: now,
+        signedBy: actor.uid,
+        signedAt: now,
+        pdfStorageRef: `/reports/${reportId}.pdf`,
+        attestation: command.attestation,
+      };
+      await dependencies.db
+        .collection(mongoCollections.reports)
+        .updateOne({ tenantId, auditId, id: reportId }, { $set: report }, { upsert: true });
+      sendJson(response, 200, { signedAt: now, report }, corsOrigin);
       return;
     }
 
