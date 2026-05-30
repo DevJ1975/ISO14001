@@ -21,11 +21,24 @@
 
   <section class="meta-grid">
     <div><span>Auditee</span><strong>{{ store.auditee() }}</strong></div>
+    <div><span>Audit type</span><strong>{{ auditTypeLabel(meta().auditType) }}</strong></div>
     <div><span>Audit criteria</span><strong>{{ store.criteria() }}</strong></div>
+    <div><span>Audit dates</span><strong>{{ formatDate(meta().startsAt) }} – {{ formatDate(meta().endsAt) }}</strong></div>
+    <div><span>Sites</span><strong>{{ meta().sites || '—' }}</strong></div>
     <div><span>Audit status</span><strong>{{ store.auditStatus() }}</strong></div>
     <div><span>Prepared by</span><strong>{{ preparedBy() }}</strong></div>
+    <div><span>Report version</span><strong>v{{ meta().reportVersion }} · {{ store.reportSignedAt() ? 'Issued' : 'Draft' }}</strong></div>
     <div><span>Generated</span><strong>{{ formatDateTime(generatedAt) }}</strong></div>
-    <div><span>Completion</span><strong>{{ store.progress().percent }}%</strong></div>
+  </section>
+
+  <!-- Scope, objectives & criteria -->
+  <section class="block">
+    <h2>1. Scope, objectives &amp; criteria</h2>
+    <dl class="fields">
+      <dt>Scope of certification</dt><dd>{{ meta().scope || '—' }}</dd>
+      <dt>Audit objectives</dt><dd>{{ meta().objectives || '—' }}</dd>
+      <dt>Audit criteria</dt><dd>{{ store.criteria() }} and applicable compliance obligations</dd>
+    </dl>
   </section>
 
   <section class="summary">
@@ -36,9 +49,9 @@
     <div class="kpi"><strong>{{ store.openNcCount() }}</strong><span>Open NC</span></div>
   </section>
 
-  <!-- 1. Conclusions -->
+  <!-- 2. Conclusions -->
   <section class="block">
-    <h2>1. Audit conclusions</h2>
+    <h2>2. Audit conclusions</h2>
     @if (store.conclusion(); as c) {
       <dl class="fields">
         <dt>Overall conformity</dt><dd>{{ c.overallConformity || '—' }}</dd>
@@ -52,9 +65,9 @@
     }
   </section>
 
-  <!-- 2. Nonconformities + corrective actions -->
+  <!-- 3. Nonconformities + corrective actions -->
   <section class="block">
-    <h2>2. Nonconformities &amp; corrective actions</h2>
+    <h2>3. Nonconformities &amp; corrective actions</h2>
     @for (finding of nonconformities(); track finding.id) {
       <div class="finding">
         <div class="finding-head">
@@ -88,10 +101,10 @@
     }
   </section>
 
-  <!-- 3. Opportunities for improvement -->
+  <!-- 4. Opportunities for improvement -->
   @if (opportunities().length) {
     <section class="block">
-      <h2>3. Opportunities for improvement</h2>
+      <h2>4. Opportunities for improvement</h2>
       <ul class="ofi-list">
         @for (ofi of opportunities(); track ofi.id) {
           <li><strong>Clause {{ ofi.clauseId }}:</strong> {{ ofi.description }}</li>
@@ -100,9 +113,9 @@
     </section>
   }
 
-  <!-- 4. Checklist results -->
+  <!-- 5. Checklist results -->
   <section class="block">
-    <h2>4. Checklist results by clause</h2>
+    <h2>5. Checklist results by clause</h2>
     <table class="grid">
       <thead><tr><th>Clause</th><th>Question</th><th>Result</th></tr></thead>
       <tbody>
@@ -117,10 +130,12 @@
     </table>
   </section>
 
-  <!-- 5. EMS registers -->
-  @if (store.aspects().length || store.obligations().length || store.emergencyRecords().length) {
+  <!-- 6. EMS registers -->
+  @if (store.aspects().length || store.obligations().length || store.emergencyRecords().length
+        || store.interestedParties().length || store.objectives().length
+        || store.communications().length || store.managementReviews().length) {
     <section class="block">
-      <h2>5. EMS registers</h2>
+      <h2>6. EMS registers</h2>
       @if (store.aspects().length) {
         <h3>Significant environmental aspects</h3>
         <table class="grid">
@@ -157,13 +172,72 @@
           </tbody>
         </table>
       }
+      @if (store.interestedParties().length) {
+        <h3>Interested parties (cl. 4.2)</h3>
+        <table class="grid">
+          <thead><tr><th>Party</th><th>Category</th><th>Needs &amp; expectations</th><th>Result</th></tr></thead>
+          <tbody>
+            @for (p of store.interestedParties(); track p.id) {
+              <tr><td>{{ p.party }}</td><td class="nowrap">{{ p.category }}</td><td>{{ p.needs || '—' }}</td>
+                <td class="nowrap">{{ resultLabel(p.result) }}</td></tr>
+            }
+          </tbody>
+        </table>
+      }
+      @if (store.objectives().length) {
+        <h3>Environmental objectives &amp; targets (cl. 6.2)</h3>
+        <table class="grid">
+          <thead><tr><th>Objective</th><th>Target</th><th>Owner</th><th>Progress</th><th>Result</th></tr></thead>
+          <tbody>
+            @for (o of store.objectives(); track o.id) {
+              <tr><td>{{ o.objective }}</td><td>{{ o.target || '—' }}</td><td class="nowrap">{{ o.owner || '—' }}</td>
+                <td class="nowrap">{{ o.progress }}</td><td class="nowrap">{{ resultLabel(o.result) }}</td></tr>
+            }
+          </tbody>
+        </table>
+      }
+      @if (store.communications().length) {
+        <h3>Communication (cl. 7.4)</h3>
+        <table class="grid">
+          <thead><tr><th>Topic</th><th>Direction</th><th>Audience</th><th>Method</th><th>Result</th></tr></thead>
+          <tbody>
+            @for (c of store.communications(); track c.id) {
+              <tr><td>{{ c.topic }}</td><td class="nowrap">{{ c.direction }}</td><td>{{ c.audience || '—' }}</td>
+                <td>{{ c.method || '—' }}</td><td class="nowrap">{{ resultLabel(c.result) }}</td></tr>
+            }
+          </tbody>
+        </table>
+      }
+      @if (store.managementReviews().length) {
+        <h3>Management review (cl. 9.3)</h3>
+        <table class="grid">
+          <thead><tr><th>Date</th><th>Inputs</th><th>Decisions</th><th>Actions</th><th>Result</th></tr></thead>
+          <tbody>
+            @for (m of store.managementReviews(); track m.id) {
+              <tr><td class="nowrap">{{ formatDate(m.reviewDate) }}</td><td>{{ m.inputs || '—' }}</td>
+                <td>{{ m.decisions || '—' }}</td><td>{{ m.actions || '—' }}</td><td class="nowrap">{{ resultLabel(m.result) }}</td></tr>
+            }
+          </tbody>
+        </table>
+      }
     </section>
   }
 
-  <!-- 6. Meetings -->
+  <!-- 7. Audit trail & sampling -->
+  <section class="block">
+    <h2>7. Audit trail &amp; sampling</h2>
+    @if (meta().auditTrail) {
+      <p>{{ meta().auditTrail }}</p>
+    } @else {
+      <p class="muted">Records reviewed, processes observed, and personnel interviewed are evidenced in the
+        checklist and evidence log below.</p>
+    }
+  </section>
+
+  <!-- 8. Meetings -->
   @if (store.meetings().length) {
     <section class="block">
-      <h2>6. Audit meetings</h2>
+      <h2>8. Audit meetings</h2>
       @for (m of store.meetings(); track m.id) {
         <div class="meeting">
           <strong>{{ m.kind === 'opening' ? 'Opening meeting' : 'Closing meeting' }}</strong>
@@ -175,9 +249,9 @@
     </section>
   }
 
-  <!-- 7. Evidence log -->
+  <!-- 9. Evidence log -->
   <section class="block">
-    <h2>7. Evidence log</h2>
+    <h2>9. Evidence log</h2>
     <table class="grid">
       <thead><tr><th>Type</th><th>Description</th><th>Captured by</th><th>When</th></tr></thead>
       <tbody>
@@ -191,9 +265,22 @@
     </table>
   </section>
 
-  <!-- 8. Sign-off -->
+  <!-- 10. Auditor & sign-off -->
   <section class="block signoff">
-    <h2>8. Lead auditor sign-off</h2>
+    <h2>10. Auditor, impartiality &amp; sign-off</h2>
+    <dl class="fields">
+      <dt>Lead auditor</dt><dd>{{ preparedBy() }}</dd>
+      <dt>Competence</dt><dd>{{ meta().auditorCompetence || '—' }}</dd>
+      <dt>Impartiality</dt>
+      <dd>
+        @if (meta().impartialityDeclared) {
+          The auditor declares no conflict of interest with the auditee and that findings are based on objective evidence.
+        } @else {
+          <span class="muted">Impartiality declaration not yet confirmed.</span>
+        }
+      </dd>
+      <dt>Distribution</dt><dd>{{ meta().distribution || '—' }}</dd>
+    </dl>
     @if (store.reportSignedAt(); as signedAt) {
       <p>This report was signed off by the lead auditor on <strong>{{ formatDateTime(signedAt) }}</strong>.</p>
     } @else {

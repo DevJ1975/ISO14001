@@ -5,7 +5,9 @@ import { MatIconModule } from '@angular/material/icon';
 
 import { AuthService } from '../../core/auth/auth.service';
 import {
+  auditTypeLabel,
   FieldAuditStore,
+  type AuditType,
   type FieldCapa,
   type FieldFinding,
   type Recommendation,
@@ -57,7 +59,14 @@ export class ReportPrintComponent {
   private readonly location = inject(Location);
 
   protected readonly generatedAt = new Date().toISOString();
-  protected readonly preparedBy = computed(() => this.auth.user()?.displayName || 'Lead auditor');
+  protected readonly preparedBy = computed(
+    () => this.store.reportMeta().leadAuditorName || this.auth.user()?.displayName || 'Lead auditor',
+  );
+  protected readonly meta = this.store.reportMeta;
+
+  protected auditTypeLabel(type: AuditType): string {
+    return auditTypeLabel(type);
+  }
 
   protected readonly nonconformities = computed(() =>
     this.store.findings().filter((f) => f.type === 'majorNc' || f.type === 'minorNc'),

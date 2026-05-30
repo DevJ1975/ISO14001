@@ -35,6 +35,7 @@
 }
 
 .brand-mark {
+  position: relative;
   display: grid;
   place-items: center;
   width: 44px;
@@ -44,6 +45,23 @@
   background: linear-gradient(135deg, var(--primary-bright), var(--primary));
   color: #fff;
   box-shadow: 0 12px 26px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  overflow: hidden;
+}
+
+/* Slow drifting sheen across the brand mark for a premium, alive feel. */
+.brand-mark::after {
+  content: '';
+  position: absolute;
+  inset: -40%;
+  background: radial-gradient(circle at 30% 25%, rgba(255, 255, 255, 0.5), transparent 55%);
+  animation: sheen 7s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* Keep the glyph above the sheen overlay. */
+.brand-mark mat-icon {
+  position: relative;
+  z-index: 1;
 }
 
 .brand-mark mat-icon {
@@ -111,6 +129,23 @@
   transform: translateY(-50%);
   border-radius: 0 4px 4px 0;
   background: var(--primary-bright);
+  animation: nav-marker 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes nav-marker {
+  from {
+    transform: translateY(-50%) scaleY(0.2);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(-50%) scaleY(1);
+    opacity: 1;
+  }
+}
+
+.nav-item:not(.active):hover mat-icon {
+  transform: translateX(2px);
+  transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .nav-item.active mat-icon {
@@ -306,6 +341,11 @@
 .icon-btn:hover {
   border-color: var(--border-strong);
   background: var(--surface);
+  transform: translateY(-1px);
+}
+
+.icon-btn:active {
+  transform: scale(0.94);
 }
 
 .icon-btn.active {

@@ -4,23 +4,52 @@
 // verify_jwt=false so the app's own bearer token passes through unmodified.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
+import {
+  cleanCapa,
+  cleanFinding,
+  cleanRegister,
+  isAuthConfigured,
+  requireId,
+  resolveCorsOrigin,
+  ValidationError,
+} from './_validation.ts';
+
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-const JWT_SECRET = Deno.env.get('APP_JWT_SECRET') ?? SERVICE_ROLE;
+// SECURITY: the app JWT must be signed with a dedicated secret. We deliberately
+// do NOT fall back to the service-role key — doing so means anyone holding that
+// (widely distributed) key could forge admin tokens. If APP_JWT_SECRET is unset
+// the function refuses to sign/verify tokens (auth endpoints return 503) rather
+// than silently degrade to an insecure mode.
+const JWT_SECRET = Deno.env.get('APP_JWT_SECRET') ?? '';
 const JWT_TTL = 43200;
+
+// SECURITY: lock CORS to an explicit allow-list of app origins (comma-separated
+// in APP_ALLOWED_ORIGINS). The deployed function runs with verify_jwt=false, so
+// a wildcard origin would let any site call the API with a victim's token.
+const ALLOWED_ORIGINS = (Deno.env.get('APP_ALLOWED_ORIGINS') ?? '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+function corsHeaders(req) {
+  const origin = req?.headers?.get('origin') ?? '';
+  return {
+    'access-control-allow-origin': resolveCorsOrigin(origin, ALLOWED_ORIGINS),
+    'access-control-allow-headers': 'authorization,content-type,apikey,x-app-token',
+    'access-control-allow-methods': 'GET,POST,PUT,OPTIONS',
+    'vary': 'Origin',
+  };
+}
 
 const db = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } });
 
-const CORS = {
-  'access-control-allow-origin': '*',
-  'access-control-allow-headers': 'authorization,content-type,apikey,x-app-token',
-  'access-control-allow-methods': 'GET,POST,PUT,OPTIONS',
-};
-
-function json(status, body) {
+// `req` is optional: when omitted, corsHeaders() emits the first configured
+// app origin (never a wildcard), which is correct for the single-origin app.
+function json(status, body, req) {
   return new Response(body === null ? 'null' : JSON.stringify(body), {
     status,
-    headers: { ...CORS, 'content-type': 'application/json; charset=utf-8' },
+    headers: { ...corsHeaders(req), 'content-type': 'application/json; charset=utf-8' },
   });
 }
 
@@ -51,6 +80,7 @@ async function hmacKey(secret) {
   return await crypto.subtle.importKey('raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign', 'verify']);
 }
 async function signJwt(payload) {
+  if (!isAuthConfigured(JWT_SECRET)) throw new AuthError('Auth is not configured (APP_JWT_SECRET missing).');
   const nowSec = Math.floor(Date.now() / 1000);
   const exp = nowSec + JWT_TTL;
   const header = b64url(enc.encode(JSON.stringify({ alg: 'HS256', typ: 'JWT' })));
@@ -60,6 +90,7 @@ async function signJwt(payload) {
   return { token: `${data}.${b64url(sig)}`, exp };
 }
 async function verifyJwt(token) {
+  if (!isAuthConfigured(JWT_SECRET)) throw new Error('not configured');
   const [h, p, s] = token.split('.');
   if (!h || !p || !s) throw new Error('malformed');
   const ok = await crypto.subtle.verify('HMAC', await hmacKey(JWT_SECRET), b64urlToBytes(s), enc.encode(`${h}.${p}`));
@@ -180,7 +211,7 @@ async function readJson(req) {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
+  if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(req) });
 
   const url = new URL(req.url);
   const path = url.pathname.replace(/^\/functions\/v1\/api/, '').replace(/^\/api/, '') || '/';
@@ -408,10 +439,14 @@ Deno.serve(async (req) => {
           aspects: byKind('aspect'),
           obligations: byKind('obligation'),
           emergencyRecords: byKind('emergency'),
+          interestedParties: byKind('interestedParty'),
+          objectives: byKind('objective'),
+          communications: byKind('communication'),
+          managementReviews: byKind('managementReview'),
           meetings: byKind('meeting'),
           conclusion: single('conclusion'),
           auditStatus: statusDoc?.status ?? auditRow?.doc?.status ?? 'fieldwork',
-        });
+        }, req);
       }
 
       if (method === 'PUT' && rest[0] === 'checklist' && rest[1]) {
@@ -467,8 +502,9 @@ Deno.serve(async (req) => {
       if (method === 'PUT' && rest[0] === 'findings' && rest[1]) {
         requireRole(actor, ['leadAuditor', 'auditor']);
         const body = await readJson(req);
-        await upsertRecord(tenantId, auditId, 'finding', rest[1], body);
-        return json(200, { finding: body });
+        const finding = cleanFinding(body, requireId(rest[1]));
+        await upsertRecord(tenantId, auditId, 'finding', finding.id, finding);
+        return json(200, { finding });
       }
 
       if (method === 'POST' && rest[0] === 'capa' && rest[1] && rest[2] === 'verify') {
@@ -500,9 +536,9 @@ Deno.serve(async (req) => {
       if (method === 'PUT' && rest[0] === 'capa' && rest[1]) {
         requireRole(actor, ['leadAuditor', 'auditor']);
         const body = await readJson(req);
-        const status = body.status === 'verified' ? 'verificationDue' : body.status;
-        await upsertRecord(tenantId, auditId, 'capa', rest[1], { ...body, status });
-        return json(200, { capa: { ...body, status } });
+        const capa = cleanCapa(body, requireId(rest[1]));
+        await upsertRecord(tenantId, auditId, 'capa', capa.id, capa);
+        return json(200, { capa });
       }
 
       if (method === 'PUT' && rest[0] === 'status') {
@@ -540,19 +576,29 @@ Deno.serve(async (req) => {
         return json(200, { signedAt: now, report });
       }
 
-      const registerKinds = { aspects: 'aspect', obligations: 'obligation', emergency: 'emergency' };
+      const registerKinds = {
+        aspects: 'aspect',
+        obligations: 'obligation',
+        emergency: 'emergency',
+        'interested-parties': 'interestedParty',
+        objectives: 'objective',
+        communications: 'communication',
+        'management-reviews': 'managementReview',
+      };
       if (method === 'PUT' && registerKinds[rest[0]] && rest[1]) {
         requireRole(actor, ['leadAuditor', 'auditor']);
         const body = await readJson(req);
-        await upsertRecord(tenantId, auditId, registerKinds[rest[0]], rest[1], body);
-        return json(200, { record: body });
+        const record = cleanRegister(body, requireId(rest[1]));
+        await upsertRecord(tenantId, auditId, registerKinds[rest[0]], record.id, record);
+        return json(200, { record }, req);
       }
     }
 
-    return json(404, { error: 'Route not found.' });
+    return json(404, { error: 'Route not found.' }, req);
   } catch (error) {
-    if (error instanceof AuthError) return json(401, { error: error.message });
+    if (error instanceof ValidationError) return json(400, { error: error.message }, req);
+    if (error instanceof AuthError) return json(401, { error: error.message }, req);
     console.error('api error', error);
-    return json(500, { error: 'Unexpected backend error.' });
+    return json(500, { error: 'Unexpected backend error.' }, req);
   }
 });

@@ -12,6 +12,8 @@ export interface AuditSummary {
   status: string;
   createdByName?: string;
   createdAt?: string;
+  startsAt?: string;
+  endsAt?: string;
 }
 
 export type SyncState = 'synced' | 'queued' | 'syncing' | 'conflict';
@@ -48,6 +50,58 @@ export interface AuditConclusion {
 
 export type RegisterResult = 'notStarted' | 'conforming' | 'nonconforming' | 'notApplicable' | 'needsFollowUp';
 
+export type AuditType = 'internal' | 'stage1' | 'stage2' | 'surveillance' | 'recertification';
+
+/**
+ * Report front-matter expected on a UKAS-style ISO 14001 report (audit type,
+ * dates, scope, criteria, sampling, auditor competence & impartiality,
+ * distribution, version). Held as one record so the printed report has a single
+ * source of truth rather than being re-derived ad hoc.
+ */
+export interface ReportMeta {
+  auditType: AuditType;
+  scope: string;
+  objectives: string;
+  startsAt?: string;
+  endsAt?: string;
+  sites: string;
+  auditTrail: string;
+  leadAuditorName: string;
+  auditorCompetence: string;
+  impartialityDeclared: boolean;
+  distribution: string;
+  reportVersion: number;
+  sync: SyncState;
+}
+
+const AUDIT_TYPE_LABELS: Record<AuditType, string> = {
+  internal: 'Internal audit (cl. 9.2)',
+  stage1: 'Stage 1 — readiness',
+  stage2: 'Stage 2 — certification',
+  surveillance: 'Surveillance',
+  recertification: 'Recertification',
+};
+
+export function auditTypeLabel(type: AuditType): string {
+  return AUDIT_TYPE_LABELS[type] ?? type;
+}
+
+function defaultReportMeta(): ReportMeta {
+  return {
+    auditType: 'stage2',
+    scope: '',
+    objectives: '',
+    sites: '',
+    auditTrail: '',
+    leadAuditorName: '',
+    auditorCompetence: '',
+    impartialityDeclared: false,
+    distribution: '',
+    reportVersion: 1,
+    sync: 'synced',
+  };
+}
+
 export interface EnvironmentalAspect {
   id: string;
   aspect: string;
@@ -79,6 +133,59 @@ export interface EmergencyRecord {
   procedureRef?: string;
   lastDrillAt?: string;
   notes?: string;
+  result: RegisterResult;
+  updatedAt: string;
+  sync: SyncState;
+}
+
+export type ObjectiveProgress = 'notStarted' | 'onTrack' | 'atRisk' | 'achieved';
+
+/** Interested parties & their needs (ISO 14001 cl. 4.2). */
+export interface InterestedParty {
+  id: string;
+  party: string;
+  category: 'internal' | 'external';
+  needs?: string;
+  howAddressed?: string;
+  result: RegisterResult;
+  updatedAt: string;
+  sync: SyncState;
+}
+
+/** Environmental objectives & targets with progress (ISO 14001 cl. 6.2). */
+export interface EnvironmentalObjective {
+  id: string;
+  objective: string;
+  target?: string;
+  owner?: string;
+  dueDate?: string;
+  progress: ObjectiveProgress;
+  result: RegisterResult;
+  updatedAt: string;
+  sync: SyncState;
+}
+
+/** Internal & external communication (ISO 14001 cl. 7.4). */
+export interface CommunicationRecord {
+  id: string;
+  topic: string;
+  direction: 'internal' | 'external' | 'both';
+  audience?: string;
+  method?: string;
+  frequency?: string;
+  result: RegisterResult;
+  updatedAt: string;
+  sync: SyncState;
+}
+
+/** Management review inputs, decisions & outputs (ISO 14001 cl. 9.3). */
+export interface ManagementReviewRecord {
+  id: string;
+  reviewDate?: string;
+  attendees?: string;
+  inputs?: string;
+  decisions?: string;
+  actions?: string;
   result: RegisterResult;
   updatedAt: string;
   sync: SyncState;
@@ -162,6 +269,11 @@ interface PersistedState {
   aspects: EnvironmentalAspect[];
   obligations: ComplianceObligation[];
   emergencyRecords: EmergencyRecord[];
+  interestedParties: InterestedParty[];
+  objectives: EnvironmentalObjective[];
+  communications: CommunicationRecord[];
+  managementReviews: ManagementReviewRecord[];
+  reportMeta: ReportMeta;
   reportSignedAt: string | null;
 }
 
@@ -294,6 +406,11 @@ export class FieldAuditStore {
   readonly aspects = signal<EnvironmentalAspect[]>([]);
   readonly obligations = signal<ComplianceObligation[]>([]);
   readonly emergencyRecords = signal<EmergencyRecord[]>([]);
+  readonly interestedParties = signal<InterestedParty[]>([]);
+  readonly objectives = signal<EnvironmentalObjective[]>([]);
+  readonly communications = signal<CommunicationRecord[]>([]);
+  readonly managementReviews = signal<ManagementReviewRecord[]>([]);
+  readonly reportMeta = signal<ReportMeta>(defaultReportMeta());
   readonly reportSignedAt = signal<string | null>(null);
   readonly online = signal(typeof navigator === 'undefined' ? true : navigator.onLine);
   readonly source = signal<DataSource>('local');
@@ -317,6 +434,10 @@ export class FieldAuditStore {
       this.aspects().filter((a) => a.sync !== 'synced').length +
       this.obligations().filter((o) => o.sync !== 'synced').length +
       this.emergencyRecords().filter((e) => e.sync !== 'synced').length +
+      this.interestedParties().filter((p) => p.sync !== 'synced').length +
+      this.objectives().filter((o) => o.sync !== 'synced').length +
+      this.communications().filter((c) => c.sync !== 'synced').length +
+      this.managementReviews().filter((m) => m.sync !== 'synced').length +
       (this.conclusion() && this.conclusion()!.sync !== 'synced' ? 1 : 0),
   );
 
@@ -573,6 +694,12 @@ export class FieldAuditStore {
     this.autoFlush();
   }
 
+  /** Update the report front-matter (UK-style report metadata). Persisted locally. */
+  updateReportMeta(patch: Partial<Omit<ReportMeta, 'sync'>>): void {
+    this.reportMeta.update((meta) => ({ ...meta, ...patch }));
+    this.persist();
+  }
+
   addAspect(): void {
     this.aspects.update((list) => [
       { id: uid('aspect'), aspect: '', activity: '', impact: '', significance: 'medium', result: 'notStarted', updatedAt: new Date().toISOString(), sync: 'queued' },
@@ -618,6 +745,74 @@ export class FieldAuditStore {
 
   updateEmergencyRecord(id: string, patch: Partial<EmergencyRecord>): void {
     this.emergencyRecords.update((list) =>
+      list.map((entry) => (entry.id === id ? { ...entry, ...patch, updatedAt: new Date().toISOString(), sync: 'queued' } : entry)),
+    );
+    this.persist();
+    this.autoFlush();
+  }
+
+  addInterestedParty(): void {
+    this.interestedParties.update((list) => [
+      { id: uid('party'), party: '', category: 'external', result: 'notStarted', updatedAt: new Date().toISOString(), sync: 'queued' },
+      ...list,
+    ]);
+    this.persist();
+    this.autoFlush();
+  }
+
+  updateInterestedParty(id: string, patch: Partial<InterestedParty>): void {
+    this.interestedParties.update((list) =>
+      list.map((entry) => (entry.id === id ? { ...entry, ...patch, updatedAt: new Date().toISOString(), sync: 'queued' } : entry)),
+    );
+    this.persist();
+    this.autoFlush();
+  }
+
+  addObjective(): void {
+    this.objectives.update((list) => [
+      { id: uid('objective'), objective: '', progress: 'notStarted', result: 'notStarted', updatedAt: new Date().toISOString(), sync: 'queued' },
+      ...list,
+    ]);
+    this.persist();
+    this.autoFlush();
+  }
+
+  updateObjective(id: string, patch: Partial<EnvironmentalObjective>): void {
+    this.objectives.update((list) =>
+      list.map((entry) => (entry.id === id ? { ...entry, ...patch, updatedAt: new Date().toISOString(), sync: 'queued' } : entry)),
+    );
+    this.persist();
+    this.autoFlush();
+  }
+
+  addCommunication(): void {
+    this.communications.update((list) => [
+      { id: uid('comm'), topic: '', direction: 'internal', result: 'notStarted', updatedAt: new Date().toISOString(), sync: 'queued' },
+      ...list,
+    ]);
+    this.persist();
+    this.autoFlush();
+  }
+
+  updateCommunication(id: string, patch: Partial<CommunicationRecord>): void {
+    this.communications.update((list) =>
+      list.map((entry) => (entry.id === id ? { ...entry, ...patch, updatedAt: new Date().toISOString(), sync: 'queued' } : entry)),
+    );
+    this.persist();
+    this.autoFlush();
+  }
+
+  addManagementReview(): void {
+    this.managementReviews.update((list) => [
+      { id: uid('review'), result: 'notStarted', updatedAt: new Date().toISOString(), sync: 'queued' },
+      ...list,
+    ]);
+    this.persist();
+    this.autoFlush();
+  }
+
+  updateManagementReview(id: string, patch: Partial<ManagementReviewRecord>): void {
+    this.managementReviews.update((list) =>
       list.map((entry) => (entry.id === id ? { ...entry, ...patch, updatedAt: new Date().toISOString(), sync: 'queued' } : entry)),
     );
     this.persist();
@@ -681,6 +876,11 @@ export class FieldAuditStore {
     this.aspects.set([]);
     this.obligations.set([]);
     this.emergencyRecords.set([]);
+    this.interestedParties.set([]);
+    this.objectives.set([]);
+    this.communications.set([]);
+    this.managementReviews.set([]);
+    this.reportMeta.set(defaultReportMeta());
     this.reportSignedAt.set(null);
     await idbDelete('meta', META_KEY);
   }
@@ -845,6 +1045,50 @@ export class FieldAuditStore {
           this.setSync('emergency', record.id, 'queued');
         }
       }
+      for (const record of this.interestedParties().filter((entry) => entry.sync !== 'synced')) {
+        this.setSync('interestedParties', record.id, 'syncing');
+        try {
+          const { sync, ...payload } = record;
+          void sync;
+          await this.api.upsertInterestedParty(payload);
+          this.setSync('interestedParties', record.id, 'synced');
+        } catch {
+          this.setSync('interestedParties', record.id, 'queued');
+        }
+      }
+      for (const record of this.objectives().filter((entry) => entry.sync !== 'synced')) {
+        this.setSync('objectives', record.id, 'syncing');
+        try {
+          const { sync, ...payload } = record;
+          void sync;
+          await this.api.upsertObjective(payload);
+          this.setSync('objectives', record.id, 'synced');
+        } catch {
+          this.setSync('objectives', record.id, 'queued');
+        }
+      }
+      for (const record of this.communications().filter((entry) => entry.sync !== 'synced')) {
+        this.setSync('communications', record.id, 'syncing');
+        try {
+          const { sync, ...payload } = record;
+          void sync;
+          await this.api.upsertCommunication(payload);
+          this.setSync('communications', record.id, 'synced');
+        } catch {
+          this.setSync('communications', record.id, 'queued');
+        }
+      }
+      for (const record of this.managementReviews().filter((entry) => entry.sync !== 'synced')) {
+        this.setSync('managementReviews', record.id, 'syncing');
+        try {
+          const { sync, ...payload } = record;
+          void sync;
+          await this.api.upsertManagementReview(payload);
+          this.setSync('managementReviews', record.id, 'synced');
+        } catch {
+          this.setSync('managementReviews', record.id, 'queued');
+        }
+      }
       this.persist();
     } finally {
       this.flushing = false;
@@ -852,7 +1096,19 @@ export class FieldAuditStore {
   }
 
   private setSync(
-    collection: 'items' | 'evidence' | 'findings' | 'capas' | 'meetings' | 'aspects' | 'obligations' | 'emergency',
+    collection:
+      | 'items'
+      | 'evidence'
+      | 'findings'
+      | 'capas'
+      | 'meetings'
+      | 'aspects'
+      | 'obligations'
+      | 'emergency'
+      | 'interestedParties'
+      | 'objectives'
+      | 'communications'
+      | 'managementReviews',
     id: string,
     sync: SyncState,
   ): void {
@@ -866,6 +1122,10 @@ export class FieldAuditStore {
       aspects: this.aspects,
       obligations: this.obligations,
       emergency: this.emergencyRecords,
+      interestedParties: this.interestedParties,
+      objectives: this.objectives,
+      communications: this.communications,
+      managementReviews: this.managementReviews,
     };
     const ref = map[collection] as unknown as {
       update: (fn: (list: SyncRecord[]) => SyncRecord[]) => void;
@@ -913,6 +1173,11 @@ export class FieldAuditStore {
       aspects: this.aspects(),
       obligations: this.obligations(),
       emergencyRecords: this.emergencyRecords(),
+      interestedParties: this.interestedParties(),
+      objectives: this.objectives(),
+      communications: this.communications(),
+      managementReviews: this.managementReviews(),
+      reportMeta: this.reportMeta(),
       reportSignedAt: this.reportSignedAt(),
     };
     void idbSet('meta', META_KEY, snapshot);
@@ -932,9 +1197,20 @@ export class FieldAuditStore {
       this.aspects.set((payload.aspects ?? []).map((a) => ({ ...a, sync: 'synced' as const })));
       this.obligations.set((payload.obligations ?? []).map((o) => ({ ...o, sync: 'synced' as const })));
       this.emergencyRecords.set((payload.emergencyRecords ?? []).map((e) => ({ ...e, sync: 'synced' as const })));
+      this.interestedParties.set((payload.interestedParties ?? []).map((p) => ({ ...p, sync: 'synced' as const })));
+      this.objectives.set((payload.objectives ?? []).map((o) => ({ ...o, sync: 'synced' as const })));
+      this.communications.set((payload.communications ?? []).map((c) => ({ ...c, sync: 'synced' as const })));
+      this.managementReviews.set((payload.managementReviews ?? []).map((m) => ({ ...m, sync: 'synced' as const })));
       if (payload.audit) {
         this.auditee.set(payload.audit.auditee || this.auditee());
         this.criteria.set(payload.audit.criteria || this.criteria());
+        const audit = payload.audit;
+        this.reportMeta.update((meta) => ({
+          ...meta,
+          scope: meta.scope || audit.scope || '',
+          startsAt: meta.startsAt ?? audit.startsAt,
+          endsAt: meta.endsAt ?? audit.endsAt,
+        }));
       }
       this.source.set('live');
       this.online.set(true);
@@ -958,6 +1234,11 @@ export class FieldAuditStore {
     this.aspects.set(saved.aspects ?? []);
     this.obligations.set(saved.obligations ?? []);
     this.emergencyRecords.set(saved.emergencyRecords ?? []);
+    this.interestedParties.set(saved.interestedParties ?? []);
+    this.objectives.set(saved.objectives ?? []);
+    this.communications.set(saved.communications ?? []);
+    this.managementReviews.set(saved.managementReviews ?? []);
+    if (saved.reportMeta) this.reportMeta.set({ ...defaultReportMeta(), ...saved.reportMeta });
     this.reportSignedAt.set(saved.reportSignedAt ?? null);
     const restored = await Promise.all(
       saved.evidence.map(async (record) => {

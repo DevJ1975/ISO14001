@@ -148,6 +148,44 @@ select {
   }
 }
 
+/* Subtle entrance for cards/rows; paired with a stagger utility below. */
+@keyframes rise-soft {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Count-up / attention pop for KPI numbers when they first render. */
+@keyframes pop-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.82);
+  }
+  60% {
+    transform: scale(1.04);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Soft pulse for live/attention badges. */
+@keyframes halo {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 var(--ring);
+  }
+  50% {
+    box-shadow: 0 0 0 6px transparent;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -254,6 +292,17 @@ select {
   background: var(--surface);
   padding: clamp(16px, 2.4vw, 22px);
   box-shadow: var(--shadow-sm);
+  transition:
+    transform 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.22s ease,
+    border-color 0.22s ease;
+}
+
+/* Lift interactive panels on hover for a tactile, responsive feel. */
+.panel.interactive:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow);
+  border-color: var(--border-strong);
 }
 
 .tile {
@@ -261,7 +310,31 @@ select {
   border-radius: 14px;
   background: var(--surface-guard);
   padding: 14px 16px;
+  transition:
+    transform 0.18s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.18s ease,
+    border-color 0.18s ease;
 }
+
+.tile:hover {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Stagger children entrances: add .stagger to a grid/list container. Each
+   direct child rises in sequence. Capped so long lists don't feel sluggish. */
+.stagger > * {
+  animation: rise-soft 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.stagger > *:nth-child(1) { animation-delay: 0.02s; }
+.stagger > *:nth-child(2) { animation-delay: 0.06s; }
+.stagger > *:nth-child(3) { animation-delay: 0.1s; }
+.stagger > *:nth-child(4) { animation-delay: 0.14s; }
+.stagger > *:nth-child(5) { animation-delay: 0.18s; }
+.stagger > *:nth-child(6) { animation-delay: 0.22s; }
+.stagger > *:nth-child(7) { animation-delay: 0.26s; }
+.stagger > *:nth-child(8) { animation-delay: 0.3s; }
+.stagger > *:nth-child(n + 9) { animation-delay: 0.34s; }
 
 .pill,
 [data-tone] {
@@ -308,12 +381,40 @@ select {
 }
 
 .stat {
+  position: relative;
   display: grid;
   gap: 4px;
   border: 1px solid var(--border);
   border-radius: 14px;
   background: var(--surface-guard);
   padding: 14px 16px;
+  overflow: hidden;
+  transition:
+    transform 0.18s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.18s ease,
+    border-color 0.18s ease;
+}
+
+/* Accent rail that wipes in on the left edge of each stat card. */
+.stat::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: linear-gradient(180deg, var(--primary-bright), var(--primary));
+  transform: scaleY(0);
+  transform-origin: top;
+  transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.stat:hover {
+  transform: translateY(-2px);
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-sm);
+}
+
+.stat:hover::before {
+  transform: scaleY(1);
 }
 
 .stat strong {
@@ -321,6 +422,7 @@ select {
   font-weight: 800;
   letter-spacing: -0.01em;
   color: var(--primary);
+  animation: pop-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .stat span {

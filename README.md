@@ -46,11 +46,16 @@ data-source pill shows **Live** once signed in, **Local** before sign-in or
 when the backend is unreachable (the workspace still runs on the on-device
 store), and **Offline** with no connectivity.
 
-**Hardening before real use:**
+**Hardening for real use (enforced in code):**
 
-- Set an `APP_JWT_SECRET` secret on the Supabase function (it currently
-  falls back to the service-role key for signing).
-- Lock the function's CORS `access-control-allow-origin` to the app domain.
+- Set an `APP_JWT_SECRET` secret on the Supabase function. There is **no**
+  fallback to the service-role key — the function returns an auth error until a
+  dedicated secret is configured, so tokens can't be forged with a shared key.
+- Set `APP_ALLOWED_ORIGINS` (comma-separated) to the app domain(s). CORS now
+  reflects only allow-listed origins and never emits a wildcard.
+- The deployed function validates every write (findings, CAPA, registers) the
+  same way the Node reference backend does, so malformed/oversized/unknown-field
+  payloads are rejected (400) rather than persisted.
 - Rotate any database password shared during setup.
 
 ### Reference Node/MongoDB backend (not deployed)

@@ -4,7 +4,14 @@ import { MatIconModule } from '@angular/material/icon';
 
 import { FieldAuditStore, RegisterResult } from '../../core/field/field-audit-store';
 
-type Tab = 'aspects' | 'compliance' | 'emergency';
+type Tab =
+  | 'aspects'
+  | 'compliance'
+  | 'emergency'
+  | 'parties'
+  | 'objectives'
+  | 'communication'
+  | 'review';
 type Tone = 'positive' | 'progress' | 'critical' | 'neutral';
 
 @Component({
@@ -23,6 +30,10 @@ export class RegistersComponent {
     { value: 'aspects', label: 'Aspects', icon: 'eco' },
     { value: 'compliance', label: 'Compliance', icon: 'gavel' },
     { value: 'emergency', label: 'Emergency', icon: 'emergency' },
+    { value: 'parties', label: 'Parties', icon: 'groups' },
+    { value: 'objectives', label: 'Objectives', icon: 'flag_circle' },
+    { value: 'communication', label: 'Comms', icon: 'forum' },
+    { value: 'review', label: 'Mgmt review', icon: 'fact_check' },
   ];
 
   protected readonly results: { value: RegisterResult; label: string; tone: Tone }[] = [

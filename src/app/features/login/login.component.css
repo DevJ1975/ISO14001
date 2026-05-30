@@ -118,6 +118,20 @@ h1 {
   min-height: 52px;
   border-radius: 13px;
   font-weight: 700;
+  transition: transform 0.14s ease, box-shadow 0.2s ease;
+}
+
+.card button[mat-flat-button]:not([disabled]):hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--primary) 30%, transparent);
+}
+
+.card button[mat-flat-button]:not([disabled]):active {
+  transform: scale(0.98);
+}
+
+.field input {
+  transition: border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
 }
 
 .offline-btn {
