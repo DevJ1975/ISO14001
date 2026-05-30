@@ -372,4 +372,30 @@ describe('field-audit API routes', () => {
     assert.equal(signed.statusCode, 200);
     assert.equal(store.get('reports')!.find((d) => d['auditId'] === 'a')?.['status'], 'signed');
   });
+
+  it('upserts an EMS register entry and returns it in field-state', async () => {
+    const { db, store } = createFakeDb();
+    const res = makeRes();
+    await handleApiRequest(
+      makeReq({
+        method: 'PUT',
+        url: '/api/tenants/t/audits/a/aspects/aspect-1',
+        headers: authHeaders('t'),
+        body: { id: 'aspect-1', aspect: 'VOC emissions', activity: 'Coating line', impact: 'Air emissions', significance: 'high', result: 'needsFollowUp' },
+      }),
+      res,
+      { db, config },
+    );
+    assert.equal(res.statusCode, 200);
+    assert.equal(store.get('environmentalAspects')!.find((d) => d['id'] === 'aspect-1')?.['significance'], 'high');
+
+    const state = makeRes();
+    await handleApiRequest(
+      makeReq({ method: 'GET', url: '/api/tenants/t/audits/a/field-state', headers: authHeaders('t') }),
+      state,
+      { db, config },
+    );
+    const body = JSON.parse(state.body) as { aspects: unknown[] };
+    assert.equal(body.aspects.length, 1);
+  });
 });

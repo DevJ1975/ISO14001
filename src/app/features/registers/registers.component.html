@@ -1,0 +1,107 @@
+<section class="screen">
+  <header class="screen-head">
+    <h1>EMS registers</h1>
+    <p>Significant environmental aspects, evaluation of compliance, and emergency preparedness (ISO 14001 cl. 6.1.2, 9.1.2, 8.2).</p>
+  </header>
+
+  <div class="seg">
+    @for (t of tabs; track t.value) {
+      <button type="button" [class.on]="tab() === t.value" (click)="setTab(t.value)">
+        <mat-icon aria-hidden="true">{{ t.icon }}</mat-icon>{{ t.label }}
+      </button>
+    }
+  </div>
+
+  @switch (tab()) {
+    @case ('aspects') {
+      <div class="reg">
+        <div class="reg-head">
+          <h2>Significant environmental aspects</h2>
+          <button mat-flat-button color="primary" type="button" (click)="store.addAspect()"><mat-icon aria-hidden="true">add</mat-icon>Add</button>
+        </div>
+        @for (row of store.aspects(); track row.id) {
+          <article class="tile row">
+            <div class="grid2">
+              <label class="fld"><span>Aspect</span><input [value]="row.aspect" (change)="store.updateAspect(row.id, { aspect: $any($event.target).value })" /></label>
+              <label class="fld"><span>Activity / process</span><input [value]="row.activity" (change)="store.updateAspect(row.id, { activity: $any($event.target).value })" /></label>
+            </div>
+            <label class="fld"><span>Environmental impact</span><input [value]="row.impact" (change)="store.updateAspect(row.id, { impact: $any($event.target).value })" /></label>
+            <div class="grid2">
+              <label class="fld"><span>Significance</span>
+                <select [value]="row.significance" (change)="store.updateAspect(row.id, { significance: $any($event.target).value })">
+                  <option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option>
+                </select>
+              </label>
+              <label class="fld"><span>Controls</span><input [value]="row.controls || ''" (change)="store.updateAspect(row.id, { controls: $any($event.target).value })" /></label>
+            </div>
+            <div class="results">
+              @for (r of results; track r.value) {
+                <button type="button" class="rp {{ r.tone }}" [class.on]="row.result === r.value" (click)="store.updateAspect(row.id, { result: r.value })">{{ r.label }}</button>
+              }
+            </div>
+          </article>
+        } @empty {
+          <div class="panel empty"><mat-icon aria-hidden="true">eco</mat-icon><strong>No aspects yet</strong><span>Add the significant environmental aspects you sampled.</span></div>
+        }
+      </div>
+    }
+    @case ('compliance') {
+      <div class="reg">
+        <div class="reg-head">
+          <h2>Compliance obligations &amp; evaluation</h2>
+          <button mat-flat-button color="primary" type="button" (click)="store.addObligation()"><mat-icon aria-hidden="true">add</mat-icon>Add</button>
+        </div>
+        @for (row of store.obligations(); track row.id) {
+          <article class="tile row">
+            <label class="fld"><span>Obligation</span><input [value]="row.obligation" (change)="store.updateObligation(row.id, { obligation: $any($event.target).value })" /></label>
+            <label class="fld"><span>Requirement</span><input [value]="row.requirement" (change)="store.updateObligation(row.id, { requirement: $any($event.target).value })" /></label>
+            <div class="grid2">
+              <label class="fld"><span>Source</span>
+                <select [value]="row.source" (change)="store.updateObligation(row.id, { source: $any($event.target).value })">
+                  <option value="legal">Legal</option><option value="other">Other</option>
+                </select>
+              </label>
+              <label class="fld"><span>Compliance status</span>
+                <select [value]="row.complianceStatus" (change)="store.updateObligation(row.id, { complianceStatus: $any($event.target).value })">
+                  <option value="compliant">Compliant</option><option value="nonCompliant">Non-compliant</option><option value="toVerify">To verify</option>
+                </select>
+              </label>
+            </div>
+            <div class="results">
+              @for (r of results; track r.value) {
+                <button type="button" class="rp {{ r.tone }}" [class.on]="row.result === r.value" (click)="store.updateObligation(row.id, { result: r.value })">{{ r.label }}</button>
+              }
+            </div>
+          </article>
+        } @empty {
+          <div class="panel empty"><mat-icon aria-hidden="true">gavel</mat-icon><strong>No obligations yet</strong><span>Add compliance obligations and record evaluation.</span></div>
+        }
+      </div>
+    }
+    @case ('emergency') {
+      <div class="reg">
+        <div class="reg-head">
+          <h2>Emergency preparedness &amp; response</h2>
+          <button mat-flat-button color="primary" type="button" (click)="store.addEmergencyRecord()"><mat-icon aria-hidden="true">add</mat-icon>Add</button>
+        </div>
+        @for (row of store.emergencyRecords(); track row.id) {
+          <article class="tile row">
+            <label class="fld"><span>Scenario</span><input [value]="row.scenario" (change)="store.updateEmergencyRecord(row.id, { scenario: $any($event.target).value })" /></label>
+            <div class="grid2">
+              <label class="fld"><span>Procedure reference</span><input [value]="row.procedureRef || ''" (change)="store.updateEmergencyRecord(row.id, { procedureRef: $any($event.target).value })" /></label>
+              <label class="fld"><span>Last drill</span><input type="date" [value]="row.lastDrillAt || ''" (change)="store.updateEmergencyRecord(row.id, { lastDrillAt: $any($event.target).value })" /></label>
+            </div>
+            <label class="fld"><span>Notes</span><input [value]="row.notes || ''" (change)="store.updateEmergencyRecord(row.id, { notes: $any($event.target).value })" /></label>
+            <div class="results">
+              @for (r of results; track r.value) {
+                <button type="button" class="rp {{ r.tone }}" [class.on]="row.result === r.value" (click)="store.updateEmergencyRecord(row.id, { result: r.value })">{{ r.label }}</button>
+              }
+            </div>
+          </article>
+        } @empty {
+          <div class="panel empty"><mat-icon aria-hidden="true">emergency</mat-icon><strong>No scenarios yet</strong><span>Add emergency scenarios, procedures and drills.</span></div>
+        }
+      </div>
+    }
+  }
+</section>

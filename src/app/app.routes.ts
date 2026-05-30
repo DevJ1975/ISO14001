@@ -40,6 +40,11 @@ export const routes: Routes = [
         title: 'Findings',
       },
       {
+        path: 'registers',
+        loadComponent: () => import('./features/registers/registers.component').then((m) => m.RegistersComponent),
+        title: 'EMS registers',
+      },
+      {
         path: 'report',
         loadComponent: () => import('./features/report/report.component').then((m) => m.ReportComponent),
         title: 'Report',

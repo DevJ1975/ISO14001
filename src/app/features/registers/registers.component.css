@@ -1,0 +1,135 @@
+.seg {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface-guard);
+  padding: 5px;
+}
+
+.seg button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  justify-content: center;
+  min-height: 44px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.seg button mat-icon {
+  font-size: 20px;
+  width: 20px;
+  height: 20px;
+}
+
+.seg button.on {
+  background: var(--primary);
+  color: #fff;
+}
+
+.reg {
+  display: grid;
+  gap: 14px;
+}
+
+.reg-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.reg-head h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.reg-head button {
+  min-height: 44px;
+  border-radius: 11px;
+}
+
+.row {
+  display: grid;
+  gap: 10px;
+}
+
+.grid2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.fld {
+  display: grid;
+  gap: 4px;
+}
+
+.fld > span {
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.fld input,
+.fld select {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  padding: 0 12px;
+  color: var(--text);
+  font: inherit;
+}
+
+.fld input:focus-visible,
+.fld select:focus-visible {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--ring);
+}
+
+.results {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.rp {
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  font: inherit;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.rp.on.positive { background: var(--tone-positive-bg); color: var(--tone-positive-fg); border-color: var(--tone-positive-fg); }
+.rp.on.critical { background: var(--tone-critical-bg); color: var(--tone-critical-fg); border-color: var(--tone-critical-fg); }
+.rp.on.progress { background: var(--tone-progress-bg); color: var(--tone-progress-fg); border-color: var(--tone-progress-fg); }
+.rp.on.neutral { background: var(--tone-neutral-bg); color: var(--tone-neutral-fg); border-color: var(--border-strong); }
+
+@media (max-width: 560px) {
+  .grid2 {
+    grid-template-columns: 1fr;
+  }
+}

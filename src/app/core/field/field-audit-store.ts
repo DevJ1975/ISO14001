@@ -35,6 +35,44 @@ export interface AuditConclusion {
   sync: SyncState;
 }
 
+export type RegisterResult = 'notStarted' | 'conforming' | 'nonconforming' | 'notApplicable' | 'needsFollowUp';
+
+export interface EnvironmentalAspect {
+  id: string;
+  aspect: string;
+  activity: string;
+  impact: string;
+  significance: 'low' | 'medium' | 'high';
+  controls?: string;
+  relatedClauseId?: string;
+  result: RegisterResult;
+  updatedAt: string;
+  sync: SyncState;
+}
+
+export interface ComplianceObligation {
+  id: string;
+  obligation: string;
+  source: 'legal' | 'other';
+  requirement: string;
+  complianceStatus: 'compliant' | 'nonCompliant' | 'toVerify';
+  result: RegisterResult;
+  lastEvaluatedAt?: string;
+  updatedAt: string;
+  sync: SyncState;
+}
+
+export interface EmergencyRecord {
+  id: string;
+  scenario: string;
+  procedureRef?: string;
+  lastDrillAt?: string;
+  notes?: string;
+  result: RegisterResult;
+  updatedAt: string;
+  sync: SyncState;
+}
+
 export interface FieldChecklistItem {
   id: string;
   clauseId: string;
@@ -108,6 +146,9 @@ interface PersistedState {
   auditStatus: AuditStatus;
   meetings: AuditMeeting[];
   conclusion: AuditConclusion | null;
+  aspects: EnvironmentalAspect[];
+  obligations: ComplianceObligation[];
+  emergencyRecords: EmergencyRecord[];
   reportSignedAt: string | null;
 }
 
@@ -234,6 +275,9 @@ export class FieldAuditStore {
   readonly auditStatus = signal<AuditStatus>('fieldwork');
   readonly meetings = signal<AuditMeeting[]>([]);
   readonly conclusion = signal<AuditConclusion | null>(null);
+  readonly aspects = signal<EnvironmentalAspect[]>([]);
+  readonly obligations = signal<ComplianceObligation[]>([]);
+  readonly emergencyRecords = signal<EmergencyRecord[]>([]);
   readonly reportSignedAt = signal<string | null>(null);
   readonly online = signal(typeof navigator === 'undefined' ? true : navigator.onLine);
   readonly source = signal<DataSource>('local');
@@ -254,6 +298,9 @@ export class FieldAuditStore {
       this.findings().filter((f) => f.sync !== 'synced').length +
       this.capas().filter((c) => c.sync !== 'synced').length +
       this.meetings().filter((m) => m.sync !== 'synced').length +
+      this.aspects().filter((a) => a.sync !== 'synced').length +
+      this.obligations().filter((o) => o.sync !== 'synced').length +
+      this.emergencyRecords().filter((e) => e.sync !== 'synced').length +
       (this.conclusion() && this.conclusion()!.sync !== 'synced' ? 1 : 0),
   );
 
@@ -494,6 +541,57 @@ export class FieldAuditStore {
     this.autoFlush();
   }
 
+  addAspect(): void {
+    this.aspects.update((list) => [
+      { id: uid('aspect'), aspect: '', activity: '', impact: '', significance: 'medium', result: 'notStarted', updatedAt: new Date().toISOString(), sync: 'queued' },
+      ...list,
+    ]);
+    this.persist();
+    this.autoFlush();
+  }
+
+  updateAspect(id: string, patch: Partial<EnvironmentalAspect>): void {
+    this.aspects.update((list) =>
+      list.map((entry) => (entry.id === id ? { ...entry, ...patch, updatedAt: new Date().toISOString(), sync: 'queued' } : entry)),
+    );
+    this.persist();
+    this.autoFlush();
+  }
+
+  addObligation(): void {
+    this.obligations.update((list) => [
+      { id: uid('obligation'), obligation: '', source: 'legal', requirement: '', complianceStatus: 'toVerify', result: 'notStarted', updatedAt: new Date().toISOString(), sync: 'queued' },
+      ...list,
+    ]);
+    this.persist();
+    this.autoFlush();
+  }
+
+  updateObligation(id: string, patch: Partial<ComplianceObligation>): void {
+    this.obligations.update((list) =>
+      list.map((entry) => (entry.id === id ? { ...entry, ...patch, updatedAt: new Date().toISOString(), sync: 'queued' } : entry)),
+    );
+    this.persist();
+    this.autoFlush();
+  }
+
+  addEmergencyRecord(): void {
+    this.emergencyRecords.update((list) => [
+      { id: uid('emergency'), scenario: '', result: 'notStarted', updatedAt: new Date().toISOString(), sync: 'queued' },
+      ...list,
+    ]);
+    this.persist();
+    this.autoFlush();
+  }
+
+  updateEmergencyRecord(id: string, patch: Partial<EmergencyRecord>): void {
+    this.emergencyRecords.update((list) =>
+      list.map((entry) => (entry.id === id ? { ...entry, ...patch, updatedAt: new Date().toISOString(), sync: 'queued' } : entry)),
+    );
+    this.persist();
+    this.autoFlush();
+  }
+
   /** Lead-auditor sign-off. Persisted to the server when live; recorded locally otherwise. */
   async signOff(attestation: string): Promise<boolean> {
     if (this.source() === 'live' && this.online()) {
@@ -548,6 +646,9 @@ export class FieldAuditStore {
     this.auditStatus.set('fieldwork');
     this.meetings.set([]);
     this.conclusion.set(null);
+    this.aspects.set([]);
+    this.obligations.set([]);
+    this.emergencyRecords.set([]);
     this.reportSignedAt.set(null);
     await idbDelete('meta', META_KEY);
   }
@@ -641,15 +742,61 @@ export class FieldAuditStore {
           this.conclusion.set({ ...conclusion, sync: 'queued' });
         }
       }
+      for (const aspect of this.aspects().filter((entry) => entry.sync !== 'synced')) {
+        this.setSync('aspects', aspect.id, 'syncing');
+        try {
+          const { sync, ...payload } = aspect;
+          void sync;
+          await this.api.upsertAspect(payload);
+          this.setSync('aspects', aspect.id, 'synced');
+        } catch {
+          this.setSync('aspects', aspect.id, 'queued');
+        }
+      }
+      for (const obligation of this.obligations().filter((entry) => entry.sync !== 'synced')) {
+        this.setSync('obligations', obligation.id, 'syncing');
+        try {
+          const { sync, ...payload } = obligation;
+          void sync;
+          await this.api.upsertObligation(payload);
+          this.setSync('obligations', obligation.id, 'synced');
+        } catch {
+          this.setSync('obligations', obligation.id, 'queued');
+        }
+      }
+      for (const record of this.emergencyRecords().filter((entry) => entry.sync !== 'synced')) {
+        this.setSync('emergency', record.id, 'syncing');
+        try {
+          const { sync, ...payload } = record;
+          void sync;
+          await this.api.upsertEmergency(payload);
+          this.setSync('emergency', record.id, 'synced');
+        } catch {
+          this.setSync('emergency', record.id, 'queued');
+        }
+      }
       this.persist();
     } finally {
       this.flushing = false;
     }
   }
 
-  private setSync(collection: 'items' | 'evidence' | 'findings' | 'capas' | 'meetings', id: string, sync: SyncState): void {
+  private setSync(
+    collection: 'items' | 'evidence' | 'findings' | 'capas' | 'meetings' | 'aspects' | 'obligations' | 'emergency',
+    id: string,
+    sync: SyncState,
+  ): void {
     type SyncRecord = { id: string; sync: SyncState };
-    const map = { items: this.items, evidence: this.evidence, findings: this.findings, capas: this.capas, meetings: this.meetings };
+    const map = {
+      items: this.items,
+      evidence: this.evidence,
+      findings: this.findings,
+      capas: this.capas,
+      meetings: this.meetings,
+      aspects: this.aspects,
+      obligations: this.obligations,
+      emergency: this.emergencyRecords,
+    };
     const ref = map[collection] as unknown as {
       update: (fn: (list: SyncRecord[]) => SyncRecord[]) => void;
     };
@@ -693,6 +840,9 @@ export class FieldAuditStore {
       auditStatus: this.auditStatus(),
       meetings: this.meetings(),
       conclusion: this.conclusion(),
+      aspects: this.aspects(),
+      obligations: this.obligations(),
+      emergencyRecords: this.emergencyRecords(),
       reportSignedAt: this.reportSignedAt(),
     };
     void idbSet('meta', META_KEY, snapshot);
@@ -709,6 +859,9 @@ export class FieldAuditStore {
       this.auditStatus.set(payload.auditStatus ?? 'fieldwork');
       this.meetings.set((payload.meetings ?? []).map((meeting) => ({ ...meeting, sync: 'synced' as const })));
       this.conclusion.set(payload.conclusion ? { ...payload.conclusion, sync: 'synced' } : null);
+      this.aspects.set((payload.aspects ?? []).map((a) => ({ ...a, sync: 'synced' as const })));
+      this.obligations.set((payload.obligations ?? []).map((o) => ({ ...o, sync: 'synced' as const })));
+      this.emergencyRecords.set((payload.emergencyRecords ?? []).map((e) => ({ ...e, sync: 'synced' as const })));
       this.source.set('live');
       this.online.set(true);
       this.persist();
@@ -727,6 +880,9 @@ export class FieldAuditStore {
     this.auditStatus.set(saved.auditStatus ?? 'fieldwork');
     this.meetings.set(saved.meetings ?? []);
     this.conclusion.set(saved.conclusion ?? null);
+    this.aspects.set(saved.aspects ?? []);
+    this.obligations.set(saved.obligations ?? []);
+    this.emergencyRecords.set(saved.emergencyRecords ?? []);
     this.reportSignedAt.set(saved.reportSignedAt ?? null);
     const restored = await Promise.all(
       saved.evidence.map(async (record) => {

@@ -8,6 +8,9 @@ import type {
   AuditConclusion,
   AuditMeeting,
   AuditStatus,
+  ComplianceObligation,
+  EmergencyRecord,
+  EnvironmentalAspect,
   FieldCapa,
   FieldChecklistItem,
   FieldEvidence,
@@ -23,6 +26,9 @@ export interface FieldStatePayload {
   auditStatus?: AuditStatus;
   meetings?: Array<Omit<AuditMeeting, 'sync'>>;
   conclusion?: Omit<AuditConclusion, 'sync'> | null;
+  aspects?: Array<Omit<EnvironmentalAspect, 'sync'>>;
+  obligations?: Array<Omit<ComplianceObligation, 'sync'>>;
+  emergencyRecords?: Array<Omit<EmergencyRecord, 'sync'>>;
 }
 
 /** Thin client over the tenant-scoped field-audit endpoints. The bearer token is
@@ -83,6 +89,18 @@ export class FieldApiService {
 
   signReport(body: { attestation: string }): Promise<{ signedAt?: string }> {
     return firstValueFrom(this.http.post<{ signedAt?: string }>(`${this.base()}/reports/signoff`, body));
+  }
+
+  upsertAspect(body: Omit<EnvironmentalAspect, 'sync'>): Promise<unknown> {
+    return firstValueFrom(this.http.put(`${this.base()}/aspects/${encodeURIComponent(body.id)}`, body));
+  }
+
+  upsertObligation(body: Omit<ComplianceObligation, 'sync'>): Promise<unknown> {
+    return firstValueFrom(this.http.put(`${this.base()}/obligations/${encodeURIComponent(body.id)}`, body));
+  }
+
+  upsertEmergency(body: Omit<EmergencyRecord, 'sync'>): Promise<unknown> {
+    return firstValueFrom(this.http.put(`${this.base()}/emergency/${encodeURIComponent(body.id)}`, body));
   }
 
   private base(): string {

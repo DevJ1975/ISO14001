@@ -53,6 +53,7 @@ export class ShellComponent {
     { path: '/fieldwork', label: 'Fieldwork', icon: 'checklist', exact: false },
     { path: '/evidence', label: 'Evidence', icon: 'photo_camera', exact: false },
     { path: '/findings', label: 'Findings', icon: 'flag', exact: false },
+    { path: '/registers', label: 'EMS', icon: 'eco', exact: false },
     { path: '/report', label: 'Report', icon: 'description', exact: false },
   ];
 
