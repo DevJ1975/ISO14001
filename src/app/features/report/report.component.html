@@ -32,6 +32,22 @@
     </ul>
   </article>
 
+  @if (store.changeLog().length) {
+    <article class="panel">
+      <h2>Activity log</h2>
+      <p class="muted small">Immutable audit trail of key actions on this audit (most recent first).</p>
+      <ul class="trail">
+        @for (entry of store.changeLog().slice(0, 12); track entry.id) {
+          <li>
+            <mat-icon aria-hidden="true">history</mat-icon>
+            <span><strong>{{ entry.action }}</strong> {{ entry.target }}@if (entry.targetId) { · {{ entry.targetId }} }</span>
+            <small>{{ formatTime(entry.at) }}</small>
+          </li>
+        }
+      </ul>
+    </article>
+  }
+
   @if (isLead()) {
     <article class="panel">
       <h2>Report details</h2>

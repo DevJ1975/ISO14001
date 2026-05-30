@@ -52,6 +52,16 @@ export type RegisterResult = 'notStarted' | 'conforming' | 'nonconforming' | 'no
 
 export type AuditType = 'internal' | 'stage1' | 'stage2' | 'surveillance' | 'recertification';
 
+/** Immutable change-log entry (audit trail) returned by the backend. */
+export interface ChangeLogEntry {
+  id: string;
+  actorUid: string;
+  action: string;
+  target: string;
+  targetId?: string;
+  at: string;
+}
+
 /**
  * Report front-matter expected on a UKAS-style ISO 14001 report (audit type,
  * dates, scope, criteria, sampling, auditor competence & impartiality,
@@ -480,6 +490,8 @@ export class FieldAuditStore {
   readonly awareness = signal<AwarenessRecord[]>([]);
   readonly documentedInfo = signal<DocumentedInfoRecord[]>([]);
   readonly reportMeta = signal<ReportMeta>(defaultReportMeta());
+  /** Read-only audit trail from the backend (not synced upward). */
+  readonly changeLog = signal<ChangeLogEntry[]>([]);
   readonly reportSignedAt = signal<string | null>(null);
   readonly online = signal(typeof navigator === 'undefined' ? true : navigator.onLine);
   readonly source = signal<DataSource>('local');
@@ -1461,6 +1473,7 @@ export class FieldAuditStore {
           ? { ...defaultReportMeta(), ...payload.reportMeta, sync: 'synced' }
           : defaultReportMeta(),
       );
+      this.changeLog.set(payload.changeLog ?? []);
       if (payload.audit) {
         this.auditee.set(payload.audit.auditee || this.auditee());
         this.criteria.set(payload.audit.criteria || this.criteria());

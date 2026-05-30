@@ -11,6 +11,7 @@ import type {
   AuditStatus,
   AuditSummary,
   AwarenessRecord,
+  ChangeLogEntry,
   ReportMeta,
   CommunicationRecord,
   CompetenceRecord,
@@ -60,6 +61,7 @@ export interface FieldStatePayload {
   awareness?: Array<Omit<AwarenessRecord, 'sync'>>;
   documentedInfo?: Array<Omit<DocumentedInfoRecord, 'sync'>>;
   reportMeta?: Omit<ReportMeta, 'sync'> | null;
+  changeLog?: ChangeLogEntry[];
 }
 
 /** Thin client over the tenant-scoped field-audit endpoints. The bearer token is

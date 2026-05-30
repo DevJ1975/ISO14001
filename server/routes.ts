@@ -37,6 +37,35 @@ interface RouteMatch {
 
 const jsonContentType = { 'content-type': 'application/json; charset=utf-8' };
 
+// In-memory login throttle: after MAX_ATTEMPTS failures for a key within
+// WINDOW_MS, further attempts are refused until the window elapses. Good enough
+// for a single-process dev/reference server; a multi-instance deployment should
+// back this with a shared store (Redis) or an edge rate limiter.
+const LOGIN_MAX_ATTEMPTS = 5;
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const loginAttempts = new Map<string, { count: number; firstAt: number }>();
+
+function loginRateLimited(key: string): boolean {
+  const now = Date.now();
+  const entry = loginAttempts.get(key);
+  if (!entry || now - entry.firstAt > LOGIN_WINDOW_MS) return false;
+  return entry.count >= LOGIN_MAX_ATTEMPTS;
+}
+
+function recordLoginFailure(key: string): void {
+  const now = Date.now();
+  const entry = loginAttempts.get(key);
+  if (!entry || now - entry.firstAt > LOGIN_WINDOW_MS) {
+    loginAttempts.set(key, { count: 1, firstAt: now });
+  } else {
+    entry.count += 1;
+  }
+}
+
+function clearLoginFailures(key: string): void {
+  loginAttempts.delete(key);
+}
+
 const tenantPath = '([^/]+)';
 const auditPath = '([^/]+)';
 const reportPath = '([^/]+)';
@@ -89,6 +118,26 @@ function sendError(response: ServerResponse, error: unknown, corsOrigin: string)
   }
 
   sendJson(response, 500, { error: 'Unexpected backend error.' }, corsOrigin);
+}
+
+/**
+ * Append an immutable change-log entry — the audit trail an audit tool needs
+ * (who changed what, when). Best-effort: logging failure must never block the
+ * underlying write, so callers don't await rejection paths.
+ */
+async function recordChange(
+  db: Db,
+  entry: { tenantId: string; auditId?: string; actorUid: string; action: string; target: string; targetId?: string },
+): Promise<void> {
+  try {
+    await db.collection(mongoCollections.changeLog).insertOne({
+      id: `chg-${randomUUID()}`,
+      ...entry,
+      at: new Date().toISOString(),
+    });
+  } catch {
+    // Never let audit logging break the request it is recording.
+  }
 }
 
 function createBackendJob(input: {
@@ -474,12 +523,22 @@ export async function handleApiRequest(
 
     if (request.method === 'POST' && url.pathname === '/api/auth/login') {
       const command = await readJson(request, loginCommandSchema);
+      // Throttle brute-force attempts by email + client IP.
+      const fwd = request.headers['x-forwarded-for'];
+      const clientIp = (Array.isArray(fwd) ? fwd[0] : fwd) ?? request.socket?.remoteAddress ?? 'local';
+      const rateKey = `${command.email.toLowerCase()}|${clientIp}`;
+      if (loginRateLimited(rateKey)) {
+        sendJson(response, 429, { error: 'Too many failed sign-in attempts. Try again later.' }, corsOrigin);
+        return;
+      }
       const member = await dependencies.db
         .collection(mongoCollections.members)
         .findOne({ 'profile.email': command.email.toLowerCase(), status: 'active' });
       if (!member || typeof member['passwordHash'] !== 'string' || !verifyPassword(command.password, member['passwordHash'])) {
+        recordLoginFailure(rateKey);
         throw new ApiAuthError('Invalid email or password.');
       }
+      clearLoginFailures(rateKey);
       const profile = member['profile'] as { displayName?: string; email?: string } | undefined;
       const { token, expiresAt } = issueMemberToken(
         { uid: String(member['uid']), tenantId: String(member['tenantId']), role: String(member['role']) },
@@ -793,6 +852,11 @@ export async function handleApiRequest(
       const reportMeta = await dependencies.db
         .collection(mongoCollections.reportMeta)
         .findOne({ tenantId, auditId }, { projection: { _id: 0 } });
+      const changeLog = await dependencies.db
+        .collection(mongoCollections.changeLog)
+        .find({ tenantId, auditId }, { projection: { _id: 0 } })
+        .sort({ at: -1 })
+        .toArray();
       sendJson(
         response,
         200,
@@ -817,6 +881,7 @@ export async function handleApiRequest(
           awareness,
           documentedInfo,
           reportMeta,
+          changeLog,
         },
         corsOrigin,
       );
@@ -922,6 +987,7 @@ export async function handleApiRequest(
       await dependencies.db
         .collection(mongoCollections.findings)
         .updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
+      await recordChange(dependencies.db, { tenantId, auditId, actorUid: actor.uid, action: 'upsert', target: 'finding', targetId: command.id });
       sendJson(response, 200, { finding: record }, corsOrigin);
       return;
     }
@@ -957,6 +1023,14 @@ export async function handleApiRequest(
           { tenantId, auditId, id: command.findingId },
           { $set: { status: command.effective ? 'closed' : 'reopened', updatedAt: now } },
         );
+      await recordChange(dependencies.db, {
+        tenantId,
+        auditId,
+        actorUid: actor.uid,
+        action: command.effective ? 'verify-effective' : 'verify-ineffective',
+        target: 'capa',
+        targetId: capaId,
+      });
       sendJson(response, 200, { ok: true }, corsOrigin);
       return;
     }
@@ -1007,6 +1081,7 @@ export async function handleApiRequest(
           { $set: { tenantId, id: auditId, status: command.status, updatedAt: new Date().toISOString() } },
           { upsert: true },
         );
+      await recordChange(dependencies.db, { tenantId, auditId, actorUid: actor.uid, action: 'set-status', target: 'audit', targetId: command.status });
       sendJson(response, 200, { ok: true }, corsOrigin);
       return;
     }
@@ -1097,6 +1172,7 @@ export async function handleApiRequest(
       await dependencies.db
         .collection(mongoCollections.reports)
         .updateOne({ tenantId, auditId, id: reportId }, { $set: report }, { upsert: true });
+      await recordChange(dependencies.db, { tenantId, auditId, actorUid: actor.uid, action: 'sign-off', target: 'report', targetId: reportId });
       sendJson(response, 200, { signedAt: now, report }, corsOrigin);
       return;
     }

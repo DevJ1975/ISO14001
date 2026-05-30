@@ -139,6 +139,46 @@
   font-size: 13px;
 }
 
+.trail {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.trail li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: var(--surface-guard);
+  padding: 9px 12px;
+}
+
+.trail li span {
+  flex: 1;
+  color: var(--text);
+}
+
+.trail li strong {
+  text-transform: capitalize;
+}
+
+.trail li small {
+  color: var(--muted);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.trail mat-icon {
+  color: var(--muted);
+  font-size: 20px;
+  width: 20px;
+  height: 20px;
+}
+
 .rec {
   display: grid;
   gap: 8px;
