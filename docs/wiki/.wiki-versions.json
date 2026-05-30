@@ -1,0 +1,249 @@
+{
+  "faqs-app": {
+    "version": "1.0.0",
+    "hash": "251a885fe84d06d4a2999062d065586601ba790d1aab3aabe459711784944252",
+    "lastUpdated": "2026-05-30",
+    "title": "App FAQs",
+    "history": [
+      {
+        "version": "1.0.0",
+        "date": "2026-05-30",
+        "change": "added"
+      }
+    ]
+  },
+  "faqs-iso14001": {
+    "version": "1.0.0",
+    "hash": "576f3dadbc3a407047a5432d63e4763ffba1cd3736dfe72f9a778e84cef2fde6",
+    "lastUpdated": "2026-05-30",
+    "title": "ISO 14001 FAQs",
+    "history": [
+      {
+        "version": "1.0.0",
+        "date": "2026-05-30",
+        "change": "added"
+      }
+    ]
+  },
+  "quick-start": {
+    "version": "1.0.0",
+    "hash": "c408b4ea088afb0cec4c73b348bdda4e012c07d98e72c4f53a7cdccffe8f1fdc",
+    "lastUpdated": "2026-05-30",
+    "title": "Quick Start (10 minutes)",
+    "history": [
+      {
+        "version": "1.0.0",
+        "date": "2026-05-30",
+        "change": "added"
+      }
+    ]
+  },
+  "user-guide": {
+    "version": "1.0.0",
+    "hash": "ac4ea386623834785e0dd5ea812c1adadbee1146d8a202d77e1bfe724bb92007",
+    "lastUpdated": "2026-05-30",
+    "title": "Comprehensive User Guide",
+    "history": [
+      {
+        "version": "1.0.0",
+        "date": "2026-05-30",
+        "change": "added"
+      }
+    ]
+  },
+  "aspects-and-impacts": {
+    "version": "1.0.0",
+    "hash": "7aaf55cd391d4e7871f63cb3132e80e643f437faf26172b1b6b8a861f1430cc2",
+    "lastUpdated": "2026-05-30",
+    "title": "Environmental Aspects & Impacts",
+    "history": [
+      {
+        "version": "1.0.0",
+        "date": "2026-05-30",
+        "change": "added"
+      }
+    ]
+  },
+  "compliance-obligations": {
+    "version": "1.0.0",
+    "hash": "39aa1ff4d1f72b619a424e66152ab5de92a162a1850248d0813e5688f78a0150",
+    "lastUpdated": "2026-05-30",
+    "title": "Compliance Obligations",
+    "history": [
+      {
+        "version": "1.0.0",
+        "date": "2026-05-30",
+        "change": "added"
+      }
+    ]
+  },
+  "ems-overview": {
+    "version": "1.0.0",
+    "hash": "421d57c7cfa00b0abd5a79a73583ccd0665d31e1fce2febe289cd438ce5d6ff2",
+    "lastUpdated": "2026-05-30",
+    "title": "EMS Overview (Clauses 4–10)",
+    "history": [
+      {
+        "version": "1.0.0",
+        "date": "2026-05-30",
+        "change": "added"
+      }
+    ]
+  },
+  "monitoring-audit-review": {
+    "version": "1.0.0",
+    "hash": "2d8b6e653b5b0034819c1edc1adfea6e0a832016f25c8450bc859b2a61ffa9a7",
+    "lastUpdated": "2026-05-30",
+    "title": "Monitoring, Internal Audit & Management Review",
+    "history": [
+      {
+        "version": "1.0.0",
+        "date": "2026-05-30",
+        "change": "added"
+      }
+    ]
+  },
+  "objectives-and-programmes": {
+    "version": "1.0.0",
+    "hash": "95768b4f05a003b0782543a76b05942f310d68eb35e171982a533d7bdf4839e1",
+    "lastUpdated": "2026-05-30",
+    "title": "Objectives & Action Plans",
+    "history": [
+      {
+        "version": "1.0.0",
+        "date": "2026-05-30",
+        "change": "added"
+      }
+    ]
+  },
+  "operational-control-and-emergency": {
+    "version": "1.0.0",
+    "hash": "c7b3d879b954b186e906d2a0488d32070551933aeb06e84ccb31d92af3451fa9",
+    "lastUpdated": "2026-05-30",
+    "title": "Operational Control & Emergency Preparedness",
+    "history": [
+      {
+        "version": "1.0.0",
+        "date": "2026-05-30",
+        "change": "added"
+      }
+    ]
+  },
+  "documented-information": {
+    "version": "1.0.0",
+    "hash": "a32820eab0155533a9f85f2af0ecfd67e89ec4f65485504506feefc9df22337a",
+    "lastUpdated": "2026-05-30",
+    "title": "Documented Information Explained",
+    "history": [
+      {
+        "version": "1.0.0",
+        "date": "2026-05-30",
+        "change": "added"
+      }
+    ]
+  },
+  "environmental-policy": {
+    "version": "1.0.0",
+    "hash": "ad09697adc171d895d280882df39e52237b0453f31225c16cec8350e4d2eb35c",
+    "lastUpdated": "2026-05-30",
+    "title": "Environmental Policy (Template & Guidance)",
+    "history": [
+      {
+        "version": "1.0.0",
+        "date": "2026-05-30",
+        "change": "added"
+      }
+    ]
+  },
+  "records-and-documents-register": {
+    "version": "1.0.0",
+    "hash": "99940e2424090f0e13f7e83180c85a5e65356f7477abb8d7c42b69f8710efb4f",
+    "lastUpdated": "2026-05-30",
+    "title": "Records & Documents Register (Master List)",
+    "history": [
+      {
+        "version": "1.0.0",
+        "date": "2026-05-30",
+        "change": "added"
+      }
+    ]
+  },
+  "audit-lifecycle-and-report": {
+    "version": "1.0.0",
+    "hash": "64771cabcd85d7f075a8ce4a67c69bf38c254e3e33dc59311307ce7a92c42887",
+    "lastUpdated": "2026-05-30",
+    "title": "Audit Lifecycle & Report",
+    "history": [
+      {
+        "version": "1.0.0",
+        "date": "2026-05-30",
+        "change": "added"
+      }
+    ]
+  },
+  "audit-programme": {
+    "version": "1.0.0",
+    "hash": "bd6655edaef6680071e7c7aa490cc9ba33e7308fe94e4deed2c49a64d725d8cb",
+    "lastUpdated": "2026-05-30",
+    "title": "Audit Programme",
+    "history": [
+      {
+        "version": "1.0.0",
+        "date": "2026-05-30",
+        "change": "added"
+      }
+    ]
+  },
+  "ems-registers-screen": {
+    "version": "1.0.0",
+    "hash": "a8b35c804491065bb72a787b852c4ced37f2e75b5302757d51e9459546d90173",
+    "lastUpdated": "2026-05-30",
+    "title": "EMS Registers Screen",
+    "history": [
+      {
+        "version": "1.0.0",
+        "date": "2026-05-30",
+        "change": "added"
+      }
+    ]
+  },
+  "fieldwork-and-evidence": {
+    "version": "1.0.0",
+    "hash": "1560a586340cdea3eba21f6a5589c09101ac97cfe731f5a2deee58ea5b4e54bb",
+    "lastUpdated": "2026-05-30",
+    "title": "Fieldwork & Evidence",
+    "history": [
+      {
+        "version": "1.0.0",
+        "date": "2026-05-30",
+        "change": "added"
+      }
+    ]
+  },
+  "findings-and-capa": {
+    "version": "1.0.0",
+    "hash": "7270112ec65d7a65e15e8c126390dec31395c98efdf804e0ccd820256c2e2506",
+    "lastUpdated": "2026-05-30",
+    "title": "Findings & Corrective Action",
+    "history": [
+      {
+        "version": "1.0.0",
+        "date": "2026-05-30",
+        "change": "added"
+      }
+    ]
+  },
+  "offline-and-roles": {
+    "version": "1.0.0",
+    "hash": "eb6e29795dcbbf42b2a5647126342e93603577ec97fcf36a0799fd1d61456109",
+    "lastUpdated": "2026-05-30",
+    "title": "Offline Use, Sync & Roles",
+    "history": [
+      {
+        "version": "1.0.0",
+        "date": "2026-05-30",
+        "change": "added"
+      }
+    ]
+  }
+}

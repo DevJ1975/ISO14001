@@ -6,8 +6,12 @@
   "description": "Trainovate multi-tenant ISO 14001 audit platform foundation.",
   "scripts": {
     "start": "ng serve",
+    "prestart": "node scripts/generate-wiki.mjs",
     "api": "tsx server/api-server.ts",
     "build": "ng build",
+    "prebuild": "node scripts/generate-wiki.mjs",
+    "wiki:generate": "node scripts/generate-wiki.mjs",
+    "wiki:watch": "node scripts/generate-wiki.mjs --watch",
     "test": "tsx --test test/*.test.ts",
     "typecheck": "tsc --noEmit -p tsconfig.spec.json",
     "mongo:init": "tsx server/scripts/init-mongo.ts"

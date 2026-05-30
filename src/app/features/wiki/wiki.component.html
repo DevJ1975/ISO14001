@@ -1,0 +1,130 @@
+<section class="screen wiki">
+  <header class="wiki-head">
+    <div class="title">
+      <h1>{{ wiki.title }}</h1>
+      <p>User guide, ISO 14001 reference, document templates and FAQs — built from the team's Markdown.</p>
+    </div>
+    <div class="head-actions">
+      <span class="version" title="Knowledge base version (auto-bumped when content changes)">
+        <mat-icon aria-hidden="true">sell</mat-icon> v{{ wiki.version }}
+      </span>
+      <button type="button" class="ghost" [class.on]="showChangelog()" (click)="toggleChangelog()">
+        <mat-icon aria-hidden="true">history</mat-icon> What's new
+      </button>
+    </div>
+  </header>
+
+  <div class="wiki-layout">
+    <aside class="wiki-side panel">
+      <label class="search">
+        <mat-icon aria-hidden="true">search</mat-icon>
+        <input
+          type="search"
+          placeholder="Search the knowledge base…"
+          [ngModel]="query()"
+          (ngModelChange)="query.set($event)"
+          [ngModelOptions]="{ standalone: true }"
+          aria-label="Search the knowledge base"
+        />
+      </label>
+
+      <nav class="side-nav" aria-label="Knowledge base">
+        @for (group of grouped(); track group.category.id) {
+          <div class="side-group">
+            <p class="side-cat">
+              <mat-icon aria-hidden="true">{{ group.category.icon }}</mat-icon>
+              {{ group.category.title }}
+            </p>
+            @for (doc of group.docs; track doc.id) {
+              <button
+                type="button"
+                class="side-link"
+                [class.active]="doc.id === activeId() && !query() && !showChangelog()"
+                (click)="select(doc.id)"
+              >
+                <mat-icon aria-hidden="true">{{ doc.icon }}</mat-icon>
+                <span>{{ doc.title }}</span>
+              </button>
+            }
+          </div>
+        }
+      </nav>
+    </aside>
+
+    <main class="wiki-main panel">
+      @if (showChangelog()) {
+        <article class="doc">
+          <h2><mat-icon aria-hidden="true">history</mat-icon> What's new</h2>
+          <p class="doc-meta">Version {{ wiki.version }} · generated {{ wiki.generatedAt.slice(0, 10) }}</p>
+          <ul class="changelog">
+            @for (entry of wiki.changelog; track $index) {
+              <li>
+                <span class="badge" [attr.data-change]="entry.change">{{ entry.change }}</span>
+                <button type="button" class="link" (click)="select(entry.docId)">{{ entry.title }}</button>
+                <span class="muted">v{{ entry.version }} · {{ entry.date }}</span>
+              </li>
+            }
+          </ul>
+        </article>
+      } @else if (query().trim().length >= 2) {
+        <article class="doc">
+          <h2><mat-icon aria-hidden="true">search</mat-icon> Results for "{{ query() }}"</h2>
+          @if (results().length === 0) {
+            <p class="muted">No matches. Try a different term.</p>
+          } @else {
+            <ul class="results">
+              @for (hit of results(); track $index) {
+                <li>
+                  <button type="button" class="result" (click)="select(hit.docId)">
+                    <span class="result-top">
+                      <mat-icon aria-hidden="true">{{ hit.kind === 'faq' ? 'help' : 'article' }}</mat-icon>
+                      <strong>{{ hit.title }}</strong>
+                      <span class="chip">{{ hit.subtitle }}</span>
+                    </span>
+                    @if (hit.snippet) { <span class="result-snippet">{{ hit.snippet }}</span> }
+                  </button>
+                </li>
+              }
+            </ul>
+          }
+        </article>
+      } @else {
+        <article class="doc">
+          <header class="doc-head">
+            <h2><mat-icon aria-hidden="true">{{ activeDoc().icon }}</mat-icon> {{ activeDoc().title }}</h2>
+            <p class="doc-meta">
+              <span>{{ categoryTitle(activeDoc().category) }}</span>
+              <span>·</span>
+              <span>v{{ activeDoc().version }}</span>
+              <span>·</span>
+              <span>Updated {{ activeDoc().lastUpdated }}</span>
+              <span>·</span>
+              <span>{{ activeDoc().readingMinutes }} min read</span>
+            </p>
+            @if (activeDoc().summary) { <p class="doc-summary">{{ activeDoc().summary }}</p> }
+          </header>
+
+          @if (activeDoc().type === 'faq') {
+            <div class="faq-list">
+              @for (item of activeFaqs(); track $index) {
+                <details class="faq">
+                  <summary>{{ item.question }}</summary>
+                  <div class="faq-answer" [innerHTML]="item.answer"></div>
+                </details>
+              }
+            </div>
+          } @else {
+            @if (activeDoc().toc.length > 1) {
+              <nav class="doc-toc" aria-label="On this page">
+                @for (entry of activeDoc().toc; track entry.id) {
+                  <a [href]="'#' + entry.id" [class.sub]="entry.level === 3">{{ entry.text }}</a>
+                }
+              </nav>
+            }
+            <div class="doc-html" (click)="onContentClick($event)" [innerHTML]="activeHtml()"></div>
+          }
+        </article>
+      }
+    </main>
+  </div>
+</section>

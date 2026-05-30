@@ -56,6 +56,7 @@ export class ShellComponent {
     { path: '/registers', label: 'EMS', icon: 'eco', exact: false },
     { path: '/report', label: 'Report', icon: 'description', exact: false },
     { path: '/programme', label: 'Programme', icon: 'calendar_month', exact: false },
+    { path: '/wiki', label: 'Wiki', icon: 'menu_book', exact: false },
   ];
 
   protected toggleTheme(): void {
