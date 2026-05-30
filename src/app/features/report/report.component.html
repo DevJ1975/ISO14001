@@ -6,11 +6,11 @@
 
   <div class="stat-grid">
     <div class="stat"><strong>{{ store.progress().percent }}%</strong><span>Complete</span></div>
-    <div class="stat"><strong>{{ store.resultTotals().conform }}</strong><span>Conform</span></div>
-    <div class="stat"><strong>{{ store.resultTotals().majorNc + store.resultTotals().minorNc }}</strong><span>Non-conformities</span></div>
-    <div class="stat"><strong>{{ store.resultTotals().ofi }}</strong><span>Opportunities</span></div>
+    <div class="stat"><strong>{{ store.ncCountsByGrade().majorNc }}</strong><span>Major NC</span></div>
+    <div class="stat"><strong>{{ store.ncCountsByGrade().minorNc }}</strong><span>Minor NC</span></div>
+    <div class="stat"><strong>{{ store.ncCountsByGrade().ofi }}</strong><span>OFI</span></div>
     <div class="stat"><strong>{{ store.evidence().length }}</strong><span>Evidence</span></div>
-    <div class="stat"><strong>{{ store.findings().length }}</strong><span>Findings</span></div>
+    <div class="stat"><strong>{{ store.overdueCapas().length }}</strong><span>Overdue CAPA</span></div>
   </div>
 
   <article class="panel">
@@ -26,6 +26,39 @@
     </ul>
   </article>
 
+  <article class="panel">
+    <h2>Audit conclusions</h2>
+    @if (isLead()) {
+      <label class="fld"><span>Overall conformity</span>
+        <textarea #oc rows="2" [value]="conclusion()?.overallConformity || ''" (change)="saveOverall(oc.value)"
+          placeholder="Overall conformity with the audit criteria…"></textarea>
+      </label>
+      <label class="fld"><span>EMS effectiveness opinion</span>
+        <textarea #eo rows="2" [value]="conclusion()?.emsEffectivenessOpinion || ''" (change)="saveOpinion(eo.value)"></textarea>
+      </label>
+      <label class="fld"><span>Degree to which criteria were met</span>
+        <textarea #cm rows="2" [value]="conclusion()?.criteriaMetStatement || ''" (change)="saveCriteria(cm.value)"></textarea>
+      </label>
+      <label class="fld"><span>Unresolved diverging opinions</span>
+        <textarea #dv rows="2" [value]="conclusion()?.divergingOpinions || ''" (change)="saveDiverging(dv.value)"></textarea>
+      </label>
+      <div class="rec">
+        <span class="lbl">Recommendation</span>
+        <div class="rec-row">
+          @for (r of recommendations; track r.value) {
+            <button type="button" class="rec-btn" [class.on]="conclusion()?.recommendation === r.value"
+              (click)="setRecommendation(r.value)">{{ r.label }}</button>
+          }
+        </div>
+      </div>
+    } @else if (conclusion(); as c) {
+      <p>{{ c.overallConformity || '—' }}</p>
+      <p class="muted"><strong>Recommendation:</strong> {{ recommendationLabel(c.recommendation) }}</p>
+    } @else {
+      <p class="muted">No conclusions recorded yet.</p>
+    }
+  </article>
+
   <article class="panel signoff" [class.signed]="store.reportSignedAt()">
     @if (store.reportSignedAt(); as signedAt) {
       <div class="signed-state">
@@ -35,21 +68,24 @@
           <small>Lead auditor · {{ formatTime(signedAt) }}</small>
         </div>
       </div>
-    } @else {
+    } @else if (isLead()) {
       <div class="sign-copy">
         <strong>Lead auditor sign-off</strong>
         <small>
-          @if (ready()) {
-            All readiness checks pass — ready to sign.
-          } @else {
-            Sign-off is available, but some readiness checks are still open.
-          }
+          @if (ready()) { All readiness checks pass — ready to sign. }
+          @else { Sign-off is available, but some readiness checks are still open. }
         </small>
       </div>
-      <button mat-flat-button color="primary" type="button" (click)="sign()">
+      <label class="fld"><span>Attestation</span>
+        <textarea #att rows="2" placeholder="I attest that this audit was conducted per ISO 19011 and the findings are accurate…"></textarea>
+      </label>
+      @if (signError(); as err) { <p class="err"><mat-icon aria-hidden="true">error</mat-icon>{{ err }}</p> }
+      <button mat-flat-button color="primary" type="button" (click)="sign(att.value)">
         <mat-icon aria-hidden="true">draw</mat-icon>
         Sign report
       </button>
+    } @else {
+      <div class="sign-copy"><strong>Awaiting lead-auditor sign-off</strong><small>Only the lead auditor can sign the report.</small></div>
     }
   </article>
 </section>

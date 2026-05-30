@@ -20,6 +20,11 @@ export const routes: Routes = [
         title: 'Overview',
       },
       {
+        path: 'audit',
+        loadComponent: () => import('./features/audit/audit.component').then((m) => m.AuditComponent),
+        title: 'Audit',
+      },
+      {
         path: 'fieldwork',
         loadComponent: () => import('./features/fieldwork/fieldwork.component').then((m) => m.FieldworkComponent),
         title: 'Fieldwork',
@@ -35,9 +40,24 @@ export const routes: Routes = [
         title: 'Findings',
       },
       {
+        path: 'registers',
+        loadComponent: () => import('./features/registers/registers.component').then((m) => m.RegistersComponent),
+        title: 'EMS registers',
+      },
+      {
         path: 'report',
         loadComponent: () => import('./features/report/report.component').then((m) => m.ReportComponent),
         title: 'Report',
+      },
+      {
+        path: 'programme',
+        loadComponent: () => import('./features/programme/programme.component').then((m) => m.ProgrammeComponent),
+        title: 'Audit programme',
+      },
+      {
+        path: 'manual',
+        loadComponent: () => import('./features/manual/manual.component').then((m) => m.ManualComponent),
+        title: 'User manual',
       },
       { path: '**', redirectTo: '' },
     ],

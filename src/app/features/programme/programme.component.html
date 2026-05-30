@@ -1,0 +1,68 @@
+<section class="screen">
+  <header class="screen-head">
+    <h1>Audit programme</h1>
+    <p>Plan the certification cycle — stage 1/2, surveillance and recertification — and record auditor competence.</p>
+  </header>
+
+  <article class="panel">
+    <div class="p-head">
+      <h2>Programme</h2>
+      @if (store.programme(); as p) {
+        <label class="cycle">Cycle year
+          <input type="number" [value]="p.cycleYear" (change)="store.setCycleYear(+$any($event.target).value)" [disabled]="!canEdit()" />
+        </label>
+      } @else if (canEdit()) {
+        <button mat-flat-button color="primary" type="button" (click)="store.ensure()"><mat-icon aria-hidden="true">add</mat-icon>Start programme</button>
+      }
+    </div>
+
+    @if (store.programme(); as p) {
+      <div class="planned">
+        @for (audit of p.plannedAudits; track audit.id) {
+          <div class="tile prow">
+            <span class="ptype">{{ typeLabel(audit.type) }}</span>
+            <input type="date" [value]="audit.dueDate" (change)="store.updatePlannedAudit(audit.id, { dueDate: $any($event.target).value })" [disabled]="!canEdit()" />
+            <select [value]="audit.status" (change)="store.updatePlannedAudit(audit.id, { status: $any($event.target).value })" [disabled]="!canEdit()">
+              @for (s of statuses; track s) { <option [value]="s">{{ s }}</option> }
+            </select>
+            <span [attr.data-tone]="statusTone(audit.status)">{{ audit.status }}</span>
+            @if (canEdit()) {
+              <button class="icon" type="button" (click)="store.removePlannedAudit(audit.id)" aria-label="Remove"><mat-icon aria-hidden="true">delete</mat-icon></button>
+            }
+          </div>
+        } @empty {
+          <p class="muted">No audits planned yet.</p>
+        }
+      </div>
+
+      @if (canEdit()) {
+        <div class="add-row">
+          <select [value]="newType()" (change)="newType.set($any($event.target).value)">
+            @for (t of types; track t.value) { <option [value]="t.value">{{ t.label }}</option> }
+          </select>
+          <button mat-stroked-button type="button" (click)="addPlanned()"><mat-icon aria-hidden="true">event</mat-icon>Add planned audit</button>
+        </div>
+      }
+    }
+  </article>
+
+  @if (store.programme(); as p) {
+    <article class="panel">
+      <div class="p-head">
+        <h2>Auditor competence &amp; impartiality</h2>
+        @if (canEdit()) {
+          <button mat-stroked-button type="button" (click)="store.addCompetence('New auditor')"><mat-icon aria-hidden="true">person_add</mat-icon>Add</button>
+        }
+      </div>
+      @for (c of p.competence; track c.id) {
+        <div class="tile crow">
+          <input [value]="c.memberName" (change)="store.updateCompetence(c.id, { memberName: $any($event.target).value })" [disabled]="!canEdit()" placeholder="Auditor name" />
+          <input [value]="c.qualifications" (change)="store.updateCompetence(c.id, { qualifications: $any($event.target).value })" [disabled]="!canEdit()" placeholder="Qualifications / ISO 14001 competence" />
+          <label class="chk"><input type="checkbox" [checked]="c.impartialityDeclared" (change)="store.updateCompetence(c.id, { impartialityDeclared: $any($event.target).checked })" [disabled]="!canEdit()" /> Impartiality declared</label>
+        </div>
+      } @empty {
+        <p class="muted">No competence records yet.</p>
+      }
+    </article>
+  }
+</section>

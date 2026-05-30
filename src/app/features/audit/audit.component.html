@@ -1,0 +1,90 @@
+<section class="screen">
+  <header class="screen-head">
+    <h1>Audit</h1>
+    <p>{{ store.auditee }} · {{ store.criteria }}</p>
+  </header>
+
+  <article class="panel">
+    <h2>Audit status</h2>
+    <ol class="stepper">
+      @for (s of statuses; track s.value; let i = $index) {
+        <li [class.done]="i < statusIndex(store.auditStatus())" [class.current]="s.value === store.auditStatus()">
+          <span class="dot"></span>{{ s.label }}
+        </li>
+      }
+    </ol>
+    @if (isLead()) {
+      <div class="advance">
+        @for (s of store.nextAuditStatuses(); track s) {
+          <button mat-stroked-button type="button" (click)="setStatus(s)">
+            <mat-icon aria-hidden="true">arrow_forward</mat-icon>{{ s }}
+          </button>
+        }
+      </div>
+    }
+  </article>
+
+  <article class="panel">
+    <h2>Opening meeting</h2>
+    @if (opening(); as meeting) {
+      <div class="recorded">
+        <span data-tone="positive">Recorded · {{ formatTime(meeting.datetimeAt) }}</span>
+        @if (meeting.acknowledged) { <span data-tone="positive">Acknowledged</span> }
+      </div>
+      @if (meeting.attendees.length) { <p class="line"><strong>Attendees:</strong> {{ meeting.attendees.join(', ') }}</p> }
+      @if (meeting.agendaPoints.length) {
+        <ul class="agenda">@for (point of meeting.agendaPoints; track $index) { <li>{{ point }}</li> }</ul>
+      }
+      @if (meeting.notes) { <p class="line">{{ meeting.notes }}</p> }
+    }
+    <details class="form">
+      <summary>{{ opening() ? 'Edit record' : 'Record meeting' }}</summary>
+      <label class="fld"><span>Attendees (one per line)</span>
+        <textarea #oatt rows="3" [value]="opening() ? opening()!.attendees.join('\n') : ''"></textarea>
+      </label>
+      <label class="fld"><span>Agenda points (one per line)</span>
+        <textarea #oag rows="3" [value]="opening() ? opening()!.agendaPoints.join('\n') : ''"
+          placeholder="Scope, criteria, methods, confidentiality, safety, schedule…"></textarea>
+      </label>
+      <label class="fld"><span>Notes</span>
+        <textarea #ont rows="2" [value]="opening()?.notes || ''"></textarea>
+      </label>
+      <label class="chk"><input #oack type="checkbox" [checked]="opening()?.acknowledged === true" /> Auditee acknowledged</label>
+      <button mat-flat-button color="primary" type="button" (click)="saveMeeting('opening', oatt.value, oag.value, ont.value, oack.checked)">
+        <mat-icon aria-hidden="true">save</mat-icon>Save meeting
+      </button>
+    </details>
+  </article>
+
+  <article class="panel">
+    <h2>Closing meeting</h2>
+    @if (closing(); as meeting) {
+      <div class="recorded">
+        <span data-tone="positive">Recorded · {{ formatTime(meeting.datetimeAt) }}</span>
+        @if (meeting.acknowledged) { <span data-tone="positive">Acknowledged</span> }
+      </div>
+      @if (meeting.attendees.length) { <p class="line"><strong>Attendees:</strong> {{ meeting.attendees.join(', ') }}</p> }
+      @if (meeting.agendaPoints.length) {
+        <ul class="agenda">@for (point of meeting.agendaPoints; track $index) { <li>{{ point }}</li> }</ul>
+      }
+      @if (meeting.notes) { <p class="line">{{ meeting.notes }}</p> }
+    }
+    <details class="form">
+      <summary>{{ closing() ? 'Edit record' : 'Record meeting' }}</summary>
+      <label class="fld"><span>Attendees (one per line)</span>
+        <textarea #catt rows="3" [value]="closing() ? closing()!.attendees.join('\n') : ''"></textarea>
+      </label>
+      <label class="fld"><span>Agenda points (one per line)</span>
+        <textarea #cag rows="3" [value]="closing() ? closing()!.agendaPoints.join('\n') : ''"
+          placeholder="Findings presented, timelines agreed, next steps…"></textarea>
+      </label>
+      <label class="fld"><span>Notes</span>
+        <textarea #cnt rows="2" [value]="closing()?.notes || ''"></textarea>
+      </label>
+      <label class="chk"><input #cack type="checkbox" [checked]="closing()?.acknowledged === true" /> Auditee acknowledged</label>
+      <button mat-flat-button color="primary" type="button" (click)="saveMeeting('closing', catt.value, cag.value, cnt.value, cack.checked)">
+        <mat-icon aria-hidden="true">save</mat-icon>Save meeting
+      </button>
+    </details>
+  </article>
+</section>

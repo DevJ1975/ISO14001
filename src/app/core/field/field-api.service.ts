@@ -4,12 +4,31 @@ import { firstValueFrom } from 'rxjs';
 
 import { AuthService } from '../auth/auth.service';
 import { APP_CONFIG } from '../config/app-config';
-import type { FieldChecklistItem, FieldEvidence, FieldFinding, FieldResult } from './field-audit-store';
+import type {
+  AuditConclusion,
+  AuditMeeting,
+  AuditStatus,
+  ComplianceObligation,
+  EmergencyRecord,
+  EnvironmentalAspect,
+  FieldCapa,
+  FieldChecklistItem,
+  FieldEvidence,
+  FieldFinding,
+  FieldResult,
+} from './field-audit-store';
 
 export interface FieldStatePayload {
   items: Array<Omit<FieldChecklistItem, 'sync'>>;
   evidence: Array<Omit<FieldEvidence, 'sync' | 'thumbUrl'>>;
   findings: Array<Omit<FieldFinding, 'sync'>>;
+  capas?: Array<Omit<FieldCapa, 'sync'>>;
+  auditStatus?: AuditStatus;
+  meetings?: Array<Omit<AuditMeeting, 'sync'>>;
+  conclusion?: Omit<AuditConclusion, 'sync'> | null;
+  aspects?: Array<Omit<EnvironmentalAspect, 'sync'>>;
+  obligations?: Array<Omit<ComplianceObligation, 'sync'>>;
+  emergencyRecords?: Array<Omit<EmergencyRecord, 'sync'>>;
 }
 
 /** Thin client over the tenant-scoped field-audit endpoints. The bearer token is
@@ -41,12 +60,47 @@ export class FieldApiService {
     return firstValueFrom(this.http.post(`${this.base()}/evidence`, body));
   }
 
-  createFinding(body: Omit<FieldFinding, 'sync' | 'status'>): Promise<unknown> {
-    return firstValueFrom(this.http.post(`${this.base()}/findings`, body));
+  upsertFinding(body: Omit<FieldFinding, 'sync'>): Promise<unknown> {
+    return firstValueFrom(this.http.put(`${this.base()}/findings/${encodeURIComponent(body.id)}`, body));
   }
 
-  confirmFinding(id: string): Promise<unknown> {
-    return firstValueFrom(this.http.post(`${this.base()}/findings/${encodeURIComponent(id)}/confirm`, {}));
+  upsertCapa(body: Omit<FieldCapa, 'sync'>): Promise<unknown> {
+    return firstValueFrom(this.http.put(`${this.base()}/capa/${encodeURIComponent(body.id)}`, body));
+  }
+
+  verifyCapa(
+    id: string,
+    body: { findingId: string; verification: string; effective: boolean; verificationEvidenceIds: string[] },
+  ): Promise<unknown> {
+    return firstValueFrom(this.http.post(`${this.base()}/capa/${encodeURIComponent(id)}/verify`, body));
+  }
+
+  setAuditStatus(status: AuditStatus): Promise<unknown> {
+    return firstValueFrom(this.http.put(`${this.base()}/status`, { status }));
+  }
+
+  upsertMeeting(body: Omit<AuditMeeting, 'sync'>): Promise<unknown> {
+    return firstValueFrom(this.http.put(`${this.base()}/meetings/${encodeURIComponent(body.id)}`, body));
+  }
+
+  saveConclusion(body: Omit<AuditConclusion, 'sync'>): Promise<unknown> {
+    return firstValueFrom(this.http.put(`${this.base()}/conclusion`, body));
+  }
+
+  signReport(body: { attestation: string }): Promise<{ signedAt?: string }> {
+    return firstValueFrom(this.http.post<{ signedAt?: string }>(`${this.base()}/reports/signoff`, body));
+  }
+
+  upsertAspect(body: Omit<EnvironmentalAspect, 'sync'>): Promise<unknown> {
+    return firstValueFrom(this.http.put(`${this.base()}/aspects/${encodeURIComponent(body.id)}`, body));
+  }
+
+  upsertObligation(body: Omit<ComplianceObligation, 'sync'>): Promise<unknown> {
+    return firstValueFrom(this.http.put(`${this.base()}/obligations/${encodeURIComponent(body.id)}`, body));
+  }
+
+  upsertEmergency(body: Omit<EmergencyRecord, 'sync'>): Promise<unknown> {
+    return firstValueFrom(this.http.put(`${this.base()}/emergency/${encodeURIComponent(body.id)}`, body));
   }
 
   private base(): string {

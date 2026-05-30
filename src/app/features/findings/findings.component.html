@@ -1,39 +1,121 @@
 <section class="screen">
   <header class="screen-head">
-    <h1>Findings</h1>
-    <p>Drafts stay editable until an auditor confirms them. AI never finalises a finding.</p>
+    <h1>Findings &amp; nonconformities</h1>
+    <p>Grade each finding against its clause with objective evidence, then drive the corrective-action loop to close-out.</p>
   </header>
 
   <div class="stat-grid">
-    <div class="stat"><strong>{{ counts().majorNc }}</strong><span>Major NC</span></div>
-    <div class="stat"><strong>{{ counts().minorNc }}</strong><span>Minor NC</span></div>
-    <div class="stat"><strong>{{ counts().ofi }}</strong><span>Opportunities</span></div>
-    <div class="stat"><strong>{{ store.findings().length }}</strong><span>Total</span></div>
+    <div class="stat"><strong>{{ store.ncCountsByGrade().majorNc }}</strong><span>Major NC</span></div>
+    <div class="stat"><strong>{{ store.ncCountsByGrade().minorNc }}</strong><span>Minor NC</span></div>
+    <div class="stat"><strong>{{ store.ncCountsByGrade().ofi }}</strong><span>OFI</span></div>
+    <div class="stat"><strong>{{ store.openNcCount() }}</strong><span>Open NCs</span></div>
+    <div class="stat"><strong>{{ store.overdueCapas().length }}</strong><span>Overdue CAPA</span></div>
   </div>
 
-  <div class="finding-list">
+  <div class="nc-list">
     @for (finding of store.findings(); track finding.id) {
-      <article class="panel finding">
-        <div class="f-top">
+      <article class="panel nc" [class.sel]="selectedId() === finding.id">
+        <button type="button" class="nc-head" (click)="select(finding.id)">
           <span [attr.data-tone]="typeTone(finding.type)">{{ typeLabel(finding.type) }}</span>
-          <span class="clause">Clause {{ finding.clauseId }} · {{ finding.clauseTitle }}</span>
-          <span
-            class="status"
-            [attr.data-tone]="finding.status === 'auditorConfirmed' ? 'positive' : 'progress'"
-          >
-            {{ finding.status === 'auditorConfirmed' ? 'Confirmed' : 'Draft' }}
-          </span>
-        </div>
-        <p>{{ finding.description }}</p>
-        <div class="f-foot">
-          <small>{{ finding.createdByName }} · {{ finding.evidenceIds.length }} evidence linked</small>
-          @if (finding.status === 'draft') {
-            <button mat-flat-button color="primary" type="button" (click)="confirm(finding.id)">
-              <mat-icon aria-hidden="true">verified</mat-icon>
-              Confirm
-            </button>
-          }
-        </div>
+          <span class="nc-clause">Clause {{ finding.clauseId }} · {{ finding.clauseTitle }}</span>
+          <span [attr.data-tone]="statusTone(finding.status)">{{ finding.status }}</span>
+          <mat-icon aria-hidden="true">{{ selectedId() === finding.id ? 'expand_less' : 'expand_more' }}</mat-icon>
+        </button>
+        <p class="nc-statement">{{ finding.description }}</p>
+
+        @if (selectedId() === finding.id) {
+          <div class="nc-detail">
+            <div class="fld"><span>Requirement</span><div class="ro">{{ finding.requirementSummary || '—' }}</div></div>
+            <label class="fld">
+              <span>Nonconformity statement</span>
+              <textarea #stmt rows="2" [value]="finding.description" (change)="saveStatement(finding, stmt.value)"></textarea>
+            </label>
+            <label class="fld">
+              <span>Objective evidence</span>
+              <textarea #oe rows="2" [value]="finding.objectiveEvidence || ''" (change)="saveObjectiveEvidence(finding, oe.value)"
+                placeholder="Records, observations, interviews the finding is based on…"></textarea>
+            </label>
+
+            @if (isLead()) {
+              <div class="grade-block">
+                <span class="lbl">Grade (lead auditor)</span>
+                <div class="grade-row">
+                  @for (g of grades; track g.value) {
+                    <button type="button" class="grade {{ typeTone(g.value) }}" [class.on]="finding.type === g.value"
+                      (click)="grade(finding, g.value, rat.value, sys.checked)">{{ g.label }}</button>
+                  }
+                </div>
+                <label class="chk">
+                  <input #sys type="checkbox" [checked]="finding.systemic === true" (change)="grade(finding, finding.type, rat.value, sys.checked)" />
+                  Systemic (multiple instances / one requirement)
+                </label>
+                <textarea #rat class="rationale" rows="2" [value]="finding.gradingRationale || ''"
+                  (change)="grade(finding, finding.type, rat.value, sys.checked)"
+                  placeholder="Grading rationale — why major vs minor…"></textarea>
+              </div>
+            } @else if (finding.gradingRationale) {
+              <div class="ro small"><strong>Grading rationale:</strong> {{ finding.gradingRationale }}</div>
+            }
+
+            @if (finding.type === 'minorNc' || finding.type === 'majorNc') {
+              <div class="capa-block">
+                <div class="capa-head">
+                  <strong>Corrective action (ISO 14001 cl. 10.2)</strong>
+                  @if (selectedCapa(); as capa) {
+                    <span [attr.data-tone]="capaTone(capa.status)">{{ capa.status }}</span>
+                    @if (overdue(capa)) { <span data-tone="critical">overdue</span> }
+                  }
+                </div>
+
+                @if (selectedCapa(); as capa) {
+                  <label class="fld"><span>Correction (immediate containment)</span>
+                    <textarea #corr rows="2" [value]="capa.correction || ''" (change)="saveCapaField(capa, 'correction', corr.value)"></textarea>
+                  </label>
+                  <label class="fld"><span>Root cause</span>
+                    <textarea #rc rows="2" [value]="capa.rootCause || ''" (change)="saveCapaField(capa, 'rootCause', rc.value)"></textarea>
+                  </label>
+                  <label class="fld"><span>Corrective action (eliminate the cause)</span>
+                    <textarea #act rows="2" [value]="capa.action || ''" (change)="saveCapaField(capa, 'action', act.value)"></textarea>
+                  </label>
+                  <div class="capa-grid">
+                    <label class="fld"><span>Owner</span>
+                      <input #own [value]="capa.owner || ''" (change)="saveCapaField(capa, 'owner', own.value)" />
+                    </label>
+                    <label class="fld"><span>Due date</span>
+                      <input #due type="date" [value]="capa.dueDate || ''" (change)="saveCapaField(capa, 'dueDate', due.value)" />
+                    </label>
+                  </div>
+                  <div class="capa-actions">
+                    <button mat-stroked-button type="button" (click)="markImplemented(capa)" [disabled]="capa.status === 'verified'">
+                      <mat-icon aria-hidden="true">task_alt</mat-icon>Mark implemented
+                    </button>
+                  </div>
+
+                  @if (isLead()) {
+                    <div class="verify">
+                      <span class="lbl">Verification of effectiveness (lead auditor)</span>
+                      <textarea #ver rows="2" [value]="capa.verification || ''" placeholder="What was checked to confirm the action is effective…"></textarea>
+                      <div class="verify-actions">
+                        <button mat-flat-button color="primary" type="button" (click)="verify(capa, true, ver.value)"
+                          [disabled]="!store.online() || capa.status === 'verified'">
+                          <mat-icon aria-hidden="true">verified</mat-icon>Effective — close
+                        </button>
+                        <button mat-stroked-button type="button" (click)="verify(capa, false, ver.value)" [disabled]="!store.online()">
+                          <mat-icon aria-hidden="true">replay</mat-icon>Not effective
+                        </button>
+                      </div>
+                      @if (!store.online()) { <small class="hint">Verification of effectiveness requires connectivity.</small> }
+                    </div>
+                  }
+                } @else {
+                  <button mat-flat-button color="primary" type="button" (click)="startCapa(finding)">
+                    <mat-icon aria-hidden="true">build</mat-icon>Start corrective action
+                  </button>
+                }
+              </div>
+            }
+          </div>
+        }
       </article>
     } @empty {
       <div class="panel empty">
