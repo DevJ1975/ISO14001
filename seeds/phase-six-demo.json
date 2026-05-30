@@ -1,0 +1,29 @@
+{
+  "backend": "mongodb-api",
+  "database": "iso14001_auditor",
+  "collections": [
+    "tenants",
+    "members",
+    "audits",
+    "evidence",
+    "evidenceUploadIntents",
+    "photoAnalyses",
+    "reports",
+    "capaReminders",
+    "backendJobs"
+  ],
+  "apiContracts": [
+    "createTenant",
+    "inviteTenantMember",
+    "assignMemberClaims",
+    "createEvidenceUploadIntent",
+    "requestPhotoAnalysis",
+    "generateAuditReportPdf",
+    "scheduleCapaReminder"
+  ],
+  "remainingProductionBlockers": [
+    "wire production JWT verifier",
+    "choose GridFS or object storage for photo bytes",
+    "run integration tests against MongoDB"
+  ]
+}

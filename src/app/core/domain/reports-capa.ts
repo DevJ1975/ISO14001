@@ -6,7 +6,7 @@ import {
   findingTypeSchema,
   isoEditionSchema,
   timestampSchema,
-} from './models';
+} from './models.js';
 
 export const reportStatusSchema = z.enum(['draft', 'generated', 'signed', 'void']);
 

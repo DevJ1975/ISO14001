@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { clauseRefSchema, isoEditionSchema } from './models';
+import { clauseRefSchema, isoEditionSchema } from './models.js';
 
 export const standardClauseSchema = clauseRefSchema.extend({
   parentClauseId: z.string().optional(),

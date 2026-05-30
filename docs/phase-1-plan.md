@@ -28,4 +28,4 @@ Checklist questions and guidance must be customer-authored, Trainovate-generated
 
 ## Next Step
 
-Wire the Phase 1 forms to Firestore once Phase 0 custom-claims provisioning and emulator rules tests are complete.
+Wire the Phase 1 forms to the MongoDB API once server-side JWT verification and tenant-role provisioning are complete.

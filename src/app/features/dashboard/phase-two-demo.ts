@@ -5,7 +5,7 @@ import {
   OfflineConflict,
   SyncQueueItem,
 } from '../../core/domain';
-import { auditChecklistItemPath } from '../../core/firebase/firestore-paths';
+import { auditChecklistItemDocumentKey } from '../../core/backend/mongo-document-keys';
 import { demoAuditSetup, demoChecklistTemplate, demoMembers, demoTenantId } from './phase-one-demo';
 
 export const demoAuditId = 'audit-transition-1';
@@ -96,7 +96,7 @@ export const demoConflict: OfflineConflict = {
   id: 'conflict-checklist-6',
   tenantId: demoTenantId,
   auditId: demoAuditId,
-  documentPath: auditChecklistItemPath(demoTenantId, demoAuditId, 'audit-template-item-planning'),
+  documentPath: auditChecklistItemDocumentKey(demoTenantId, demoAuditId, 'audit-template-item-planning'),
   fieldPaths: ['result', 'updatedAt'],
   localChangedBy: 'uid-omar-auditor',
   remoteChangedBy: 'uid-maya-lead',

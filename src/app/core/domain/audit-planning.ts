@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { auditSchema, type Audit, isoEditionSchema, timestampSchema } from './models';
+import { auditSchema, type Audit, isoEditionSchema, timestampSchema } from './models.js';
 
 export const auditSetupCommandSchema = z
   .object({

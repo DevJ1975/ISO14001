@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { clauseRefSchema, isoEditionSchema, timestampSchema } from './models';
+import { clauseRefSchema, isoEditionSchema, timestampSchema } from './models.js';
 
 export const checklistTemplateStatusSchema = z.enum(['draft', 'active', 'archived']);
 

@@ -6,7 +6,6 @@ import { provideServiceWorker } from '@angular/service-worker';
 
 import { AppComponent } from './app/app.component';
 import { routes } from './app/app.routes';
-import './app/core/firebase/firebase-backend';
 
 bootstrapApplication(AppComponent, {
   providers: [

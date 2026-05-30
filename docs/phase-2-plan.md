@@ -14,7 +14,7 @@ Phase 2 builds field execution: offline checklist work, evidence capture, findin
 
 - Every field record includes `tenantId`, `auditId`, `createdBy`, and a timestamp.
 - Evidence and findings are separate documents.
-- Photo uploads use tenant/audit Storage paths.
+- Photo uploads use tenant/audit storage keys created by the API.
 - Draft findings do not become issued findings until auditor confirmation.
 - AI suggestions remain draft/review artifacts until accepted by an auditor.
 
@@ -37,4 +37,4 @@ Local writes enter a sync queue with operation, collection path, document id, qu
 
 ## Next Step
 
-Phase 3 should connect Genkit flows for tenant-isolated RAG, finding drafting, clause suggestion, severity assist, and AI photo-identification processing.
+Phase 3 should connect server-side AI workers for tenant-isolated RAG, finding drafting, clause suggestion, severity assist, and AI photo-identification processing.

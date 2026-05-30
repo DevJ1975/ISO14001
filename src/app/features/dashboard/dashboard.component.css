@@ -153,7 +153,8 @@ mat-icon::before {
 .phase-two-section,
 .phase-three-section,
 .phase-four-section,
-.phase-five-section {
+.phase-five-section,
+.phase-six-section {
   border: 1px solid var(--border);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.96);
@@ -192,7 +193,7 @@ dd {
 
 .phase-grid {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 16px;
 }
 
@@ -219,7 +220,8 @@ dd {
 .phase-two-section,
 .phase-three-section,
 .phase-four-section,
-.phase-five-section {
+.phase-five-section,
+.phase-six-section {
   padding: 24px;
 }
 
@@ -273,6 +275,12 @@ dd {
 }
 
 .phase-five-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.phase-six-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
@@ -660,14 +668,20 @@ dd {
 
 .control-grid,
 .probe-list,
-.pilot-list {
+.pilot-list,
+.contract-grid,
+.job-list,
+.readiness-list {
   display: grid;
   gap: 10px;
 }
 
 .control-row,
 .probe-row,
-.pilot-row {
+.pilot-row,
+.contract-row,
+.job-row,
+.readiness-row {
   display: grid;
   gap: 7px;
   border: 1px solid var(--border);
@@ -677,7 +691,10 @@ dd {
 }
 
 .control-row span,
-.pilot-row span {
+.pilot-row span,
+.contract-row span,
+.job-row span,
+.readiness-row span {
   width: fit-content;
   border-radius: 999px;
   background: var(--accent-soft);
@@ -689,15 +706,37 @@ dd {
 
 .control-row strong,
 .probe-row strong,
-.pilot-row strong {
+.pilot-row strong,
+.contract-row strong,
+.job-row strong,
+.readiness-row strong {
   color: var(--text);
 }
 
 .control-row small,
 .probe-row span,
-.pilot-row small {
+.pilot-row small,
+.contract-row small,
+.job-row small,
+.readiness-row small {
   color: var(--muted);
   line-height: 1.45;
+}
+
+.collection-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.collection-list span {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-guard);
+  color: var(--primary);
+  padding: 7px 10px;
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .manual-list {
@@ -919,6 +958,7 @@ dd {
   .ai-grid,
   .phase-four-grid,
   .phase-five-grid,
+  .phase-six-grid,
   .ai-draft-card,
   .photo-ai-row,
   .report-card {

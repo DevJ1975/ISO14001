@@ -6,8 +6,8 @@ import {
   findingSchema,
   findingTypeSchema,
   timestampSchema,
-} from './models';
-import { changeOperationSchema } from './sync';
+} from './models.js';
+import { changeOperationSchema } from './sync.js';
 
 export const fieldCaptureSourceSchema = z.enum(['online', 'offline']);
 

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { tenantRoleSchema } from './roles';
+import { tenantRoleSchema } from './roles.js';
 
 export const isoEditionSchema = z.enum(['ISO_14001_2015', 'ISO_14001_2026']);
 export type IsoEdition = z.infer<typeof isoEditionSchema>;

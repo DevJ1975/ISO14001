@@ -67,8 +67,8 @@
               <dd>Tenant and auditee namespaced RAG</dd>
             </div>
             <div>
-              <dt>Firebase backend</dt>
-              <dd>{{ firebaseProjectId }}</dd>
+              <dt>Production backend</dt>
+              <dd>{{ apiBackend.type }} · {{ apiBackend.databaseName }}</dd>
             </div>
           </dl>
         </div>
@@ -705,6 +705,117 @@
                   <span>{{ item.status }}</span>
                   <strong>{{ item.title }}</strong>
                   <small>{{ item.exitCriteria }}</small>
+                </div>
+              }
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section id="phase-six" class="phase-six-section">
+        <div class="section-heading">
+          <div>
+            <h2>Phase 6 MongoDB backend</h2>
+            <p>Node API boundary, MongoDB collections, tenant guards, upload intents, AI jobs, and report jobs.</p>
+          </div>
+          <div class="summary-strip" aria-label="Phase 6 summary">
+            @for (item of phaseSixSummary(); track item.label) {
+              <span>
+                <strong>{{ item.value }}</strong>
+                {{ item.label }}
+              </span>
+            }
+          </div>
+        </div>
+
+        <div class="phase-six-grid">
+          <article class="planning-panel wide">
+            <div class="panel-header">
+              <mat-icon aria-hidden="true">dns</mat-icon>
+              <div>
+                <h3>MongoDB API contracts</h3>
+                <p>Angular sends intents to the API. The API owns MongoDB writes and tenant enforcement.</p>
+              </div>
+            </div>
+            <div class="contract-grid">
+              @for (contract of callableFunctionContracts; track contract.name) {
+                <div class="contract-row">
+                  <span>{{ contract.status }}</span>
+                  <strong>{{ contract.name }}</strong>
+                  <small>{{ contract.ownerRole }} · writes {{ contract.writes.join(', ') }}</small>
+                </div>
+              }
+            </div>
+          </article>
+
+          <article class="planning-panel">
+            <div class="panel-header">
+              <mat-icon aria-hidden="true">table_view</mat-icon>
+              <div>
+                <h3>Collections and indexes</h3>
+                <p>Collections stay tenant-scoped and indexed for audit, evidence, report, and job queues.</p>
+              </div>
+            </div>
+            <div class="collection-list">
+              @for (collection of mongoCollections; track collection) {
+                <span>{{ collection }}</span>
+              }
+            </div>
+          </article>
+
+          <article class="planning-panel">
+            <div class="panel-header">
+              <mat-icon aria-hidden="true">add_photo_alternate</mat-icon>
+              <div>
+                <h3>Evidence upload intent</h3>
+                <p>Photo bytes are handled by the API path; MongoDB stores metadata, provenance, and job state.</p>
+              </div>
+            </div>
+            <div class="answer-card">
+              <strong>{{ evidenceUploadIntent.status }} · {{ evidenceUploadIntent.evidenceId }}</strong>
+              <span>{{ evidenceUploadIntent.storageRef }}</span>
+              <small>{{ evidenceUploadIntent.metadataPath }}</small>
+            </div>
+          </article>
+
+          <article class="planning-panel wide">
+            <div class="panel-header">
+              <mat-icon aria-hidden="true">pending_actions</mat-icon>
+              <div>
+                <h3>Backend job queue</h3>
+                <p>AI photo identification, report PDF generation, reminders, and upload intents are tracked as jobs.</p>
+              </div>
+            </div>
+            <div class="job-list">
+              @for (job of backendJobs(); track job.id) {
+                <div class="job-row">
+                  <span>{{ job.status }}</span>
+                  <strong>{{ job.callableName }}</strong>
+                  <small>{{ job.resultRef }}</small>
+                </div>
+              }
+            </div>
+            <div class="field-actions">
+              <button mat-flat-button color="primary" type="button" (click)="queueDemoPhotoAnalysisJob()">
+                Queue photo AI job
+              </button>
+            </div>
+          </article>
+
+          <article class="planning-panel wide">
+            <div class="panel-header">
+              <mat-icon aria-hidden="true">verified_user</mat-icon>
+              <div>
+                <h3>Production readiness</h3>
+                <p>MongoDB is the system of record; remaining blockers are auth verification and file-byte workers.</p>
+              </div>
+            </div>
+            <div class="readiness-list">
+              @for (item of phaseSixReadiness; track item.id) {
+                <div class="readiness-row">
+                  <span>{{ item.status }}</span>
+                  <strong>{{ item.title }}</strong>
+                  <small>{{ item.evidenceRefs.length ? item.evidenceRefs.join(', ') : 'evidence pending' }}</small>
                 </div>
               }
             </div>

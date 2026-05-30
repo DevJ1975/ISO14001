@@ -4,8 +4,8 @@ Phase 5 hardens the platform for a friendly-firm pilot audit.
 
 ## Scope
 
-- Tenant isolation emulator probes.
-- Firestore and Storage rules hardening.
+- Tenant isolation API probes.
+- MongoDB API guard and storage-key hardening.
 - Offline sync edge-case testing.
 - Accessibility review for core auditor flows.
 - Observability for audit-critical events.
@@ -29,7 +29,7 @@ The Soteria theme is the product's safety and assurance visual layer. It uses gu
 
 ## Production Guardrails
 
-- Never relax client rules for platform superadmin operations.
+- Never let client code perform platform superadmin operations directly.
 - Never issue findings, CAPA closure, or report signoff from AI output alone.
-- Never deploy without App Check, rules tests, and CI passing.
+- Never deploy without auth verification, API guard tests, MongoDB index setup, and CI passing.
 - Never delete audit evidence; archive or supersede records instead.

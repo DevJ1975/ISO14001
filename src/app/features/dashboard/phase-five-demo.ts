@@ -12,19 +12,19 @@ export const demoHardeningControls: HardeningControl[] = [
   {
     id: 'control-tenant-rules',
     area: 'tenantIsolation',
-    title: 'Cross-tenant reads fail in Firestore emulator probes',
+    title: 'Cross-tenant reads fail in MongoDB API tenant probes',
     owner: 'platform-security',
     status: 'planned',
-    evidenceRefs: ['firestore.rules'],
+    evidenceRefs: ['server/auth.ts', 'server/routes.ts'],
     updatedAt: '2026-06-18T16:00:00.000Z',
   },
   {
     id: 'control-storage-rules',
     area: 'securityRules',
-    title: 'Storage rules restrict photo and report paths by tenant and audit',
+    title: 'API guards restrict photo and report paths by tenant and audit',
     owner: 'platform-security',
     status: 'passing',
-    evidenceRefs: ['storage.rules'],
+    evidenceRefs: ['server/routes.ts'],
     updatedAt: '2026-06-18T16:10:00.000Z',
   },
   {

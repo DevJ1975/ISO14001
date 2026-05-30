@@ -16,7 +16,7 @@ Phase 3 builds the AI copilot layer. AI assists auditors by drafting, suggesting
 
 ## Server Boundary
 
-Live AI calls belong in Cloud Functions or Cloud Run with Firebase Genkit. The client sends an intent and scoped record ids. Server code resolves tenant claims, retrieves only tenant/auditee content, calls the model provider, writes reviewable outputs, and logs provenance.
+Live AI calls belong behind the Node API and worker queue. The client sends an intent and scoped record ids. Server code resolves verified tenant claims, retrieves only tenant/auditee content, calls the model provider, writes reviewable outputs to MongoDB, and logs provenance.
 
 ## Isolation Rules
 

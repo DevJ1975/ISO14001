@@ -1,0 +1,36 @@
+import { Db } from 'mongodb';
+
+export const mongoCollections = {
+  tenants: 'tenants',
+  members: 'members',
+  invites: 'invites',
+  audits: 'audits',
+  evidence: 'evidence',
+  evidenceUploadIntents: 'evidenceUploadIntents',
+  photoAnalyses: 'photoAnalyses',
+  reports: 'reports',
+  capaReminders: 'capaReminders',
+  backendJobs: 'backendJobs',
+  observabilityEvents: 'observabilityEvents',
+} as const;
+
+export type MongoCollectionName = (typeof mongoCollections)[keyof typeof mongoCollections];
+
+export async function ensureMongoIndexes(db: Db): Promise<void> {
+  await Promise.all([
+    db.collection(mongoCollections.tenants).createIndex({ id: 1 }, { unique: true }),
+    db.collection(mongoCollections.members).createIndex({ tenantId: 1, uid: 1 }, { unique: true }),
+    db.collection(mongoCollections.invites).createIndex({ tenantId: 1, email: 1, status: 1 }),
+    db.collection(mongoCollections.audits).createIndex({ tenantId: 1, auditeeId: 1, status: 1 }),
+    db.collection(mongoCollections.audits).createIndex({ tenantId: 1, assignedMembers: 1 }),
+    db.collection(mongoCollections.evidence).createIndex({ tenantId: 1, auditId: 1, createdBy: 1, timestamp: -1 }),
+    db.collection(mongoCollections.evidenceUploadIntents).createIndex({ idempotencyKey: 1 }, { unique: true }),
+    db.collection(mongoCollections.evidenceUploadIntents).createIndex({ tenantId: 1, auditId: 1, createdByUid: 1 }),
+    db.collection(mongoCollections.photoAnalyses).createIndex({ tenantId: 1, auditId: 1, status: 1 }),
+    db.collection(mongoCollections.reports).createIndex({ tenantId: 1, auditId: 1, version: -1 }),
+    db.collection(mongoCollections.capaReminders).createIndex({ tenantId: 1, auditId: 1, sendAt: 1, status: 1 }),
+    db.collection(mongoCollections.backendJobs).createIndex({ idempotencyKey: 1 }, { unique: true }),
+    db.collection(mongoCollections.backendJobs).createIndex({ tenantId: 1, callableName: 1, status: 1, createdAt: -1 }),
+    db.collection(mongoCollections.observabilityEvents).createIndex({ tenantId: 1, auditId: 1, occurredAt: -1 }),
+  ]);
+}

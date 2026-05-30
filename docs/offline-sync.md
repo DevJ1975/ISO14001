@@ -4,7 +4,7 @@ The field app must work while auditors are offline at remote or industrial sites
 
 ## Selected Strategy
 
-Use Firestore offline persistence with:
+Use a client-side local queue with:
 
 - Logical checklist section ownership assigned by the lead auditor.
 - Last-write-wins per document when concurrent edits still occur.
@@ -12,13 +12,13 @@ Use Firestore offline persistence with:
 
 ## Why This Default
 
-Section ownership prevents most collisions without making field capture slow. Last-write-wins matches Firestore's sync model and keeps the client simple. The change log preserves auditability when a later write overwrites a field.
+Section ownership prevents most collisions without making field capture slow. Last-write-wins keeps the client simple for low-risk checklist edits, while the API writes a change log to preserve auditability when a later write overwrites a field.
 
 ## Rules for Data Shape
 
 - Evidence and findings are separate documents, not large arrays on the audit document.
 - Every field-captured record includes `tenantId`, `auditId`, `createdBy`, and timestamps.
-- Photo evidence keeps an `offlineLocalId` until the image upload completes and the server confirms the Storage reference.
+- Photo evidence keeps an `offlineLocalId` until the image upload completes and the server confirms the storage reference.
 - Destructive deletes are disabled for audit records in v1; use status changes instead.
 - AI-generated text stays draft metadata until confirmed by an auditor.
 - AI photo-identification output is review-only; it may suggest labels, environmental signals, clause references, and finding drafts, but it cannot create an issued finding without auditor action.

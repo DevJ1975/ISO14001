@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { clauseRefSchema, evidenceSchema, timestampSchema } from './models';
+import { clauseRefSchema, evidenceSchema, timestampSchema } from './models.js';
 
 export const supportedPhotoMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/heic'] as const;
 export const maxPhotoEvidenceBytes = 25 * 1024 * 1024;

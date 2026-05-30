@@ -7,11 +7,11 @@ import {
   createPlannedAuditFromSetup,
 } from '../src/app/core/domain';
 import {
-  auditeePath,
-  auditChecklistItemPath,
-  auditPath,
-  checklistTemplatePath,
-} from '../src/app/core/firebase/firestore-paths';
+  auditeeDocumentKey,
+  auditChecklistItemDocumentKey,
+  auditDocumentKey,
+  checklistTemplateDocumentKey,
+} from '../src/app/core/backend/mongo-document-keys';
 import {
   demoAuditSetup,
   demoAuditees,
@@ -64,16 +64,16 @@ describe('phase 1 planning contracts', () => {
     assert.equal(demoMembers.every((member) => member.tenantId === demoTenantId), true);
   });
 
-  it('builds tenant-scoped Firestore paths for Phase 1 records', () => {
-    assert.equal(auditeePath(demoTenantId, 'auditee-northstar'), '/tenants/tenant-greenline/auditees/auditee-northstar');
+  it('builds tenant-scoped MongoDB document keys for Phase 1 records', () => {
+    assert.equal(auditeeDocumentKey(demoTenantId, 'auditee-northstar'), 'tenants/tenant-greenline/auditees/auditee-northstar');
     assert.equal(
-      checklistTemplatePath(demoTenantId, 'template-transition-readiness'),
-      '/tenants/tenant-greenline/checklistTemplates/template-transition-readiness',
+      checklistTemplateDocumentKey(demoTenantId, 'template-transition-readiness'),
+      'tenants/tenant-greenline/checklistTemplates/template-transition-readiness',
     );
-    assert.equal(auditPath(demoTenantId, 'audit-1'), '/tenants/tenant-greenline/audits/audit-1');
+    assert.equal(auditDocumentKey(demoTenantId, 'audit-1'), 'tenants/tenant-greenline/audits/audit-1');
     assert.equal(
-      auditChecklistItemPath(demoTenantId, 'audit-1', 'item-4'),
-      '/tenants/tenant-greenline/audits/audit-1/checklistItems/item-4',
+      auditChecklistItemDocumentKey(demoTenantId, 'audit-1', 'item-4'),
+      'tenants/tenant-greenline/audits/audit-1/checklistItems/item-4',
     );
   });
 });

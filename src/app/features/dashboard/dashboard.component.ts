@@ -9,8 +9,9 @@ import { createNoteEvidenceFromCapture } from '@domain/field-execution';
 import { markAiDraftReviewed } from '@domain/ai-copilot';
 import { signAuditReport } from '@domain/reports-capa';
 import { isPilotReady, summarizeHardeningControls } from '@domain/hardening';
+import { hasRequiredCallableCoverage, isPhaseSixProductionReady } from '@domain/production-backend';
 
-import { FIREBASE_BACKEND } from '../../core/firebase/firebase-backend';
+import { MONGODB_API_BACKEND } from '../../core/backend/mongodb-api';
 import {
   demoAuditSetup,
   demoAuditees,
@@ -50,6 +51,13 @@ import {
   demoPilotChecklist,
   demoSecurityProbes,
 } from './phase-five-demo';
+import {
+  demoBackendJobs,
+  demoCallableFunctionContracts,
+  demoEvidenceUploadIntent,
+  demoMongoCollections,
+  demoPhaseSixReadiness,
+} from './phase-six-demo';
 
 const phaseCards = [
   {
@@ -82,6 +90,11 @@ const phaseCards = [
     status: 'Soteria theme',
     body: 'Security probes, accessibility checks, observability, and pilot readiness are now tracked.',
   },
+  {
+    title: 'MongoDB backend',
+    status: 'Phase 6 started',
+    body: 'A Node API owns MongoDB writes, tenant checks, upload intents, AI jobs, and report jobs.',
+  },
 ];
 
 const wikiManuals = [
@@ -106,11 +119,11 @@ const wikiManuals = [
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class DashboardComponent {
-  private readonly firebaseBackend = inject(FIREBASE_BACKEND);
+  private readonly mongoBackend = inject(MONGODB_API_BACKEND);
 
   protected readonly selectedEdition = signal<'ISO_14001_2026' | 'ISO_14001_2015'>('ISO_14001_2026');
   protected readonly capturedPhotoName = signal<string | null>(null);
-  protected readonly firebaseProjectId = this.firebaseBackend.projectId;
+  protected readonly apiBackend = this.mongoBackend;
   protected readonly phaseCards = phaseCards;
   protected readonly wikiManuals = wikiManuals;
   protected readonly auditees = demoAuditees;
@@ -147,6 +160,11 @@ export class DashboardComponent {
   protected readonly observabilityEvents = demoObservabilityEvents;
   protected readonly pilotChecklist = demoPilotChecklist;
   protected readonly hardeningSummary = summarizeHardeningControls(demoHardeningControls);
+  protected readonly mongoCollections = demoMongoCollections;
+  protected readonly callableFunctionContracts = demoCallableFunctionContracts;
+  protected readonly evidenceUploadIntent = demoEvidenceUploadIntent;
+  protected readonly backendJobs = signal([...demoBackendJobs]);
+  protected readonly phaseSixReadiness = demoPhaseSixReadiness;
 
   protected readonly clauses = computed(() => {
     return sharedClauseTitles.find((edition) => edition.id === this.selectedEdition())?.clauses ?? [];
@@ -199,6 +217,20 @@ export class DashboardComponent {
       { label: 'Security probes', value: this.securityProbes.length.toString() },
       { label: 'Pilot ready', value: isPilotReady(this.pilotChecklist) ? 'yes' : 'not yet' },
       { label: 'Telemetry events', value: this.observabilityEvents.length.toString() },
+    ];
+  });
+
+  protected readonly phaseSixSummary = computed(() => {
+    return [
+      { label: 'Mongo collections', value: this.mongoCollections.length.toString() },
+      {
+        label: 'API contracts',
+        value: hasRequiredCallableCoverage(this.callableFunctionContracts)
+          ? this.callableFunctionContracts.length.toString()
+          : 'gap',
+      },
+      { label: 'Backend jobs', value: this.backendJobs().length.toString() },
+      { label: 'Production ready', value: isPhaseSixProductionReady(this.phaseSixReadiness) ? 'yes' : 'not yet' },
     ];
   });
 
@@ -287,5 +319,26 @@ export class DashboardComponent {
           : item,
       ),
     );
+  }
+
+  protected queueDemoPhotoAnalysisJob(): void {
+    const count = this.backendJobs().length + 1;
+    const now = new Date().toISOString();
+    this.backendJobs.update((jobs) => [
+      ...jobs,
+      {
+        id: `job-photo-ai-demo-${count}`,
+        tenantId: demoTenantId,
+        auditId: demoAuditId,
+        callableName: 'requestPhotoAnalysis',
+        requestedByUid: 'uid-ava-auditor',
+        status: 'queued',
+        idempotencyKey: `phase-six-photo-ai-demo-${count}`,
+        retryCount: 0,
+        createdAt: now,
+        updatedAt: now,
+        resultRef: `/tenants/${demoTenantId}/audits/${demoAuditId}/photoAnalyses/${this.evidenceUploadIntent.evidenceId}`,
+      },
+    ]);
   }
 }

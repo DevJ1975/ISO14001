@@ -5,7 +5,7 @@ Phase 4 turns fieldwork into signed audit reports and corrective-action tracking
 ## Scope
 
 - Draft audit report generation from confirmed audit records.
-- PDF report artifact references in tenant/audit-scoped Storage.
+- PDF report artifact references in tenant/audit-scoped storage keys.
 - Lead-auditor signoff.
 - CAPA tracking with owners, due dates, verification, and evidence refs.
 - Reminder schedule for corrective-action follow-up.
@@ -13,7 +13,7 @@ Phase 4 turns fieldwork into signed audit reports and corrective-action tracking
 
 ## Server Boundary
 
-PDF generation, report signing, reminder sending, and CAPA notification jobs should run in Cloud Functions or Cloud Run. Client code may request those operations, but server code must verify custom claims and audit assignment before writing privileged records.
+PDF generation, report signing, reminder sending, and CAPA notification jobs should run behind the Node API and MongoDB job queue. Client code may request those operations, but server code must verify JWT claims and audit assignment before writing privileged records.
 
 ## Audit Integrity
 

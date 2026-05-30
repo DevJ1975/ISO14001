@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { timestampSchema } from './models';
+import { timestampSchema } from './models.js';
 
 export const hardeningAreaSchema = z.enum([
   'tenantIsolation',

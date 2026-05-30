@@ -17,15 +17,15 @@ This manual helps a tenant audit firm implement the Trainovate ISO 14001 audit p
 
 1. Create the tenant record with legal firm name, status, plan, and branding colors.
 2. Add the tenant admin through the server-side provisioning flow.
-3. Confirm the tenant admin receives custom claims with the correct `tenantId` and `role`.
+3. Confirm the tenant admin receives server-verified claims with the correct `tenantId` and `role`.
 4. Configure tenant branding and default report appearance.
 5. Add auditee organizations, sites, and primary contacts.
 
 ## Member Setup
 
 1. Tenant Admin invites members by email.
-2. The invite acceptance function links or provisions the Firebase Auth user.
-3. The server sets custom claims.
+2. The invite acceptance endpoint links or provisions the authenticated user.
+3. The server sets tenant role claims.
 4. The member signs in and confirms their active tenant.
 5. Deactivated members lose access but remain attached to historical records.
 
@@ -51,8 +51,8 @@ Use the shared ISO 14001 framework for clause identifiers and short titles. Add 
 ## Photo Evidence Implementation
 
 1. Enable camera capture in the PWA on auditor devices.
-2. Store photos under the tenant and audit Storage path.
-3. Write a matching evidence document with image hash, timestamp, GPS when available, and `createdBy`.
+2. Request a tenant/audit upload intent from the MongoDB API.
+3. Write a matching evidence record with image hash, timestamp, GPS when available, and `createdBy`.
 4. Preserve an `offlineLocalId` until upload is confirmed.
 5. Route a server-side copy to AI image identification only after the evidence document is created.
 

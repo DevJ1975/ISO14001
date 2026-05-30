@@ -1,22 +1,23 @@
 # Trainovate ISO 14001 Audit Platform
 
-Clean Phase 0 foundation for a production-grade, multi-tenant environmental-audit PWA.
+Clean Phase 0-6 foundation for a production-grade, multi-tenant environmental-audit PWA.
 
 ## Stack
 
 - Angular 21 standalone components
 - Angular Material
-- Firebase Hosting, Auth, Firestore, Storage, App Check-ready rules
-- Connected Firebase web backend for project `auditor-ece22`
+- Node API backend with MongoDB as the system of record
+- Tenant-scoped MongoDB collections, indexes, upload intents, and backend job queues
 - Camera/photo evidence capture with AI image-identification contracts
 - TypeScript and zod domain contracts
-- Firebase Genkit planned for tenant-isolated AI workflows
+- Server-side AI and PDF workers planned behind MongoDB job records
 
 ## Local Development
 
 ```bash
 npm install
 npm run start
+npm run api
 ```
 
 ## Verification
@@ -27,13 +28,15 @@ npm test
 npm run build
 ```
 
-## Firebase
+## MongoDB Backend
 
 ```bash
-npm run firebase:emulators
+cp .env.example .env
+npm run mongo:init
+npm run api
 ```
 
-The Firebase web app config is in `src/app/core/firebase/firebase.config.ts`. Firebase client config is public by design; protect data with Auth, App Check, Firestore rules, Storage rules, and server-side custom claims. Do not commit service-account files, Admin SDK credentials, private keys, function secrets, or customer data.
+MongoDB is accessed only from the Node API under `server/`. Do not expose `MONGODB_URI` to Angular or commit database credentials, JWT signing keys, API keys, private keys, or customer data.
 
 ## Standards Guardrail
 
@@ -47,6 +50,8 @@ ISO standards are copyrighted. This repo stores only clause identifiers and shor
 - [Phase 3 Plan](docs/phase-3-plan.md)
 - [Phase 4 Plan](docs/phase-4-plan.md)
 - [Phase 5 Plan](docs/phase-5-plan.md)
+- [Phase 6 Plan](docs/phase-6-plan.md)
+- [MongoDB Backend](docs/mongodb-backend.md)
 - [Tenancy and RBAC](docs/tenancy-rbac.md)
 - [Offline Sync Strategy](docs/offline-sync.md)
 - [Data Model](docs/data-model.md)

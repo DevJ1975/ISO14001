@@ -16,9 +16,9 @@ flowchart TD
 
 ## Claims
 
-Tenant users carry Firebase custom claims with `role` and `tenantId`. Platform superadmins carry `platform: true` and do not receive blanket client-side write permissions.
+Tenant users carry server-verified JWT claims with `role` and `tenantId`. Platform superadmins carry `platform: true` and do not receive blanket client-side write permissions.
 
-Claims are set only by server-side functions.
+Claims are set only by server-side API operations.
 
 ## Roles
 
@@ -32,6 +32,6 @@ Claims are set only by server-side functions.
 ## Non-Negotiable Invariants
 
 - Client code never chooses its own tenant.
-- Firestore rules enforce tenant membership even when a query is malformed.
+- The Node API enforces tenant membership before every MongoDB query or write.
 - Historical records preserve `createdBy` and change-log attribution.
 - Deactivation removes access without deleting attribution.

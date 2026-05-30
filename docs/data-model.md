@@ -1,6 +1,6 @@
 # Data Model
 
-Shared framework:
+MongoDB collections use tenant-scoped document keys and indexed fields. The logical hierarchy remains:
 
 ```txt
 /platform/config
@@ -30,17 +30,17 @@ Tenant data:
 
 ## Indexing
 
-`firestore.indexes.json` starts with audit status/date, finding status/severity/date, evidence creator/time, AI photo-analysis review queues, and EMS document tenant/auditee indexes. Add query-specific indexes with the feature that introduces each query.
+`server/collections.ts` creates indexes for audit status, assigned members, evidence creator/time, upload-intent idempotency, AI photo-analysis review queues, report versions, reminder schedules, and backend jobs. Add query-specific indexes with the feature that introduces each query.
 
 ## Photo Evidence
 
-Photo uploads use Storage paths under:
+Photo upload intents use tenant-scoped storage keys under:
 
 ```txt
 /tenants/{tenantId}/audits/{auditId}/evidence/photos/{fileName}
 ```
 
-The Firestore evidence document stores the storage reference, image hash, capture source, offline local id when applicable, timestamp, GPS, and `createdBy`. AI image-identification output is written to `/photoAnalyses` by server-side code and remains a suggestion until reviewed by an auditor.
+The MongoDB evidence document stores the storage reference, image hash, capture source, offline local id when applicable, timestamp, GPS, and `createdBy`. AI image-identification output is written to `photoAnalyses` by server-side code and remains a suggestion until reviewed by an auditor.
 
 ## Phase 1 Planning Records
 
@@ -56,4 +56,8 @@ EMS knowledge-base documents are scoped by tenant and auditee. AI conversations 
 
 ## Phase 4 Report and CAPA Records
 
-Report records live under each audit and reference generated PDF artifacts in tenant/audit-scoped Storage. CAPA records link back to findings and carry owner, due date, verification, and status. Reminder schedules are server-actionable records used by Cloud Functions or Cloud Run jobs.
+Report records reference generated PDF artifacts in tenant/audit-scoped storage keys. CAPA records link back to findings and carry owner, due date, verification, and status. Reminder schedules are server-actionable records used by Node workers.
+
+## Phase 6 Backend Jobs
+
+`backendJobs` records track upload intents, AI photo-analysis requests, report PDF generation, member-claim assignment, and CAPA reminders. Each job carries tenant context, requester, idempotency key, retry count, status, and result reference.

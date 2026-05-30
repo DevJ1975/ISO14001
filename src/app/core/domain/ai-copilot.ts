@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
-import { clauseRefSchema, findingTypeSchema, isoEditionSchema, timestampSchema } from './models';
-import { photoAiAnalysisSchema } from './photo-evidence';
+import { clauseRefSchema, findingTypeSchema, isoEditionSchema, timestampSchema } from './models.js';
+import { photoAiAnalysisSchema } from './photo-evidence.js';
 
 export const aiProviderSchema = z.enum(['vertexGemini', 'anthropicClaude']);
 
