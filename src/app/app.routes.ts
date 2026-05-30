@@ -60,6 +60,11 @@ export const routes: Routes = [
         title: 'Audit programme',
       },
       {
+        path: 'users',
+        loadComponent: () => import('./features/users/users.component').then((m) => m.UsersComponent),
+        title: 'Users',
+      },
+      {
         path: 'manual',
         loadComponent: () => import('./features/manual/manual.component').then((m) => m.ManualComponent),
         title: 'User manual',
