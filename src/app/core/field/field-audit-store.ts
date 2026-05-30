@@ -1,11 +1,14 @@
-import { Injectable, computed, signal } from '@angular/core';
+import { Injectable, computed, inject, signal } from '@angular/core';
 
+import { APP_CONFIG } from '../config/app-config';
+import { FieldApiService } from './field-api.service';
 import { idbDelete, idbGet, idbSet } from './idb';
 
 export type SyncState = 'synced' | 'queued' | 'syncing' | 'conflict';
 export type FieldResult = 'notStarted' | 'conform' | 'minorNc' | 'majorNc' | 'ofi' | 'na';
 export type EvidenceKind = 'photo' | 'note';
 export type FindingType = 'minorNc' | 'majorNc' | 'ofi' | 'conformity';
+export type DataSource = 'local' | 'live';
 
 export interface FieldChecklistItem {
   id: string;
@@ -141,12 +144,16 @@ function uid(prefix: string): string {
 }
 
 /**
- * Offline-first source of truth for an in-progress field audit. State is held in
- * signals, persisted to IndexedDB, and flushed through a simulated sync outbox
- * so the UI can reflect queued / syncing / synced status while disconnected.
+ * Offline-first source of truth for an in-progress field audit. On startup it
+ * tries the live Node/Mongo API; if that is unreachable it falls back to the
+ * locally cached/seeded state in IndexedDB. Mutations update local state
+ * optimistically, then flush to the API when connected (queued otherwise).
  */
 @Injectable({ providedIn: 'root' })
 export class FieldAuditStore {
+  private readonly api = inject(FieldApiService);
+  private readonly config = inject(APP_CONFIG);
+
   readonly auditee = 'Northstar Components — Denver Assembly Plant';
   readonly criteria = 'ISO 14001:2026';
 
@@ -155,6 +162,9 @@ export class FieldAuditStore {
   readonly findings = signal<FieldFinding[]>(seedFindings());
   readonly reportSignedAt = signal<string | null>(null);
   readonly online = signal(typeof navigator === 'undefined' ? true : navigator.onLine);
+  readonly source = signal<DataSource>('local');
+
+  private flushing = false;
 
   readonly progress = computed(() => {
     const items = this.items();
@@ -178,9 +188,12 @@ export class FieldAuditStore {
 
   constructor() {
     if (typeof window !== 'undefined') {
-      window.addEventListener('online', () => this.online.set(true));
+      window.addEventListener('online', () => {
+        this.online.set(true);
+        this.autoFlush();
+      });
       window.addEventListener('offline', () => this.online.set(false));
-      void this.hydrate();
+      void this.bootstrap();
     }
   }
 
@@ -191,6 +204,7 @@ export class FieldAuditStore {
       ),
     );
     this.persist();
+    this.autoFlush();
   }
 
   setNote(itemId: string, note: string): void {
@@ -200,6 +214,7 @@ export class FieldAuditStore {
       ),
     );
     this.persist();
+    this.autoFlush();
   }
 
   addNoteEvidence(input: { itemId?: string; clauseId?: string; text: string }): void {
@@ -217,6 +232,7 @@ export class FieldAuditStore {
     this.evidence.update((list) => [record, ...list]);
     this.linkEvidence(input.itemId, id);
     this.persist();
+    this.autoFlush();
   }
 
   async addPhotoEvidence(file: File, input: { itemId?: string; clauseId?: string }): Promise<void> {
@@ -240,6 +256,7 @@ export class FieldAuditStore {
     this.evidence.update((list) => [record, ...list]);
     this.linkEvidence(input.itemId, id);
     this.persist();
+    this.autoFlush();
   }
 
   promoteToFinding(itemId: string, type: FindingType, description: string): void {
@@ -259,6 +276,7 @@ export class FieldAuditStore {
     };
     this.findings.update((list) => [finding, ...list]);
     this.persist();
+    this.autoFlush();
   }
 
   confirmFinding(id: string): void {
@@ -268,6 +286,7 @@ export class FieldAuditStore {
       ),
     );
     this.persist();
+    this.autoFlush();
   }
 
   signReport(): void {
@@ -275,9 +294,13 @@ export class FieldAuditStore {
     this.persist();
   }
 
-  /** Flush the outbox. Marks records syncing, then synced once "uploaded". */
+  /** Flush the outbox: replays queued records to the API when live, else simulates. */
   syncNow(): void {
     if (!this.online()) return;
+    if (this.source() === 'live') {
+      void this.flushLive();
+      return;
+    }
     const toSyncing = <T extends { sync: SyncState }>(record: T): T =>
       record.sync === 'queued' || record.sync === 'conflict' ? { ...record, sync: 'syncing' } : record;
     this.items.update((list) => list.map(toSyncing));
@@ -300,6 +323,70 @@ export class FieldAuditStore {
     this.findings.set(seedFindings());
     this.reportSignedAt.set(null);
     await idbDelete('meta', META_KEY);
+  }
+
+  private autoFlush(): void {
+    if (this.source() === 'live' && this.online()) {
+      void this.flushLive();
+    }
+  }
+
+  private async flushLive(): Promise<void> {
+    if (this.flushing) return;
+    this.flushing = true;
+    try {
+      for (const item of this.items().filter((entry) => entry.sync !== 'synced')) {
+        this.setItemSync(item.id, 'syncing');
+        try {
+          await this.api.putChecklistResult(item.id, { result: item.result, note: item.note });
+          this.setItemSync(item.id, 'synced');
+        } catch {
+          this.setItemSync(item.id, 'queued');
+        }
+      }
+      for (const record of this.evidence().filter((entry) => entry.sync !== 'synced')) {
+        this.setEvidenceSync(record.id, 'syncing');
+        try {
+          const { sync, thumbUrl, blobKey, ...payload } = record;
+          void sync;
+          void thumbUrl;
+          void blobKey;
+          await this.api.createEvidence(payload);
+          this.setEvidenceSync(record.id, 'synced');
+        } catch {
+          this.setEvidenceSync(record.id, 'queued');
+        }
+      }
+      for (const finding of this.findings().filter((entry) => entry.sync !== 'synced')) {
+        this.setFindingSync(finding.id, 'syncing');
+        try {
+          const { sync, status, ...payload } = finding;
+          void sync;
+          await this.api.createFinding(payload);
+          if (status === 'auditorConfirmed') {
+            await this.api.confirmFinding(finding.id);
+          }
+          this.setFindingSync(finding.id, 'synced');
+        } catch {
+          this.setFindingSync(finding.id, 'queued');
+        }
+      }
+      this.persist();
+    } finally {
+      this.flushing = false;
+    }
+  }
+
+  private setItemSync(id: string, sync: SyncState): void {
+    this.items.update((list) => list.map((item) => (item.id === id ? { ...item, sync } : item)));
+  }
+
+  private setEvidenceSync(id: string, sync: SyncState): void {
+    this.evidence.update((list) => list.map((record) => (record.id === id ? { ...record, sync } : record)));
+  }
+
+  private setFindingSync(id: string, sync: SyncState): void {
+    this.findings.update((list) => list.map((finding) => (finding.id === id ? { ...finding, sync } : finding)));
   }
 
   private linkEvidence(itemId: string | undefined, evidenceId: string): void {
@@ -338,6 +425,26 @@ export class FieldAuditStore {
       reportSignedAt: this.reportSignedAt(),
     };
     void idbSet('meta', META_KEY, snapshot);
+  }
+
+  /** Try the live API first; on any failure fall back to cached/seeded local state. */
+  private async bootstrap(): Promise<void> {
+    if (this.config.sendDevAuthHeaders === false) {
+      await this.hydrate();
+      return;
+    }
+    try {
+      const payload = await this.api.getFieldState();
+      this.items.set(payload.items.map((item) => ({ ...item, sync: 'synced' as const })));
+      this.evidence.set(payload.evidence.map((record) => ({ ...record, sync: 'synced' as const })));
+      this.findings.set(payload.findings.map((finding) => ({ ...finding, sync: 'synced' as const })));
+      this.source.set('live');
+      this.online.set(true);
+      this.persist();
+    } catch {
+      this.source.set('local');
+      await this.hydrate();
+    }
   }
 
   private async hydrate(): Promise<void> {

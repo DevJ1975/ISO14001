@@ -1,12 +1,19 @@
 import { z } from 'zod';
 import { existsSync, readFileSync } from 'node:fs';
 
+// Note: z.coerce.boolean() treats any non-empty string as true, so the string
+// "false" would (surprisingly) become true. Parse the flag explicitly instead.
+const booleanFlagSchema = z
+  .union([z.boolean(), z.string()])
+  .default(false)
+  .transform((value) => value === true || value === 'true' || value === '1');
+
 export const serverConfigSchema = z.object({
   mongoUri: z.string().min(1),
   mongoDbName: z.string().min(1).default('iso14001_auditor'),
   port: z.coerce.number().int().positive().default(4300),
   corsOrigin: z.string().min(1).default('http://127.0.0.1:4200'),
-  allowDevAuthHeaders: z.coerce.boolean().default(false),
+  allowDevAuthHeaders: booleanFlagSchema,
 });
 
 export type ServerConfig = z.infer<typeof serverConfigSchema>;

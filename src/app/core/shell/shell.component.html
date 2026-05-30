@@ -29,7 +29,7 @@
         <mat-icon aria-hidden="true">{{ store.online() ? 'cloud_done' : 'cloud_off' }}</mat-icon>
         <span>
           <strong>{{ store.online() ? 'Online' : 'Offline' }}</strong>
-          <small>{{ store.outboxCount() }} pending</small>
+          <small>{{ store.source() === 'live' ? 'Live API' : 'Local' }} · {{ store.outboxCount() }} pending</small>
         </span>
       </div>
       @if (store.outboxCount() > 0 && store.online()) {
