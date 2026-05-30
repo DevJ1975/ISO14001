@@ -423,7 +423,7 @@ Deno.serve(async (req) => {
         return json(200, { ok: true });
       }
 
-      if (method === 'POST' && rest[0] === 'evidence') {
+      if (method === 'POST' && rest[0] === 'evidence' && !rest[1]) {
         requireRole(actor, ['leadAuditor', 'auditor']);
         const body = await readJson(req);
         const id = String(body.id);
@@ -438,6 +438,24 @@ Deno.serve(async (req) => {
           }
         }
         return json(201, { evidence: body });
+      }
+
+      // Signed upload URL: the browser PUTs the photo straight to Storage; the
+      // service-role key never leaves the function. Path is tenant/audit-scoped.
+      if (method === 'POST' && rest[0] === 'evidence' && rest[1] && rest[2] === 'upload-url') {
+        requireRole(actor, ['leadAuditor', 'auditor']);
+        const storagePath = `${tenantId}/${auditId}/${rest[1]}`;
+        const { data, error } = await db.storage.from('evidence').createSignedUploadUrl(storagePath, { upsert: true });
+        if (error || !data) return json(500, { error: 'Could not create an upload URL.' });
+        return json(200, { signedUrl: data.signedUrl, path: storagePath });
+      }
+
+      // Short-lived signed read URL for an uploaded photo (private bucket).
+      if (method === 'GET' && rest[0] === 'evidence' && rest[1] && rest[2] === 'view-url') {
+        const storagePath = `${tenantId}/${auditId}/${rest[1]}`;
+        const { data, error } = await db.storage.from('evidence').createSignedUrl(storagePath, 3600);
+        if (error || !data) return json(404, { error: 'No uploaded photo for this evidence.' });
+        return json(200, { url: data.signedUrl });
       }
 
       if (method === 'PUT' && rest[0] === 'findings' && rest[1]) {

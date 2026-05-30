@@ -104,6 +104,31 @@ export class FieldApiService {
     return firstValueFrom(this.http.post(`${this.base()}/evidence`, body));
   }
 
+  /** Ask the backend for a signed URL, then PUT the photo straight to Storage. */
+  async uploadEvidencePhoto(evidenceId: string, file: Blob): Promise<boolean> {
+    const { signedUrl } = await firstValueFrom(
+      this.http.post<{ signedUrl: string }>(`${this.base()}/evidence/${encodeURIComponent(evidenceId)}/upload-url`, {}),
+    );
+    const response = await fetch(signedUrl, {
+      method: 'PUT',
+      headers: { 'content-type': file.type || 'application/octet-stream' },
+      body: file,
+    });
+    return response.ok;
+  }
+
+  /** Short-lived signed URL to view an uploaded photo (private bucket). */
+  async evidenceViewUrl(evidenceId: string): Promise<string | null> {
+    try {
+      const { url } = await firstValueFrom(
+        this.http.get<{ url: string }>(`${this.base()}/evidence/${encodeURIComponent(evidenceId)}/view-url`),
+      );
+      return url ?? null;
+    } catch {
+      return null;
+    }
+  }
+
   upsertFinding(body: Omit<FieldFinding, 'sync'>): Promise<unknown> {
     return firstValueFrom(this.http.put(`${this.base()}/findings/${encodeURIComponent(body.id)}`, body));
   }

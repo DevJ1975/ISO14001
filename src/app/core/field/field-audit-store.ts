@@ -109,6 +109,8 @@ export interface FieldEvidence {
   geo?: { lat: number; lng: number; accuracyMeters?: number };
   blobKey?: string;
   thumbUrl?: string;
+  /** True once the photo blob has been uploaded to Storage (live mode only). */
+  uploaded?: boolean;
   sync: SyncState;
 }
 
@@ -415,6 +417,22 @@ export class FieldAuditStore {
     this.linkEvidence(input.itemId, id);
     this.persist();
     this.autoFlush();
+  }
+
+  /**
+   * Resolve a displayable URL for a photo: the local object URL if we captured
+   * it on this device, otherwise a short-lived signed URL from Storage (live).
+   */
+  async resolvePhotoUrl(evidenceId: string): Promise<string | null> {
+    const record = this.evidence().find((entry) => entry.id === evidenceId);
+    if (!record) return null;
+    if (record.thumbUrl) return record.thumbUrl;
+    if (this.source() !== 'live' || !record.uploaded) return null;
+    const url = await this.api.evidenceViewUrl(evidenceId);
+    if (url) {
+      this.evidence.update((list) => list.map((entry) => (entry.id === evidenceId ? { ...entry, thumbUrl: url } : entry)));
+    }
+    return url;
   }
 
   /** Raise a nonconformity / OFI from a checklist item. */
@@ -730,12 +748,21 @@ export class FieldAuditStore {
       for (const record of this.evidence().filter((entry) => entry.sync !== 'synced')) {
         this.setSync('evidence', record.id, 'syncing');
         try {
+          // Upload the photo blob to Storage first (best-effort), then record the
+          // metadata with an `uploaded` flag so readers can fetch a signed URL.
+          let uploaded = record.uploaded ?? false;
+          if (record.kind === 'photo' && record.blobKey && !uploaded) {
+            const blob = await idbGet<Blob>('blobs', record.blobKey);
+            if (blob) uploaded = await this.api.uploadEvidencePhoto(record.id, blob);
+          }
           const { sync, thumbUrl, blobKey, ...payload } = record;
           void sync;
           void thumbUrl;
           void blobKey;
-          await this.api.createEvidence(payload);
-          this.setSync('evidence', record.id, 'synced');
+          await this.api.createEvidence({ ...payload, uploaded });
+          this.evidence.update((list) =>
+            list.map((entry) => (entry.id === record.id ? { ...entry, uploaded, sync: 'synced' } : entry)),
+          );
         } catch {
           this.setSync('evidence', record.id, 'queued');
         }
