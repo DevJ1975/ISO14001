@@ -7,51 +7,50 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const JWT_SECRET = Deno.env.get('APP_JWT_SECRET') ?? SERVICE_ROLE;
-const JWT_TTL = 43200; // 12h
+const JWT_TTL = 43200;
 
 const db = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } });
 
-const CORS: Record<string, string> = {
+const CORS = {
   'access-control-allow-origin': '*',
   'access-control-allow-headers': 'authorization,content-type,apikey,x-app-token',
   'access-control-allow-methods': 'GET,POST,PUT,OPTIONS',
 };
 
-function json(status: number, body: unknown): Response {
+function json(status, body) {
   return new Response(body === null ? 'null' : JSON.stringify(body), {
     status,
     headers: { ...CORS, 'content-type': 'application/json; charset=utf-8' },
   });
 }
 
-// ---- crypto helpers (Web Crypto) ----
 const enc = new TextEncoder();
-function b64url(bytes: Uint8Array): string {
+function b64url(bytes) {
   let s = '';
   for (const b of bytes) s += String.fromCharCode(b);
   return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
-function b64urlToBytes(s: string): Uint8Array {
+function b64urlToBytes(s) {
   const norm = s.replace(/-/g, '+').replace(/_/g, '/');
   const pad = norm.length % 4 ? '='.repeat(4 - (norm.length % 4)) : '';
   const bin = atob(norm + pad);
   return Uint8Array.from(bin, (c) => c.charCodeAt(0));
 }
-function hexToBytes(hex: string): Uint8Array {
+function hexToBytes(hex) {
   const out = new Uint8Array(hex.length / 2);
   for (let i = 0; i < out.length; i++) out[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
   return out;
 }
-function timingSafeEqual(a: Uint8Array, b: Uint8Array): boolean {
+function timingSafeEqual(a, b) {
   if (a.length !== b.length) return false;
   let diff = 0;
   for (let i = 0; i < a.length; i++) diff |= a[i] ^ b[i];
   return diff === 0;
 }
-async function hmacKey(secret: string): Promise<CryptoKey> {
+async function hmacKey(secret) {
   return await crypto.subtle.importKey('raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign', 'verify']);
 }
-async function signJwt(payload: Record<string, unknown>): Promise<{ token: string; exp: number }> {
+async function signJwt(payload) {
   const nowSec = Math.floor(Date.now() / 1000);
   const exp = nowSec + JWT_TTL;
   const header = b64url(enc.encode(JSON.stringify({ alg: 'HS256', typ: 'JWT' })));
@@ -60,16 +59,16 @@ async function signJwt(payload: Record<string, unknown>): Promise<{ token: strin
   const sig = new Uint8Array(await crypto.subtle.sign('HMAC', await hmacKey(JWT_SECRET), enc.encode(data)));
   return { token: `${data}.${b64url(sig)}`, exp };
 }
-async function verifyJwt(token: string): Promise<Record<string, unknown>> {
+async function verifyJwt(token) {
   const [h, p, s] = token.split('.');
   if (!h || !p || !s) throw new Error('malformed');
   const ok = await crypto.subtle.verify('HMAC', await hmacKey(JWT_SECRET), b64urlToBytes(s), enc.encode(`${h}.${p}`));
   if (!ok) throw new Error('signature');
-  const payload = JSON.parse(new TextDecoder().decode(b64urlToBytes(p))) as Record<string, unknown>;
+  const payload = JSON.parse(new TextDecoder().decode(b64urlToBytes(p)));
   if (typeof payload.exp !== 'number' || payload.exp < Math.floor(Date.now() / 1000)) throw new Error('expired');
   return payload;
 }
-async function verifyPassword(password: string, stored: string): Promise<boolean> {
+async function verifyPassword(password, stored) {
   const [scheme, itStr, saltHex, hashHex] = stored.split('$');
   if (scheme !== 'pbkdf2') return false;
   const iterations = parseInt(itStr, 10);
@@ -82,19 +81,13 @@ async function verifyPassword(password: string, stored: string): Promise<boolean
   return timingSafeEqual(bits, expected);
 }
 
-interface Actor {
-  uid: string;
-  tenantId: string;
-  role: string;
-  platform: boolean;
-}
 class AuthError extends Error {}
 
-async function getActor(req: Request): Promise<Actor> {
+async function getActor(req) {
   const authz = req.headers.get('authorization') ?? req.headers.get('x-app-token') ?? '';
   const token = authz.startsWith('Bearer ') ? authz.slice(7).trim() : authz.trim();
   if (!token) throw new AuthError('Missing token');
-  let claims: Record<string, unknown>;
+  let claims;
   try {
     claims = await verifyJwt(token);
   } catch {
@@ -107,19 +100,18 @@ async function getActor(req: Request): Promise<Actor> {
     platform: claims.platform === true,
   };
 }
-function requireTenant(actor: Actor, tenantId: string): void {
+function requireTenant(actor, tenantId) {
   if (actor.platform || actor.tenantId !== tenantId) throw new AuthError('Wrong tenant');
 }
-function requireRole(actor: Actor, roles: string[]): void {
+function requireRole(actor, roles) {
   if (!roles.includes(actor.role)) throw new AuthError('Role not allowed');
 }
 
-// ---- record helpers ----
-async function listRecords(tenantId: string, auditId: string) {
+async function listRecords(tenantId, auditId) {
   const { data } = await db.from('field_records').select('kind,doc').eq('tenant_id', tenantId).eq('audit_id', auditId);
   return data ?? [];
 }
-async function getRecord(tenantId: string, auditId: string, kind: string, recordId: string) {
+async function getRecord(tenantId, auditId, kind, recordId) {
   const { data } = await db
     .from('field_records')
     .select('doc')
@@ -128,9 +120,9 @@ async function getRecord(tenantId: string, auditId: string, kind: string, record
     .eq('kind', kind)
     .eq('record_id', recordId)
     .maybeSingle();
-  return (data?.doc as Record<string, unknown> | undefined) ?? null;
+  return data?.doc ?? null;
 }
-async function upsertRecord(tenantId: string, auditId: string, kind: string, recordId: string, doc: unknown) {
+async function upsertRecord(tenantId, auditId, kind, recordId, doc) {
   await db
     .from('field_records')
     .upsert(
@@ -139,15 +131,25 @@ async function upsertRecord(tenantId: string, auditId: string, kind: string, rec
     );
 }
 
-async function readJson(req: Request): Promise<Record<string, unknown>> {
+// A fresh audit starts with the three top-level ISO 14001 clause checklist rows.
+function starterChecklist() {
+  const now = new Date().toISOString();
+  return [
+    { id: 'item-4', clauseId: '4', clauseTitle: 'Context of the organization', question: 'Verify internal/external EMS context and interested parties.', ownerName: '', result: 'notStarted', evidenceIds: [], updatedAt: now },
+    { id: 'item-6', clauseId: '6', clauseTitle: 'Planning', question: 'Sample environmental aspects, compliance obligations, risks and objectives.', ownerName: '', result: 'notStarted', evidenceIds: [], updatedAt: now },
+    { id: 'item-8', clauseId: '8', clauseTitle: 'Operation', question: 'Observe operational controls and emergency preparedness.', ownerName: '', result: 'notStarted', evidenceIds: [], updatedAt: now },
+  ];
+}
+
+async function readJson(req) {
   try {
-    return (await req.json()) as Record<string, unknown>;
+    return await req.json();
   } catch {
     return {};
   }
 }
 
-Deno.serve(async (req: Request) => {
+Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
 
   const url = new URL(req.url);
@@ -182,7 +184,6 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // Tenant-scoped programme: /tenants/:t/programme
     if (seg[0] === 'tenants' && seg[2] === 'programme') {
       const tenantId = seg[1];
       const actor = await getActor(req);
@@ -200,7 +201,44 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // Audit-scoped: /tenants/:t/audits/:a/...
+    // Audit collection: list + create.
+    if (seg[0] === 'tenants' && seg[2] === 'audits' && seg.length === 3) {
+      const tenantId = seg[1];
+      const actor = await getActor(req);
+      requireTenant(actor, tenantId);
+      if (method === 'GET') {
+        const { data } = await db
+          .from('audits')
+          .select('doc')
+          .eq('tenant_id', tenantId)
+          .order('created_at', { ascending: false });
+        return json(200, { audits: (data ?? []).map((r) => r.doc) });
+      }
+      if (method === 'POST') {
+        requireRole(actor, ['tenantAdmin', 'leadAuditor']);
+        const body = await readJson(req);
+        const now = new Date().toISOString();
+        const id = `audit-${crypto.randomUUID()}`;
+        const doc = {
+          id,
+          auditee: String(body.auditee ?? '').slice(0, 300),
+          scope: String(body.scope ?? '').slice(0, 2000),
+          criteria: body.criteria === 'ISO 14001:2015' ? 'ISO 14001:2015' : 'ISO 14001:2026',
+          status: 'planned',
+          startsAt: body.startsAt ?? null,
+          endsAt: body.endsAt ?? null,
+          createdByName: body.createdByName ?? actor.uid,
+          createdAt: now,
+        };
+        await db.from('audits').insert({ tenant_id: tenantId, audit_id: id, doc });
+        for (const item of starterChecklist()) {
+          await upsertRecord(tenantId, id, 'checklist', item.id, item);
+        }
+        await upsertRecord(tenantId, id, 'status', 'status', { status: 'planned' });
+        return json(201, { audit: doc });
+      }
+    }
+
     if (seg[0] === 'tenants' && seg[2] === 'audits') {
       const tenantId = seg[1];
       const auditId = seg[3];
@@ -210,10 +248,17 @@ Deno.serve(async (req: Request) => {
 
       if (method === 'GET' && rest[0] === 'field-state') {
         const rows = await listRecords(tenantId, auditId);
-        const byKind = (k: string) => rows.filter((r) => r.kind === k).map((r) => r.doc);
-        const single = (k: string) => rows.find((r) => r.kind === k)?.doc ?? null;
-        const statusDoc = single('status') as { status?: string } | null;
+        const byKind = (k) => rows.filter((r) => r.kind === k).map((r) => r.doc);
+        const single = (k) => rows.find((r) => r.kind === k)?.doc ?? null;
+        const statusDoc = single('status');
+        const { data: auditRow } = await db
+          .from('audits')
+          .select('doc')
+          .eq('tenant_id', tenantId)
+          .eq('audit_id', auditId)
+          .maybeSingle();
         return json(200, {
+          audit: auditRow?.doc ?? null,
           items: byKind('checklist'),
           evidence: byKind('evidence'),
           findings: byKind('finding'),
@@ -223,7 +268,7 @@ Deno.serve(async (req: Request) => {
           emergencyRecords: byKind('emergency'),
           meetings: byKind('meeting'),
           conclusion: single('conclusion'),
-          auditStatus: statusDoc?.status ?? 'fieldwork',
+          auditStatus: statusDoc?.status ?? auditRow?.doc?.status ?? 'fieldwork',
         });
       }
 
@@ -245,7 +290,7 @@ Deno.serve(async (req: Request) => {
         if (itemId) {
           const item = await getRecord(tenantId, auditId, 'checklist', itemId);
           if (item) {
-            const ids = Array.isArray(item.evidenceIds) ? (item.evidenceIds as string[]) : [];
+            const ids = Array.isArray(item.evidenceIds) ? item.evidenceIds : [];
             if (!ids.includes(id)) ids.push(id);
             await upsertRecord(tenantId, auditId, 'checklist', itemId, { ...item, evidenceIds: ids });
           }
@@ -298,6 +343,10 @@ Deno.serve(async (req: Request) => {
         requireRole(actor, ['leadAuditor']);
         const body = await readJson(req);
         await upsertRecord(tenantId, auditId, 'status', 'status', { status: body.status });
+        const { data: auditRow } = await db.from('audits').select('doc').eq('tenant_id', tenantId).eq('audit_id', auditId).maybeSingle();
+        if (auditRow?.doc) {
+          await db.from('audits').update({ doc: { ...auditRow.doc, status: body.status }, updated_at: new Date().toISOString() }).eq('tenant_id', tenantId).eq('audit_id', auditId);
+        }
         return json(200, { ok: true });
       }
 
@@ -325,7 +374,7 @@ Deno.serve(async (req: Request) => {
         return json(200, { signedAt: now, report });
       }
 
-      const registerKinds: Record<string, string> = { aspects: 'aspect', obligations: 'obligation', emergency: 'emergency' };
+      const registerKinds = { aspects: 'aspect', obligations: 'obligation', emergency: 'emergency' };
       if (method === 'PUT' && registerKinds[rest[0]] && rest[1]) {
         requireRole(actor, ['leadAuditor', 'auditor']);
         const body = await readJson(req);

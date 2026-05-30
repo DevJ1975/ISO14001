@@ -4,10 +4,12 @@ import { firstValueFrom } from 'rxjs';
 
 import { AuthService } from '../auth/auth.service';
 import { APP_CONFIG } from '../config/app-config';
+import { AuditSelectionService } from './audit-selection.service';
 import type {
   AuditConclusion,
   AuditMeeting,
   AuditStatus,
+  AuditSummary,
   ComplianceObligation,
   EmergencyRecord,
   EnvironmentalAspect,
@@ -19,6 +21,7 @@ import type {
 } from './field-audit-store';
 
 export interface FieldStatePayload {
+  audit?: AuditSummary | null;
   items: Array<Omit<FieldChecklistItem, 'sync'>>;
   evidence: Array<Omit<FieldEvidence, 'sync' | 'thumbUrl'>>;
   findings: Array<Omit<FieldFinding, 'sync'>>;
@@ -38,6 +41,18 @@ export class FieldApiService {
   private readonly http = inject(HttpClient);
   private readonly auth = inject(AuthService);
   private readonly config = inject(APP_CONFIG);
+  private readonly selection = inject(AuditSelectionService);
+
+  async listAudits(): Promise<AuditSummary[]> {
+    const result = await firstValueFrom(this.http.get<{ audits: AuditSummary[] }>(`${this.tenantBase()}/audits`));
+    return result?.audits ?? [];
+  }
+
+  createAudit(body: { auditee: string; scope: string; criteria: string }): Promise<AuditSummary> {
+    return firstValueFrom(
+      this.http.post<{ audit: AuditSummary }>(`${this.tenantBase()}/audits`, body),
+    ).then((r) => r.audit);
+  }
 
   async health(): Promise<boolean> {
     try {
@@ -103,8 +118,12 @@ export class FieldApiService {
     return firstValueFrom(this.http.put(`${this.base()}/emergency/${encodeURIComponent(body.id)}`, body));
   }
 
-  private base(): string {
+  private tenantBase(): string {
     const tenantId = this.auth.user()?.tenantId ?? this.config.tenantId;
-    return `${this.config.apiBaseUrl}/tenants/${tenantId}/audits/${this.config.auditId}`;
+    return `${this.config.apiBaseUrl}/tenants/${tenantId}`;
+  }
+
+  private base(): string {
+    return `${this.tenantBase()}/audits/${this.selection.selectedAuditId()}`;
   }
 }

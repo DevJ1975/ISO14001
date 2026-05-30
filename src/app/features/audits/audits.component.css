@@ -1,0 +1,131 @@
+.actions {
+  display: flex;
+  gap: 10px;
+}
+
+.actions button,
+.form button {
+  min-height: 48px;
+  border-radius: 12px;
+}
+
+.form {
+  display: grid;
+  gap: 12px;
+}
+
+.form h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.fld {
+  display: grid;
+  gap: 5px;
+}
+
+.fld > span {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.fld input,
+.fld textarea,
+.fld select {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: var(--surface-guard);
+  padding: 10px 12px;
+  color: var(--text);
+  font: inherit;
+  line-height: 1.45;
+  resize: vertical;
+}
+
+.fld input:focus-visible,
+.fld textarea:focus-visible,
+.fld select:focus-visible {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--ring);
+}
+
+.err {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--tone-critical-fg);
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.err mat-icon {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+}
+
+.list {
+  display: grid;
+  gap: 10px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: border-color 0.16s ease, transform 0.12s ease;
+}
+
+.row:hover {
+  border-color: var(--border-strong);
+}
+
+.row:active {
+  transform: scale(0.995);
+}
+
+.row.active {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 22%, transparent);
+}
+
+.row-main {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.row-main strong {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.row-main small {
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.row mat-icon {
+  color: var(--muted);
+  flex: 0 0 auto;
+}
+
+.row mat-icon.cur {
+  color: var(--primary);
+}
