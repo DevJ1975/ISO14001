@@ -3,144 +3,6 @@
   min-height: 100vh;
 }
 
-.shell {
-  min-height: 100vh;
-  background: transparent;
-}
-
-/* ----------------------------------------------------------------------------
-   Side rail
----------------------------------------------------------------------------- */
-.rail {
-  width: 264px;
-  border-right: 1px solid rgba(255, 255, 255, 0.1);
-  background:
-    radial-gradient(420px 220px at 20% 0%, rgba(17, 117, 111, 0.55), transparent 70%),
-    linear-gradient(180deg, var(--primary-strong), #0a2c3f 60%, #0b1f2e);
-  padding: 22px 16px calc(22px + env(safe-area-inset-bottom));
-  padding-left: calc(16px + env(safe-area-inset-left));
-}
-
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 30px;
-  color: #ffffff;
-}
-
-.brand-mark {
-  display: grid;
-  width: 46px;
-  height: 46px;
-  place-items: center;
-  border-radius: 13px;
-  background: linear-gradient(135deg, var(--accent), var(--accent-strong));
-  color: #ffffff;
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.35);
-}
-
-.brand-mark mat-icon {
-  font-size: 26px;
-  width: 26px;
-  height: 26px;
-}
-
-.brand strong,
-.brand small {
-  display: block;
-}
-
-.brand strong {
-  font-size: 16px;
-  letter-spacing: 0.01em;
-}
-
-.brand small {
-  color: rgba(255, 255, 255, 0.66);
-  font-size: 12px;
-  letter-spacing: 0.04em;
-}
-
-nav[aria-label='Primary'] {
-  display: grid;
-  gap: 4px;
-}
-
-.nav-item {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  min-height: 52px;
-  padding: 0 14px;
-  border-radius: 12px;
-  color: rgba(255, 255, 255, 0.74);
-  font-size: 15px;
-  font-weight: 500;
-  text-decoration: none;
-  touch-action: manipulation;
-  transition: background 0.18s ease, color 0.18s ease, transform 0.18s ease;
-}
-
-.nav-item mat-icon {
-  font-size: 22px;
-  width: 22px;
-  height: 22px;
-  opacity: 0.85;
-}
-
-.nav-item:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: #ffffff;
-}
-
-.nav-item.active {
-  background: linear-gradient(100deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.06));
-  color: #ffffff;
-}
-
-.nav-item.active::before {
-  content: '';
-  position: absolute;
-  left: -16px;
-  top: 50%;
-  height: 26px;
-  width: 4px;
-  transform: translateY(-50%);
-  border-radius: 0 4px 4px 0;
-  background: var(--accent);
-}
-
-.nav-item.active mat-icon {
-  opacity: 1;
-  color: #f1d9a6;
-}
-
-/* ----------------------------------------------------------------------------
-   Top bar
----------------------------------------------------------------------------- */
-.topbar {
-  position: sticky;
-  top: 0;
-  z-index: 5;
-  gap: 12px;
-  min-height: 64px;
-  padding-top: env(safe-area-inset-top);
-  padding-right: calc(16px + env(safe-area-inset-right));
-  border-bottom: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.82);
-  color: var(--text);
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  backdrop-filter: saturate(140%) blur(14px);
-  -webkit-backdrop-filter: saturate(140%) blur(14px);
-}
-
-.spacer {
-  flex: 1;
-}
-
 /* ----------------------------------------------------------------------------
    Content shell + shared motion
 ---------------------------------------------------------------------------- */
@@ -188,7 +50,7 @@ mat-icon {
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 22px;
   background:
-    linear-gradient(135deg, #0c5450 0%, #0a3f4d 52%, #0b2740 100%);
+    linear-gradient(135deg, #235a4f 0%, #213547 55%, #1c2c3e 100%);
   padding: clamp(26px, 4vw, 44px);
   color: #eef7f4;
   box-shadow: var(--shadow-lg);
@@ -201,8 +63,8 @@ mat-icon {
   width: 60%;
   height: 140%;
   background:
-    radial-gradient(closest-side, rgba(200, 145, 47, 0.42), transparent 70%),
-    radial-gradient(closest-side, rgba(31, 196, 184, 0.34), transparent 72%);
+    radial-gradient(closest-side, rgba(79, 192, 141, 0.45), transparent 70%),
+    radial-gradient(closest-side, rgba(66, 184, 131, 0.32), transparent 72%);
   filter: blur(10px);
   animation: sheen 16s ease-in-out infinite;
   pointer-events: none;
@@ -232,7 +94,7 @@ mat-icon {
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.1);
   padding: 7px 14px 7px 11px;
-  color: #f4ead2;
+  color: #cdebd9;
   font-size: 12.5px;
   font-weight: 700;
   letter-spacing: 0.1em;
@@ -281,7 +143,7 @@ mat-icon {
 }
 
 .panel-label {
-  color: #f1d9a6;
+  color: #bdf0d6;
   font-size: 11.5px;
   font-weight: 800;
   letter-spacing: 0.12em;
@@ -1202,46 +1064,6 @@ mat-icon {
 
 .clause-row span {
   color: var(--text);
-}
-
-/* ----------------------------------------------------------------------------
-   Semantic status pills (data-tone)
----------------------------------------------------------------------------- */
-.content [data-tone] {
-  width: fit-content;
-  display: inline-flex;
-  align-items: center;
-  border-radius: 999px;
-  padding: 5px 12px;
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0.01em;
-  text-transform: capitalize;
-  border: 1px solid transparent;
-}
-
-.content [data-tone='positive'] {
-  background: var(--tone-positive-bg);
-  color: var(--tone-positive-fg);
-  border-color: var(--tone-positive-bd);
-}
-
-.content [data-tone='progress'] {
-  background: var(--tone-progress-bg);
-  color: var(--tone-progress-fg);
-  border-color: var(--tone-progress-bd);
-}
-
-.content [data-tone='critical'] {
-  background: var(--tone-critical-bg);
-  color: var(--tone-critical-fg);
-  border-color: var(--tone-critical-bd);
-}
-
-.content [data-tone='neutral'] {
-  background: var(--tone-neutral-bg);
-  color: var(--tone-neutral-fg);
-  border-color: var(--tone-neutral-bd);
 }
 
 /* ----------------------------------------------------------------------------

@@ -1,0 +1,57 @@
+.finding-list {
+  display: grid;
+  gap: 14px;
+}
+
+.finding {
+  display: grid;
+  gap: 10px;
+  border-left: 4px solid var(--border-strong);
+}
+
+.finding:has([data-tone='critical']) {
+  border-left-color: var(--tone-critical-fg);
+}
+
+.finding:has([data-tone='progress']) {
+  border-left-color: var(--tone-progress-fg);
+}
+
+.f-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.clause {
+  flex: 1;
+  min-width: 160px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.finding p {
+  margin: 0;
+  color: var(--text);
+  line-height: 1.55;
+}
+
+.f-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.f-foot small {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.f-foot button {
+  min-height: 46px;
+  border-radius: 12px;
+}

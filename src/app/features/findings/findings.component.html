@@ -1,0 +1,46 @@
+<section class="screen">
+  <header class="screen-head">
+    <h1>Findings</h1>
+    <p>Drafts stay editable until an auditor confirms them. AI never finalises a finding.</p>
+  </header>
+
+  <div class="stat-grid">
+    <div class="stat"><strong>{{ counts().majorNc }}</strong><span>Major NC</span></div>
+    <div class="stat"><strong>{{ counts().minorNc }}</strong><span>Minor NC</span></div>
+    <div class="stat"><strong>{{ counts().ofi }}</strong><span>Opportunities</span></div>
+    <div class="stat"><strong>{{ store.findings().length }}</strong><span>Total</span></div>
+  </div>
+
+  <div class="finding-list">
+    @for (finding of store.findings(); track finding.id) {
+      <article class="panel finding">
+        <div class="f-top">
+          <span [attr.data-tone]="typeTone(finding.type)">{{ typeLabel(finding.type) }}</span>
+          <span class="clause">Clause {{ finding.clauseId }} · {{ finding.clauseTitle }}</span>
+          <span
+            class="status"
+            [attr.data-tone]="finding.status === 'auditorConfirmed' ? 'positive' : 'progress'"
+          >
+            {{ finding.status === 'auditorConfirmed' ? 'Confirmed' : 'Draft' }}
+          </span>
+        </div>
+        <p>{{ finding.description }}</p>
+        <div class="f-foot">
+          <small>{{ finding.createdByName }} · {{ finding.evidenceIds.length }} evidence linked</small>
+          @if (finding.status === 'draft') {
+            <button mat-flat-button color="primary" type="button" (click)="confirm(finding.id)">
+              <mat-icon aria-hidden="true">verified</mat-icon>
+              Confirm
+            </button>
+          }
+        </div>
+      </article>
+    } @empty {
+      <div class="panel empty">
+        <mat-icon aria-hidden="true">flag</mat-icon>
+        <strong>No findings yet</strong>
+        <span>Log a finding from a non-conforming clause in Fieldwork.</span>
+      </div>
+    }
+  </div>
+</section>

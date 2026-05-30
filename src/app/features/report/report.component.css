@@ -1,0 +1,98 @@
+.panel h2 {
+  margin: 0 0 14px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.checks {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.checks li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-guard);
+  padding: 12px 14px;
+}
+
+.checks li span {
+  flex: 1;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.checks li small {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.checks mat-icon {
+  color: var(--muted);
+}
+
+.checks mat-icon[data-ok='true'] {
+  color: var(--tone-positive-fg);
+}
+
+.signoff {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.signoff.signed {
+  border-color: var(--tone-positive-bd);
+  background: var(--tone-positive-bg);
+}
+
+.sign-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.sign-copy strong {
+  font-size: 16px;
+  color: var(--text);
+}
+
+.sign-copy small {
+  color: var(--muted);
+}
+
+.signoff button {
+  min-height: 52px;
+  border-radius: 13px;
+}
+
+.signed-state {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.signed-state mat-icon {
+  font-size: 36px;
+  width: 36px;
+  height: 36px;
+  color: var(--tone-positive-fg);
+}
+
+.signed-state strong {
+  display: block;
+  font-size: 16px;
+  color: var(--text);
+}
+
+.signed-state small {
+  color: var(--muted);
+}
