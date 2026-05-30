@@ -1,9 +1,13 @@
 {
   "name": "Trainovate ISO 14001 Audit Platform",
-  "short_name": "ISO14001",
+  "short_name": "Audit",
+  "description": "Field-ready ISO 14001 environmental audit workspace.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#f7faf8",
-  "theme_color": "#0f5f56",
+  "orientation": "any",
+  "background_color": "#073633",
+  "theme_color": "#0b4d4a",
+  "categories": ["business", "productivity", "utilities"],
   "icons": []
 }

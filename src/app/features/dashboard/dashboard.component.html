@@ -40,14 +40,24 @@
     <main class="content">
       <section class="hero">
         <div>
+          <span class="hero-eyebrow">
+            <mat-icon aria-hidden="true">eco</mat-icon>
+            Field audit workspace
+          </span>
           <h1>Protected environmental audit operations, from field evidence to signed reports.</h1>
           <p>
             A Soteria-styled command center for tenant-isolated audits, offline capture,
             auditor-confirmed AI, CAPA follow-up, and pilot readiness.
           </p>
           <div class="actions">
-            <button mat-flat-button color="primary" type="button">Create audit</button>
-            <button mat-stroked-button type="button">Invite member</button>
+            <button mat-flat-button color="primary" type="button">
+              <mat-icon aria-hidden="true">add</mat-icon>
+              Create audit
+            </button>
+            <button mat-stroked-button type="button">
+              <mat-icon aria-hidden="true">person_add</mat-icon>
+              Invite member
+            </button>
           </div>
         </div>
 
@@ -166,7 +176,7 @@
                     <strong>{{ auditee.name }}</strong>
                     <small>{{ auditee.sites.length }} site(s) · {{ auditee.contacts[0]?.name }}</small>
                   </div>
-                  <span>{{ auditee.status }}</span>
+                  <span [attr.data-tone]="statusTone(auditee.status)">{{ auditee.status }}</span>
                 </div>
               }
             </div>
@@ -302,7 +312,7 @@
             <div class="finding-list">
               @for (finding of findings; track finding.id) {
                 <div class="finding-row">
-                  <span>{{ finding.status }}</span>
+                  <span [attr.data-tone]="statusTone(finding.status)">{{ finding.status }}</span>
                   <strong>{{ finding.clauseRef.clauseId }} · {{ finding.type }}</strong>
                   <small>{{ finding.description }}</small>
                 </div>
@@ -408,7 +418,7 @@
               @for (draft of aiFindingDrafts(); track draft.id) {
                 <div class="ai-draft-card">
                   <div>
-                    <span>{{ draft.status }}</span>
+                    <span [attr.data-tone]="statusTone(draft.status)">{{ draft.status }}</span>
                     <h4>{{ draft.severitySuggestion.suggestedType }} · {{ draft.severitySuggestion.suggestedSeverity }}</h4>
                     <p>{{ draft.draftStatement }}</p>
                   </div>
@@ -513,7 +523,7 @@
             </div>
             <div class="report-card">
               <div>
-                <span>{{ report().status }}</span>
+                <span [attr.data-tone]="statusTone(report().status)">{{ report().status }}</span>
                 <h4>Version {{ report().version }} · {{ report().criteria.replace('ISO_14001_', 'ISO 14001:') }}</h4>
                 <p>{{ report().sections[0]?.body }}</p>
               </div>
@@ -552,7 +562,7 @@
             <div class="capa-list">
               @for (capa of correctiveActions(); track capa.id) {
                 <div class="capa-row">
-                  <span>{{ capa.status }}</span>
+                  <span [attr.data-tone]="statusTone(capa.status)">{{ capa.status }}</span>
                   <strong>{{ capa.owner }}</strong>
                   <small>{{ capa.action }}</small>
                 </div>
@@ -629,7 +639,7 @@
             <div class="control-grid">
               @for (control of hardeningControls; track control.id) {
                 <div class="control-row">
-                  <span>{{ control.status }}</span>
+                  <span [attr.data-tone]="statusTone(control.status)">{{ control.status }}</span>
                   <strong>{{ control.title }}</strong>
                   <small>{{ control.area }} · {{ control.owner }}</small>
                 </div>
@@ -702,7 +712,7 @@
             <div class="pilot-list">
               @for (item of pilotChecklist; track item.id) {
                 <div class="pilot-row">
-                  <span>{{ item.status }}</span>
+                  <span [attr.data-tone]="statusTone(item.status)">{{ item.status }}</span>
                   <strong>{{ item.title }}</strong>
                   <small>{{ item.exitCriteria }}</small>
                 </div>
@@ -740,7 +750,7 @@
             <div class="contract-grid">
               @for (contract of callableFunctionContracts; track contract.name) {
                 <div class="contract-row">
-                  <span>{{ contract.status }}</span>
+                  <span [attr.data-tone]="statusTone(contract.status)">{{ contract.status }}</span>
                   <strong>{{ contract.name }}</strong>
                   <small>{{ contract.ownerRole }} · writes {{ contract.writes.join(', ') }}</small>
                 </div>
@@ -789,7 +799,7 @@
             <div class="job-list">
               @for (job of backendJobs(); track job.id) {
                 <div class="job-row">
-                  <span>{{ job.status }}</span>
+                  <span [attr.data-tone]="statusTone(job.status)">{{ job.status }}</span>
                   <strong>{{ job.callableName }}</strong>
                   <small>{{ job.resultRef }}</small>
                 </div>
@@ -813,7 +823,7 @@
             <div class="readiness-list">
               @for (item of phaseSixReadiness; track item.id) {
                 <div class="readiness-row">
-                  <span>{{ item.status }}</span>
+                  <span [attr.data-tone]="statusTone(item.status)">{{ item.status }}</span>
                   <strong>{{ item.title }}</strong>
                   <small>{{ item.evidenceRefs.length ? item.evidenceRefs.join(', ') : 'evidence pending' }}</small>
                 </div>
