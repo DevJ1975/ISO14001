@@ -149,6 +149,58 @@ const findingCreateCommandSchema = z.object({
   createdAt: z.string().min(1),
 });
 
+const ncStatusServerSchema = z.enum([
+  'open',
+  'responded',
+  'implemented',
+  'verified',
+  'closed',
+  'rejected',
+  'reopened',
+]);
+
+const findingUpsertCommandSchema = z.object({
+  id: z.string().min(1),
+  clauseId: z.string().min(1),
+  clauseTitle: z.string().min(1),
+  type: z.enum(['minorNc', 'majorNc', 'ofi', 'conformity']),
+  description: z.string().min(1).max(8000),
+  requirementSummary: z.string().max(1000).optional(),
+  objectiveEvidence: z.string().max(8000).optional(),
+  gradingRationale: z.string().max(4000).optional(),
+  systemic: z.boolean().optional(),
+  evidenceIds: z.array(z.string().min(1)).default([]),
+  status: ncStatusServerSchema.default('open'),
+  createdByName: z.string().min(1),
+  createdAt: z.string().min(1),
+});
+
+const capaStatusServerSchema = z.enum(['open', 'inProgress', 'verificationDue', 'verified', 'overdue']);
+
+const capaUpsertCommandSchema = z.object({
+  id: z.string().min(1),
+  findingId: z.string().min(1),
+  correction: z.string().max(4000).optional(),
+  rootCause: z.string().max(4000).optional(),
+  action: z.string().max(4000).optional(),
+  owner: z.string().max(300).optional(),
+  dueDate: z.string().optional(),
+  implementationEvidenceIds: z.array(z.string().min(1)).default([]),
+  verification: z.string().max(4000).optional(),
+  verificationEvidenceIds: z.array(z.string().min(1)).default([]),
+  status: capaStatusServerSchema.default('open'),
+  verifiedByName: z.string().optional(),
+  verifiedAt: z.string().optional(),
+  createdAt: z.string().min(1),
+});
+
+const capaVerifyCommandSchema = z.object({
+  findingId: z.string().min(1),
+  verification: z.string().min(1).max(4000),
+  effective: z.boolean(),
+  verificationEvidenceIds: z.array(z.string().min(1)).default([]),
+});
+
 interface SeedChecklistItem {
   id: string;
   clauseId: string;
@@ -529,12 +581,14 @@ export async function handleApiRequest(
       requireTenant(actor, tenantId);
       const evidenceCollection = dependencies.db.collection(mongoCollections.evidence);
       const findingsCollection = dependencies.db.collection(mongoCollections.findings);
-      const [items, evidence, findings] = await Promise.all([
+      const capaCollection = dependencies.db.collection(mongoCollections.capa);
+      const [items, evidence, findings, capas] = await Promise.all([
         ensureChecklist(dependencies.db, tenantId, auditId),
         evidenceCollection.find({ tenantId, auditId }, { projection: { _id: 0 } }).sort({ capturedAt: -1 }).toArray(),
         findingsCollection.find({ tenantId, auditId }, { projection: { _id: 0 } }).sort({ createdAt: -1 }).toArray(),
+        capaCollection.find({ tenantId, auditId }, { projection: { _id: 0 } }).sort({ createdAt: -1 }).toArray(),
       ]);
-      sendJson(response, 200, { items, evidence, findings }, corsOrigin);
+      sendJson(response, 200, { items, evidence, findings, capas }, corsOrigin);
       return;
     }
 
@@ -619,6 +673,88 @@ export async function handleApiRequest(
         .collection(mongoCollections.findings)
         .updateOne({ tenantId, auditId, id: command.id }, { $setOnInsert: record }, { upsert: true });
       sendJson(response, 201, { finding: record }, corsOrigin);
+      return;
+    }
+
+    const findingUpsertMatch = matchPath(
+      new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/findings/([^/]+)$`),
+      url.pathname,
+      ['tenantId', 'auditId', 'findingId'],
+    );
+    if (request.method === 'PUT' && findingUpsertMatch && actor) {
+      const tenantId = findingUpsertMatch.params['tenantId']!;
+      const auditId = findingUpsertMatch.params['auditId']!;
+      requireTenant(actor, tenantId);
+      requireAnyRole(actor, ['leadAuditor', 'auditor']);
+      const command = await readJson(request, findingUpsertCommandSchema);
+      const record = { ...command, tenantId, auditId, updatedBy: actor.uid, updatedAt: new Date().toISOString() };
+      await dependencies.db
+        .collection(mongoCollections.findings)
+        .updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
+      sendJson(response, 200, { finding: record }, corsOrigin);
+      return;
+    }
+
+    const capaVerifyMatch = matchPath(
+      new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/capa/([^/]+)/verify$`),
+      url.pathname,
+      ['tenantId', 'auditId', 'capaId'],
+    );
+    if (request.method === 'POST' && capaVerifyMatch && actor) {
+      const tenantId = capaVerifyMatch.params['tenantId']!;
+      const auditId = capaVerifyMatch.params['auditId']!;
+      const capaId = capaVerifyMatch.params['capaId']!;
+      requireTenant(actor, tenantId);
+      requireAnyRole(actor, ['leadAuditor']);
+      const command = await readJson(request, capaVerifyCommandSchema);
+      const now = new Date().toISOString();
+      await dependencies.db.collection(mongoCollections.capa).updateOne(
+        { tenantId, auditId, id: capaId },
+        {
+          $set: {
+            status: command.effective ? 'verified' : 'inProgress',
+            verification: command.verification,
+            verificationEvidenceIds: command.verificationEvidenceIds,
+            verifiedByUid: actor.uid,
+            verifiedAt: now,
+          },
+        },
+      );
+      await dependencies.db
+        .collection(mongoCollections.findings)
+        .updateOne(
+          { tenantId, auditId, id: command.findingId },
+          { $set: { status: command.effective ? 'closed' : 'reopened', updatedAt: now } },
+        );
+      sendJson(response, 200, { ok: true }, corsOrigin);
+      return;
+    }
+
+    const capaUpsertMatch = matchPath(
+      new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/capa/([^/]+)$`),
+      url.pathname,
+      ['tenantId', 'auditId', 'capaId'],
+    );
+    if (request.method === 'PUT' && capaUpsertMatch && actor) {
+      const tenantId = capaUpsertMatch.params['tenantId']!;
+      const auditId = capaUpsertMatch.params['auditId']!;
+      requireTenant(actor, tenantId);
+      requireAnyRole(actor, ['leadAuditor', 'auditor']);
+      const command = await readJson(request, capaUpsertCommandSchema);
+      // Effectiveness verification is lead-only and must go through /verify.
+      const status = command.status === 'verified' ? 'verificationDue' : command.status;
+      const record = {
+        ...command,
+        status,
+        tenantId,
+        auditId,
+        findingRef: command.findingId,
+        updatedAt: new Date().toISOString(),
+      };
+      await dependencies.db
+        .collection(mongoCollections.capa)
+        .updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
+      sendJson(response, 200, { capa: record }, corsOrigin);
       return;
     }
 

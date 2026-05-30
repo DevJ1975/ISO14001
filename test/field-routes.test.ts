@@ -19,6 +19,10 @@ function authHeaders(tenantId = 'tenant-greenline'): Record<string, string> {
   };
 }
 
+function leadHeaders(tenantId = 'tenant-greenline'): Record<string, string> {
+  return { ...authHeaders(tenantId), 'x-iso-role': 'leadAuditor' };
+}
+
 function makeReq(opts: {
   method: string;
   url: string;
@@ -204,5 +208,92 @@ describe('field-audit API routes', () => {
     assert.ok(body.token.length > 0);
     assert.equal(body.user.tenantId, 'tenant-greenline');
     assert.equal(body.user.role, 'leadAuditor');
+  });
+
+  it('upserts a graded nonconformity via PUT findings/:id', async () => {
+    const { db, store } = createFakeDb();
+    const res = makeRes();
+    await handleApiRequest(
+      makeReq({
+        method: 'PUT',
+        url: '/api/tenants/t/audits/a/findings/nc-1',
+        headers: authHeaders('t'),
+        body: {
+          id: 'nc-1',
+          clauseId: '9.1.2',
+          clauseTitle: 'Evaluation of compliance',
+          type: 'majorNc',
+          description: 'No evaluation of compliance was performed for the current period.',
+          status: 'open',
+          evidenceIds: [],
+          createdByName: 'Ava Brooks',
+          createdAt: '2026-06-15T12:00:00.000Z',
+        },
+      }),
+      res,
+      { db, config },
+    );
+    assert.equal(res.statusCode, 200);
+    const finding = store.get('findings')!.find((d) => d['id'] === 'nc-1');
+    assert.equal(finding?.['type'], 'majorNc');
+    assert.equal(finding?.['status'], 'open');
+  });
+
+  it('clamps a CAPA upsert with status verified to verificationDue (verification is lead-only)', async () => {
+    const { db, store } = createFakeDb();
+    const res = makeRes();
+    await handleApiRequest(
+      makeReq({
+        method: 'PUT',
+        url: '/api/tenants/t/audits/a/capa/capa-1',
+        headers: authHeaders('t'),
+        body: {
+          id: 'capa-1',
+          findingId: 'nc-1',
+          status: 'verified',
+          implementationEvidenceIds: [],
+          verificationEvidenceIds: [],
+          createdAt: '2026-06-15T12:00:00.000Z',
+        },
+      }),
+      res,
+      { db, config },
+    );
+    assert.equal(res.statusCode, 200);
+    assert.equal(store.get('capa')!.find((d) => d['id'] === 'capa-1')?.['status'], 'verificationDue');
+  });
+
+  it('lets only the lead auditor verify CAPA effectiveness, closing the nonconformity', async () => {
+    const { db, store } = createFakeDb();
+    store.set('findings', [{ tenantId: 't', auditId: 'a', id: 'nc-1', status: 'implemented' }]);
+    store.set('capa', [{ tenantId: 't', auditId: 'a', id: 'capa-1', findingRef: 'nc-1', status: 'verificationDue' }]);
+
+    const denied = makeRes();
+    await handleApiRequest(
+      makeReq({
+        method: 'POST',
+        url: '/api/tenants/t/audits/a/capa/capa-1/verify',
+        headers: authHeaders('t'),
+        body: { findingId: 'nc-1', verification: 'ok', effective: true, verificationEvidenceIds: [] },
+      }),
+      denied,
+      { db, config },
+    );
+    assert.equal(denied.statusCode, 401);
+
+    const ok = makeRes();
+    await handleApiRequest(
+      makeReq({
+        method: 'POST',
+        url: '/api/tenants/t/audits/a/capa/capa-1/verify',
+        headers: leadHeaders('t'),
+        body: { findingId: 'nc-1', verification: 'Checked records; action effective.', effective: true, verificationEvidenceIds: [] },
+      }),
+      ok,
+      { db, config },
+    );
+    assert.equal(ok.statusCode, 200);
+    assert.equal(store.get('capa')!.find((d) => d['id'] === 'capa-1')?.['status'], 'verified');
+    assert.equal(store.get('findings')!.find((d) => d['id'] === 'nc-1')?.['status'], 'closed');
   });
 });

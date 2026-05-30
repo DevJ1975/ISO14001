@@ -18,13 +18,14 @@ export class ReportComponent {
   protected readonly checks = computed(() => {
     const progress = this.store.progress();
     const findings = this.store.findings();
+    const ncs = findings.filter((f) => f.type === 'minorNc' || f.type === 'majorNc');
     const allAnswered = progress.total > 0 && progress.done === progress.total;
-    const findingsConfirmed = findings.length === 0 || findings.every((f) => f.status === 'auditorConfirmed');
+    const ncsResolved = ncs.length === 0 || ncs.every((f) => f.status === 'closed' || f.status === 'verified');
     const hasEvidence = this.store.evidence().length > 0;
     const synced = this.store.outboxCount() === 0;
     return [
       { label: 'All clauses answered', ok: allAnswered, detail: `${progress.done}/${progress.total}` },
-      { label: 'Findings confirmed', ok: findingsConfirmed, detail: `${findings.length} total` },
+      { label: 'Nonconformities closed', ok: ncsResolved, detail: `${ncs.length} NC(s)` },
       { label: 'Evidence captured', ok: hasEvidence, detail: `${this.store.evidence().length} items` },
       { label: 'Changes synced', ok: synced, detail: `${this.store.outboxCount()} pending` },
     ];

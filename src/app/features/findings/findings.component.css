@@ -1,57 +1,187 @@
-.finding-list {
+.nc-list {
   display: grid;
   gap: 14px;
 }
 
-.finding {
+.nc {
   display: grid;
   gap: 10px;
-  border-left: 4px solid var(--border-strong);
 }
 
-.finding:has([data-tone='critical']) {
-  border-left-color: var(--tone-critical-fg);
-}
-
-.finding:has([data-tone='progress']) {
-  border-left-color: var(--tone-progress-fg);
-}
-
-.f-top {
+.nc-head {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   gap: 10px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+  color: var(--text);
 }
 
-.clause {
+.nc-clause {
   flex: 1;
-  min-width: 160px;
+  min-width: 0;
   color: var(--muted);
   font-size: 13px;
   font-weight: 600;
 }
 
-.finding p {
+.nc-head mat-icon {
+  color: var(--muted);
+}
+
+.nc-statement {
   margin: 0;
   color: var(--text);
-  line-height: 1.55;
+  line-height: 1.5;
 }
 
-.f-foot {
+.nc-detail {
+  display: grid;
+  gap: 12px;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+
+.fld {
+  display: grid;
+  gap: 5px;
+}
+
+.fld > span {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.fld textarea,
+.fld input {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: var(--surface-guard);
+  padding: 10px 12px;
+  color: var(--text);
+  font: inherit;
+  line-height: 1.45;
+  resize: vertical;
+}
+
+.fld textarea:focus-visible,
+.fld input:focus-visible {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--ring);
+}
+
+.ro {
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: var(--surface-guard);
+  padding: 10px 12px;
+  color: var(--text);
+  line-height: 1.45;
+}
+
+.ro.small {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.lbl {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.grade-block,
+.capa-block,
+.verify {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: var(--surface-guard);
+  padding: 14px;
+}
+
+.grade-row {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  gap: 8px;
 }
 
-.f-foot small {
+.grade {
+  min-height: 42px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: var(--surface);
   color: var(--muted);
-  font-size: 13px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
 }
 
-.f-foot button {
+.grade.on.critical { background: var(--tone-critical-bg); color: var(--tone-critical-fg); border-color: var(--tone-critical-fg); }
+.grade.on.progress { background: var(--tone-progress-bg); color: var(--tone-progress-fg); border-color: var(--tone-progress-fg); }
+.grade.on.positive { background: var(--tone-positive-bg); color: var(--tone-positive-fg); border-color: var(--tone-positive-fg); }
+.grade.on.neutral { background: var(--tone-neutral-bg); color: var(--tone-neutral-fg); border-color: var(--border-strong); }
+
+.chk {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.capa-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.capa-head strong {
+  flex: 1;
+  color: var(--text);
+}
+
+.capa-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.capa-actions,
+.verify-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.capa-actions button,
+.verify-actions button {
   min-height: 46px;
-  border-radius: 12px;
+  border-radius: 11px;
+}
+
+.hint {
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+@media (max-width: 560px) {
+  .capa-grid {
+    grid-template-columns: 1fr;
+  }
 }

@@ -7,6 +7,9 @@ export type SyncState = 'synced' | 'queued' | 'syncing' | 'conflict';
 export type FieldResult = 'notStarted' | 'conform' | 'minorNc' | 'majorNc' | 'ofi' | 'na';
 export type EvidenceKind = 'photo' | 'note';
 export type FindingType = 'minorNc' | 'majorNc' | 'ofi' | 'conformity';
+/** Nonconformity lifecycle (ISO 14001 cl. 10.2 close-out flow). */
+export type NcStatus = 'open' | 'responded' | 'implemented' | 'verified' | 'closed' | 'rejected' | 'reopened';
+export type CapaStatus = 'open' | 'inProgress' | 'verificationDue' | 'verified' | 'overdue';
 export type DataSource = 'local' | 'live';
 
 export interface FieldChecklistItem {
@@ -37,15 +40,39 @@ export interface FieldEvidence {
   sync: SyncState;
 }
 
+/** A finding recorded as a nonconformity: graded against a clause with objective evidence. */
 export interface FieldFinding {
   id: string;
   clauseId: string;
   clauseTitle: string;
-  type: FindingType;
-  description: string;
+  type: FindingType; // grade
+  description: string; // nonconformity statement
+  requirementSummary?: string;
+  objectiveEvidence?: string;
+  gradingRationale?: string;
+  systemic?: boolean;
   evidenceIds: string[];
-  status: 'draft' | 'auditorConfirmed';
+  status: NcStatus;
   createdByName: string;
+  createdAt: string;
+  sync: SyncState;
+}
+
+/** Corrective-action record (ISO 14001 cl. 10.2): correction vs corrective action + effectiveness verification. */
+export interface FieldCapa {
+  id: string;
+  findingId: string;
+  correction?: string;
+  rootCause?: string;
+  action?: string;
+  owner?: string;
+  dueDate?: string;
+  implementationEvidenceIds: string[];
+  verification?: string;
+  verificationEvidenceIds: string[];
+  status: CapaStatus;
+  verifiedByName?: string;
+  verifiedAt?: string;
   createdAt: string;
   sync: SyncState;
 }
@@ -54,6 +81,7 @@ interface PersistedState {
   items: FieldChecklistItem[];
   evidence: FieldEvidence[];
   findings: FieldFinding[];
+  capas: FieldCapa[];
   reportSignedAt: string | null;
 }
 
@@ -125,10 +153,14 @@ function seedFindings(): FieldFinding[] {
       id: 'finding-seed-1',
       clauseId: '6',
       clauseTitle: 'Planning',
-      type: 'ofi',
-      description: 'Transition planning evidence is partially available and should be completed before report signoff.',
+      type: 'minorNc',
+      description: 'Environmental objective tracking for 2026 transition is not fully evidenced.',
+      requirementSummary: 'Cl. 6.2 — establish, monitor and retain documented information on environmental objectives.',
+      objectiveEvidence: 'Objectives register shows 2 of 5 objectives without progress records for the current period.',
+      gradingRationale: 'Isolated lapse on a subset of objectives; does not undermine the EMS overall — minor.',
+      systemic: false,
       evidenceIds: ['evidence-seed-note'],
-      status: 'draft',
+      status: 'open',
       createdByName: 'Omar Patel',
       createdAt: '2026-06-15T18:40:00.000Z',
       sync: 'synced',
@@ -136,10 +168,22 @@ function seedFindings(): FieldFinding[] {
   ];
 }
 
+function seedCapas(): FieldCapa[] {
+  return [];
+}
+
 let counter = 0;
 function uid(prefix: string): string {
   counter += 1;
   return `${prefix}-${Date.now().toString(36)}-${counter}`;
+}
+
+function isOverdue(capa: FieldCapa, nowIso: string): boolean {
+  return (
+    !!capa.dueDate &&
+    capa.status !== 'verified' &&
+    new Date(capa.dueDate).getTime() < new Date(nowIso).getTime()
+  );
 }
 
 /**
@@ -158,6 +202,7 @@ export class FieldAuditStore {
   readonly items = signal<FieldChecklistItem[]>(seedItems());
   readonly evidence = signal<FieldEvidence[]>(seedEvidence());
   readonly findings = signal<FieldFinding[]>(seedFindings());
+  readonly capas = signal<FieldCapa[]>(seedCapas());
   readonly reportSignedAt = signal<string | null>(null);
   readonly online = signal(typeof navigator === 'undefined' ? true : navigator.onLine);
   readonly source = signal<DataSource>('local');
@@ -175,7 +220,8 @@ export class FieldAuditStore {
     () =>
       this.items().filter((i) => i.sync !== 'synced').length +
       this.evidence().filter((e) => e.sync !== 'synced').length +
-      this.findings().filter((f) => f.sync !== 'synced').length,
+      this.findings().filter((f) => f.sync !== 'synced').length +
+      this.capas().filter((c) => c.sync !== 'synced').length,
   );
 
   readonly resultTotals = computed(() => {
@@ -183,6 +229,21 @@ export class FieldAuditStore {
     for (const item of this.items()) totals[item.result] += 1;
     return totals;
   });
+
+  readonly ncCountsByGrade = computed(() => {
+    const totals: Record<FindingType, number> = { conformity: 0, minorNc: 0, majorNc: 0, ofi: 0 };
+    for (const finding of this.findings()) totals[finding.type] += 1;
+    return totals;
+  });
+
+  readonly overdueCapas = computed(() => {
+    const now = new Date().toISOString();
+    return this.capas().filter((capa) => isOverdue(capa, now));
+  });
+
+  readonly openNcCount = computed(
+    () => this.findings().filter((f) => f.type !== 'ofi' && f.type !== 'conformity' && f.status !== 'closed').length,
+  );
 
   constructor() {
     if (typeof window !== 'undefined') {
@@ -257,6 +318,7 @@ export class FieldAuditStore {
     this.autoFlush();
   }
 
+  /** Raise a nonconformity / OFI from a checklist item. */
   promoteToFinding(itemId: string, type: FindingType, description: string): void {
     const item = this.items().find((entry) => entry.id === itemId);
     if (!item) return;
@@ -266,8 +328,10 @@ export class FieldAuditStore {
       clauseTitle: item.clauseTitle,
       type,
       description,
+      requirementSummary: `Clause ${item.clauseId} — ${item.clauseTitle}`,
+      objectiveEvidence: item.note ?? '',
       evidenceIds: [...item.evidenceIds],
-      status: 'draft',
+      status: 'open',
       createdByName: AUDITOR,
       createdAt: new Date().toISOString(),
       sync: 'queued',
@@ -277,14 +341,92 @@ export class FieldAuditStore {
     this.autoFlush();
   }
 
-  confirmFinding(id: string): void {
-    this.findings.update((list) =>
-      list.map((finding) =>
-        finding.id === id ? { ...finding, status: 'auditorConfirmed', sync: 'queued' } : finding,
-      ),
-    );
+  /** Lead-auditor grades the nonconformity and records the rationale. */
+  gradeFinding(id: string, grade: FindingType, rationale: string, systemic: boolean): void {
+    this.updateFinding(id, { type: grade, gradingRationale: rationale, systemic });
+  }
+
+  editFinding(id: string, patch: Partial<Pick<FieldFinding, 'description' | 'requirementSummary' | 'objectiveEvidence'>>): void {
+    this.updateFinding(id, patch);
+  }
+
+  advanceNcStatus(id: string, status: NcStatus): void {
+    this.updateFinding(id, { status });
+  }
+
+  /** Start (or return) the CAPA record for a nonconformity. */
+  startCapa(findingId: string): FieldCapa {
+    const existing = this.capas().find((capa) => capa.findingId === findingId);
+    if (existing) return existing;
+    const capa: FieldCapa = {
+      id: uid('capa'),
+      findingId,
+      implementationEvidenceIds: [],
+      verificationEvidenceIds: [],
+      status: 'open',
+      createdAt: new Date().toISOString(),
+      sync: 'queued',
+    };
+    this.capas.update((list) => [capa, ...list]);
+    this.advanceNcStatus(findingId, 'responded');
     this.persist();
     this.autoFlush();
+    return capa;
+  }
+
+  updateCapa(
+    capaId: string,
+    patch: Partial<Pick<FieldCapa, 'correction' | 'rootCause' | 'action' | 'owner' | 'dueDate' | 'implementationEvidenceIds'>>,
+  ): void {
+    this.capas.update((list) =>
+      list.map((capa) => {
+        if (capa.id !== capaId) return capa;
+        const next = { ...capa, ...patch, sync: 'queued' as SyncState };
+        next.status = deriveCapaStatus(next);
+        return next;
+      }),
+    );
+    const capa = this.capas().find((entry) => entry.id === capaId);
+    if (capa && (capa.implementationEvidenceIds.length > 0 || capa.status === 'verificationDue')) {
+      this.advanceNcStatus(capa.findingId, 'implemented');
+    }
+    this.persist();
+    this.autoFlush();
+  }
+
+  /** Lead-auditor verification of effectiveness — requires connectivity (server enforces leadAuditor). */
+  async verifyCapa(capaId: string, input: { verification: string; effective: boolean; evidenceIds?: string[] }): Promise<boolean> {
+    const capa = this.capas().find((entry) => entry.id === capaId);
+    if (!capa || !this.online() || this.source() !== 'live') return false;
+    try {
+      await this.api.verifyCapa(capaId, {
+        findingId: capa.findingId,
+        verification: input.verification,
+        effective: input.effective,
+        verificationEvidenceIds: input.evidenceIds ?? [],
+      });
+    } catch {
+      return false;
+    }
+    const now = new Date().toISOString();
+    this.capas.update((list) =>
+      list.map((entry) =>
+        entry.id === capaId
+          ? {
+              ...entry,
+              verification: input.verification,
+              verificationEvidenceIds: input.evidenceIds ?? entry.verificationEvidenceIds,
+              status: input.effective ? 'verified' : 'inProgress',
+              verifiedByName: AUDITOR,
+              verifiedAt: now,
+              sync: 'synced',
+            }
+          : entry,
+      ),
+    );
+    this.advanceNcStatus(capa.findingId, input.effective ? 'closed' : 'reopened');
+    this.persist();
+    return true;
   }
 
   signReport(): void {
@@ -304,6 +446,7 @@ export class FieldAuditStore {
     this.items.update((list) => list.map(toSyncing));
     this.evidence.update((list) => list.map(toSyncing));
     this.findings.update((list) => list.map(toSyncing));
+    this.capas.update((list) => list.map(toSyncing));
 
     setTimeout(() => {
       const toSynced = <T extends { sync: SyncState }>(record: T): T =>
@@ -311,6 +454,7 @@ export class FieldAuditStore {
       this.items.update((list) => list.map(toSynced));
       this.evidence.update((list) => list.map(toSynced));
       this.findings.update((list) => list.map(toSynced));
+      this.capas.update((list) => list.map(toSynced));
       this.persist();
     }, 900);
   }
@@ -319,6 +463,7 @@ export class FieldAuditStore {
     this.items.set(seedItems());
     this.evidence.set(seedEvidence());
     this.findings.set(seedFindings());
+    this.capas.set(seedCapas());
     this.reportSignedAt.set(null);
     await idbDelete('meta', META_KEY);
   }
@@ -326,6 +471,14 @@ export class FieldAuditStore {
   /** Re-fetch from the live API (e.g. after sign-in), falling back to local state. */
   async reload(): Promise<void> {
     await this.bootstrap();
+  }
+
+  private updateFinding(id: string, patch: Partial<FieldFinding>): void {
+    this.findings.update((list) =>
+      list.map((finding) => (finding.id === id ? { ...finding, ...patch, sync: 'queued' } : finding)),
+    );
+    this.persist();
+    this.autoFlush();
   }
 
   private autoFlush(): void {
@@ -339,39 +492,47 @@ export class FieldAuditStore {
     this.flushing = true;
     try {
       for (const item of this.items().filter((entry) => entry.sync !== 'synced')) {
-        this.setItemSync(item.id, 'syncing');
+        this.setSync('items', item.id, 'syncing');
         try {
           await this.api.putChecklistResult(item.id, { result: item.result, note: item.note });
-          this.setItemSync(item.id, 'synced');
+          this.setSync('items', item.id, 'synced');
         } catch {
-          this.setItemSync(item.id, 'queued');
+          this.setSync('items', item.id, 'queued');
         }
       }
       for (const record of this.evidence().filter((entry) => entry.sync !== 'synced')) {
-        this.setEvidenceSync(record.id, 'syncing');
+        this.setSync('evidence', record.id, 'syncing');
         try {
           const { sync, thumbUrl, blobKey, ...payload } = record;
           void sync;
           void thumbUrl;
           void blobKey;
           await this.api.createEvidence(payload);
-          this.setEvidenceSync(record.id, 'synced');
+          this.setSync('evidence', record.id, 'synced');
         } catch {
-          this.setEvidenceSync(record.id, 'queued');
+          this.setSync('evidence', record.id, 'queued');
         }
       }
       for (const finding of this.findings().filter((entry) => entry.sync !== 'synced')) {
-        this.setFindingSync(finding.id, 'syncing');
+        this.setSync('findings', finding.id, 'syncing');
         try {
-          const { sync, status, ...payload } = finding;
+          const { sync, ...payload } = finding;
           void sync;
-          await this.api.createFinding(payload);
-          if (status === 'auditorConfirmed') {
-            await this.api.confirmFinding(finding.id);
-          }
-          this.setFindingSync(finding.id, 'synced');
+          await this.api.upsertFinding(payload);
+          this.setSync('findings', finding.id, 'synced');
         } catch {
-          this.setFindingSync(finding.id, 'queued');
+          this.setSync('findings', finding.id, 'queued');
+        }
+      }
+      for (const capa of this.capas().filter((entry) => entry.sync !== 'synced')) {
+        this.setSync('capas', capa.id, 'syncing');
+        try {
+          const { sync, ...payload } = capa;
+          void sync;
+          await this.api.upsertCapa(payload);
+          this.setSync('capas', capa.id, 'synced');
+        } catch {
+          this.setSync('capas', capa.id, 'queued');
         }
       }
       this.persist();
@@ -380,16 +541,13 @@ export class FieldAuditStore {
     }
   }
 
-  private setItemSync(id: string, sync: SyncState): void {
-    this.items.update((list) => list.map((item) => (item.id === id ? { ...item, sync } : item)));
-  }
-
-  private setEvidenceSync(id: string, sync: SyncState): void {
-    this.evidence.update((list) => list.map((record) => (record.id === id ? { ...record, sync } : record)));
-  }
-
-  private setFindingSync(id: string, sync: SyncState): void {
-    this.findings.update((list) => list.map((finding) => (finding.id === id ? { ...finding, sync } : finding)));
+  private setSync(collection: 'items' | 'evidence' | 'findings' | 'capas', id: string, sync: SyncState): void {
+    type SyncRecord = { id: string; sync: SyncState };
+    const map = { items: this.items, evidence: this.evidence, findings: this.findings, capas: this.capas };
+    const ref = map[collection] as unknown as {
+      update: (fn: (list: SyncRecord[]) => SyncRecord[]) => void;
+    };
+    ref.update((list) => list.map((record) => (record.id === id ? { ...record, sync } : record)));
   }
 
   private linkEvidence(itemId: string | undefined, evidenceId: string): void {
@@ -425,6 +583,7 @@ export class FieldAuditStore {
       items: this.items(),
       evidence: this.evidence().map(({ thumbUrl, ...rest }) => rest),
       findings: this.findings(),
+      capas: this.capas(),
       reportSignedAt: this.reportSignedAt(),
     };
     void idbSet('meta', META_KEY, snapshot);
@@ -437,6 +596,7 @@ export class FieldAuditStore {
       this.items.set(payload.items.map((item) => ({ ...item, sync: 'synced' as const })));
       this.evidence.set(payload.evidence.map((record) => ({ ...record, sync: 'synced' as const })));
       this.findings.set(payload.findings.map((finding) => ({ ...finding, sync: 'synced' as const })));
+      this.capas.set((payload.capas ?? []).map((capa) => ({ ...capa, sync: 'synced' as const })));
       this.source.set('live');
       this.online.set(true);
       this.persist();
@@ -450,7 +610,8 @@ export class FieldAuditStore {
     const saved = await idbGet<PersistedState>('meta', META_KEY);
     if (!saved) return;
     this.items.set(saved.items);
-    this.findings.set(saved.findings);
+    this.findings.set(saved.findings.map(normalizeFinding));
+    this.capas.set(saved.capas ?? []);
     this.reportSignedAt.set(saved.reportSignedAt ?? null);
     const restored = await Promise.all(
       saved.evidence.map(async (record) => {
@@ -461,4 +622,20 @@ export class FieldAuditStore {
     );
     this.evidence.set(restored);
   }
+}
+
+const NC_STATUSES: NcStatus[] = ['open', 'responded', 'implemented', 'verified', 'closed', 'rejected', 'reopened'];
+
+/** Map any legacy/persisted finding status onto the nonconformity lifecycle. */
+function normalizeFinding(finding: FieldFinding): FieldFinding {
+  if (NC_STATUSES.includes(finding.status)) return finding;
+  const legacy = finding.status as unknown as string;
+  return { ...finding, status: legacy === 'auditorConfirmed' ? 'responded' : 'open' };
+}
+
+function deriveCapaStatus(capa: FieldCapa): CapaStatus {
+  if (capa.status === 'verified') return 'verified';
+  if (capa.implementationEvidenceIds.length > 0) return 'verificationDue';
+  if (capa.action && capa.owner && capa.dueDate) return 'inProgress';
+  return 'open';
 }
