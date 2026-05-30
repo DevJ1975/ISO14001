@@ -18,9 +18,10 @@ import {
   tenantMemberInviteCommandSchema,
   tenantOnboardingCommandSchema,
 } from '../src/app/core/domain/index.js';
-import { ApiAuthError, authenticateRequest, requireAnyRole, requireTenant } from './auth.js';
+import { ApiAuthError, authenticateRequest, issueMemberToken, requireAnyRole, requireTenant } from './auth.js';
 import { mongoCollections } from './collections.js';
 import { ServerConfig } from './config.js';
+import { verifyPassword } from './password.js';
 
 export interface RouteDependencies {
   readonly db: Db;
@@ -113,6 +114,11 @@ function createBackendJob(input: {
     resultRef: input.resultRef,
   });
 }
+
+const loginCommandSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(1),
+});
 
 const fieldResultSchema = z.enum(['notStarted', 'conform', 'minorNc', 'majorNc', 'ofi', 'na']);
 
@@ -221,13 +227,46 @@ export async function handleApiRequest(
 
   try {
     const url = new URL(request.url ?? '/', 'http://localhost');
-    const actor = request.method === 'GET' && url.pathname === '/api/health'
-      ? null
-      : authenticateRequest(request, dependencies.config);
+    const isPublic =
+      (request.method === 'GET' && url.pathname === '/api/health') ||
+      (request.method === 'POST' && url.pathname === '/api/auth/login');
+    const actor = isPublic ? null : authenticateRequest(request, dependencies.config);
 
     if (request.method === 'GET' && url.pathname === '/api/health') {
       await dependencies.db.command({ ping: 1 });
       sendJson(response, 200, { ok: true, backend: 'mongodb', database: dependencies.db.databaseName }, corsOrigin);
+      return;
+    }
+
+    if (request.method === 'POST' && url.pathname === '/api/auth/login') {
+      const command = await readJson(request, loginCommandSchema);
+      const member = await dependencies.db
+        .collection(mongoCollections.members)
+        .findOne({ 'profile.email': command.email.toLowerCase(), status: 'active' });
+      if (!member || typeof member['passwordHash'] !== 'string' || !verifyPassword(command.password, member['passwordHash'])) {
+        throw new ApiAuthError('Invalid email or password.');
+      }
+      const profile = member['profile'] as { displayName?: string; email?: string } | undefined;
+      const { token, expiresAt } = issueMemberToken(
+        { uid: String(member['uid']), tenantId: String(member['tenantId']), role: String(member['role']) },
+        dependencies.config,
+      );
+      sendJson(
+        response,
+        200,
+        {
+          token,
+          expiresAt,
+          user: {
+            uid: member['uid'],
+            tenantId: member['tenantId'],
+            role: member['role'],
+            displayName: profile?.displayName ?? '',
+            email: profile?.email ?? command.email,
+          },
+        },
+        corsOrigin,
+      );
       return;
     }
 

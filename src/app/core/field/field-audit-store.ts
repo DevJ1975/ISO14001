@@ -1,6 +1,5 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 
-import { APP_CONFIG } from '../config/app-config';
 import { FieldApiService } from './field-api.service';
 import { idbDelete, idbGet, idbSet } from './idb';
 
@@ -152,7 +151,6 @@ function uid(prefix: string): string {
 @Injectable({ providedIn: 'root' })
 export class FieldAuditStore {
   private readonly api = inject(FieldApiService);
-  private readonly config = inject(APP_CONFIG);
 
   readonly auditee = 'Northstar Components — Denver Assembly Plant';
   readonly criteria = 'ISO 14001:2026';
@@ -325,6 +323,11 @@ export class FieldAuditStore {
     await idbDelete('meta', META_KEY);
   }
 
+  /** Re-fetch from the live API (e.g. after sign-in), falling back to local state. */
+  async reload(): Promise<void> {
+    await this.bootstrap();
+  }
+
   private autoFlush(): void {
     if (this.source() === 'live' && this.online()) {
       void this.flushLive();
@@ -429,10 +432,6 @@ export class FieldAuditStore {
 
   /** Try the live API first; on any failure fall back to cached/seeded local state. */
   private async bootstrap(): Promise<void> {
-    if (this.config.sendDevAuthHeaders === false) {
-      await this.hydrate();
-      return;
-    }
     try {
       const payload = await this.api.getFieldState();
       this.items.set(payload.items.map((item) => ({ ...item, sync: 'synced' as const })));

@@ -154,6 +154,49 @@
   font-size: 12px;
 }
 
+.who {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 8px 10px;
+  color: #fff;
+}
+
+.avatar {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--primary-bright), var(--primary));
+  color: #04201e;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.who-text {
+  min-width: 0;
+}
+
+.who-text strong {
+  display: block;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.who-text small {
+  display: block;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 11px;
+  text-transform: capitalize;
+}
+
 /* ----------------------------------------------------------------------------
    Frame + topbar
 ---------------------------------------------------------------------------- */

@@ -1,0 +1,58 @@
+<main class="login">
+  <form class="card" (submit)="submit($event)">
+    <div class="brand">
+      <span class="brand-mark"><mat-icon aria-hidden="true">eco</mat-icon></span>
+      <div>
+        <strong>Trainovate</strong>
+        <small>ISO 14001 field audit</small>
+      </div>
+    </div>
+
+    <h1>Sign in</h1>
+    <p class="lead">Authenticate to load the live audit workspace.</p>
+
+    <label class="field">
+      <span>Email</span>
+      <input
+        #emailEl
+        type="email"
+        autocomplete="username"
+        [value]="email()"
+        (input)="email.set(emailEl.value)"
+        required
+      />
+    </label>
+
+    <label class="field">
+      <span>Password</span>
+      <input
+        #passwordEl
+        type="password"
+        autocomplete="current-password"
+        [value]="password()"
+        (input)="password.set(passwordEl.value)"
+        required
+      />
+    </label>
+
+    @if (error(); as message) {
+      <p class="error" role="alert"><mat-icon aria-hidden="true">error</mat-icon>{{ message }}</p>
+    }
+
+    <button mat-flat-button color="primary" type="submit" [disabled]="busy()">
+      <mat-icon aria-hidden="true">login</mat-icon>
+      {{ busy() ? 'Signing in…' : 'Sign in' }}
+    </button>
+
+    <button mat-stroked-button type="button" class="offline-btn" (click)="continueOffline()">
+      <mat-icon aria-hidden="true">cloud_off</mat-icon>
+      Continue in offline demo mode
+    </button>
+
+    <p class="hint">
+      <mat-icon aria-hidden="true">info</mat-icon>
+      Demo credentials are pre-filled. Run <code>npm run mongo:init</code> to seed this user.
+      If the backend isn't configured, the app still runs on the offline store.
+    </p>
+  </form>
+</main>

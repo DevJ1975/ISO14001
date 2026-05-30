@@ -8,12 +8,16 @@ const booleanFlagSchema = z
   .default(false)
   .transform((value) => value === true || value === 'true' || value === '1');
 
+export const DEV_JWT_SECRET = 'dev-insecure-jwt-secret-change-me';
+
 export const serverConfigSchema = z.object({
   mongoUri: z.string().min(1),
   mongoDbName: z.string().min(1).default('iso14001_auditor'),
   port: z.coerce.number().int().positive().default(4300),
   corsOrigin: z.string().min(1).default('http://127.0.0.1:4200'),
   allowDevAuthHeaders: booleanFlagSchema,
+  jwtSecret: z.string().min(1).default(DEV_JWT_SECRET),
+  jwtTtlSeconds: z.coerce.number().int().positive().default(43200),
 });
 
 export type ServerConfig = z.infer<typeof serverConfigSchema>;
@@ -50,5 +54,7 @@ export function loadServerConfig(env: Record<string, string | undefined> = { ...
     port: env['PORT'],
     corsOrigin: env['CORS_ORIGIN'],
     allowDevAuthHeaders: env['ALLOW_DEV_AUTH_HEADERS'],
+    jwtSecret: env['JWT_SECRET'],
+    jwtTtlSeconds: env['JWT_TTL_SECONDS'],
   });
 }

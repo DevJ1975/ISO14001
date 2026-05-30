@@ -5,6 +5,7 @@ import { describe, it } from 'node:test';
 import type { Db } from 'mongodb';
 
 import { loadServerConfig } from '../server/config';
+import { hashPassword } from '../server/password';
 import { handleApiRequest } from '../server/routes';
 
 const config = loadServerConfig({ MONGODB_URI: 'mongodb://localhost:27017', ALLOW_DEV_AUTH_HEADERS: 'true' });
@@ -56,8 +57,13 @@ function makeRes(): ServerResponse & { statusCode: number; body: string } {
 
 function createFakeDb(): { db: Db; store: Map<string, Record<string, unknown>[]> } {
   const store = new Map<string, Record<string, unknown>[]>();
+  const getPath = (doc: Record<string, unknown>, key: string): unknown =>
+    key.split('.').reduce<unknown>(
+      (value, part) => (value && typeof value === 'object' ? (value as Record<string, unknown>)[part] : undefined),
+      doc,
+    );
   const matches = (doc: Record<string, unknown>, query: Record<string, unknown>): boolean =>
-    Object.keys(query).every((key) => doc[key] === query[key]);
+    Object.keys(query).every((key) => getPath(doc, key) === query[key]);
 
   const collection = (name: string) => {
     if (!store.has(name)) store.set(name, []);
@@ -66,6 +72,9 @@ function createFakeDb(): { db: Db; store: Map<string, Record<string, unknown>[]>
       find(query: Record<string, unknown> = {}) {
         const result = docs.filter((doc) => matches(doc, query)).map((doc) => ({ ...doc }));
         return { sort: () => ({ toArray: async () => result }), toArray: async () => result };
+      },
+      async findOne(query: Record<string, unknown> = {}) {
+        return docs.find((doc) => matches(doc, query)) ?? null;
       },
       async insertMany(items: Record<string, unknown>[]) {
         docs.push(...items.map((item) => ({ ...item })));
@@ -157,5 +166,43 @@ describe('field-audit API routes', () => {
     assert.equal(res.statusCode, 200);
     const item = store.get('checklistItems')!.find((doc) => doc['id'] === 'item-8');
     assert.equal(item?.['result'], 'minorNc');
+  });
+
+  it('issues a token for valid credentials and rejects invalid ones', async () => {
+    const { db, store } = createFakeDb();
+    store.set('members', [
+      {
+        uid: 'u1',
+        tenantId: 'tenant-greenline',
+        role: 'leadAuditor',
+        status: 'active',
+        profile: { email: 'lead@example.test', displayName: 'Lead Auditor' },
+        passwordHash: hashPassword('correct-password'),
+      },
+    ]);
+
+    const bad = makeRes();
+    await handleApiRequest(
+      makeReq({ method: 'POST', url: '/api/auth/login', body: { email: 'lead@example.test', password: 'wrong' } }),
+      bad,
+      { db, config },
+    );
+    assert.equal(bad.statusCode, 401);
+
+    const ok = makeRes();
+    await handleApiRequest(
+      makeReq({
+        method: 'POST',
+        url: '/api/auth/login',
+        body: { email: 'lead@example.test', password: 'correct-password' },
+      }),
+      ok,
+      { db, config },
+    );
+    assert.equal(ok.statusCode, 200);
+    const body = JSON.parse(ok.body) as { token: string; user: { tenantId: string; role: string } };
+    assert.ok(body.token.length > 0);
+    assert.equal(body.user.tenantId, 'tenant-greenline');
+    assert.equal(body.user.role, 'leadAuditor');
   });
 });

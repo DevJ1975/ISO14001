@@ -1,24 +1,13 @@
 import { InjectionToken } from '@angular/core';
 
-export interface FieldActor {
-  uid: string;
-  role: string;
-  tenantId: string;
-  platform: boolean;
-}
-
 export interface AppConfig {
   /** Same-origin API root. The browser talks to the Node/Mongo API here. */
   apiBaseUrl: string;
+  /** Fallback tenant used in URLs before sign-in; the real tenant comes from the token. */
   tenantId: string;
   auditId: string;
-  actor: FieldActor;
-  /**
-   * Send dev auth headers (x-iso-*). The backend honours these only when it
-   * runs with ALLOW_DEV_AUTH_HEADERS enabled. This is a prototype path until
-   * real bearer-token verification is implemented server-side.
-   */
-  sendDevAuthHeaders: boolean;
+  /** Pre-filled demo credentials for the sign-in screen (seeded by `npm run mongo:init`). */
+  demo: { email: string; password: string };
 }
 
 const TENANT_ID = 'tenant-greenline';
@@ -29,7 +18,6 @@ export const APP_CONFIG = new InjectionToken<AppConfig>('APP_CONFIG', {
     apiBaseUrl: '/api',
     tenantId: TENANT_ID,
     auditId: 'audit-transition-1',
-    actor: { uid: 'uid-ava-auditor', role: 'auditor', tenantId: TENANT_ID, platform: false },
-    sendDevAuthHeaders: true,
+    demo: { email: 'ava.brooks@example-audit.test', password: 'audit-demo-2026' },
   }),
 });

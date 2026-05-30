@@ -25,6 +25,15 @@
     </nav>
 
     <div class="rail-foot">
+      @if (auth.user(); as user) {
+        <div class="who">
+          <span class="avatar">{{ user.displayName.charAt(0) }}</span>
+          <span class="who-text">
+            <strong>{{ user.displayName || user.email }}</strong>
+            <small>{{ user.role }}</small>
+          </span>
+        </div>
+      }
       <div class="conn" [class.offline]="!store.online()">
         <mat-icon aria-hidden="true">{{ store.online() ? 'cloud_done' : 'cloud_off' }}</mat-icon>
         <span>
@@ -95,6 +104,12 @@
       >
         <mat-icon aria-hidden="true">{{ theme.resolved() === 'dark' ? 'light_mode' : 'dark_mode' }}</mat-icon>
       </button>
+
+      @if (auth.user()) {
+        <button class="icon-btn" type="button" (click)="logout()" aria-label="Sign out">
+          <mat-icon aria-hidden="true">logout</mat-icon>
+        </button>
+      }
     </header>
 
     <main class="outlet">

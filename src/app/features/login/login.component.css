@@ -1,0 +1,153 @@
+.login {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  padding: calc(24px + env(safe-area-inset-top)) 20px calc(24px + env(safe-area-inset-bottom));
+}
+
+.card {
+  display: grid;
+  gap: 14px;
+  width: 100%;
+  max-width: 400px;
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  background: var(--surface);
+  padding: clamp(24px, 5vw, 36px);
+  box-shadow: var(--shadow-lg);
+  animation: rise 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.brand-mark {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 13px;
+  background: linear-gradient(135deg, var(--primary-bright), var(--primary));
+  color: #fff;
+  box-shadow: 0 12px 26px color-mix(in srgb, var(--primary) 34%, transparent);
+}
+
+.brand-mark mat-icon {
+  font-size: 26px;
+  width: 26px;
+  height: 26px;
+}
+
+.brand strong {
+  display: block;
+  color: var(--text);
+}
+
+.brand small {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+h1 {
+  margin: 8px 0 0;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+.lead {
+  margin: 0 0 4px;
+  color: var(--muted);
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+}
+
+.field span {
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.field input {
+  min-height: 50px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-guard);
+  padding: 0 14px;
+  color: var(--text);
+  font: inherit;
+}
+
+.field input:focus-visible {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--ring);
+}
+
+.error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  border: 1px solid var(--tone-critical-bd);
+  border-radius: 12px;
+  background: var(--tone-critical-bg);
+  padding: 10px 12px;
+  color: var(--tone-critical-fg);
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.error mat-icon {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+}
+
+.card button[mat-flat-button] {
+  min-height: 52px;
+  border-radius: 13px;
+  font-weight: 700;
+}
+
+.offline-btn {
+  min-height: 48px;
+  border-radius: 12px;
+  font-weight: 700;
+}
+
+.hint {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.hint mat-icon {
+  flex: 0 0 auto;
+  font-size: 16px;
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+}
+
+.hint code {
+  background: var(--surface-guard);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 1px 5px;
+  font-size: 12px;
+}
