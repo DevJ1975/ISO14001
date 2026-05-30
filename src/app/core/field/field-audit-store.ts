@@ -275,9 +275,12 @@ function isOverdue(capa: FieldCapa, nowIso: string): boolean {
 @Injectable({ providedIn: 'root' })
 export class FieldAuditStore {
   private readonly api = inject(FieldApiService);
+  private readonly selection = inject(AuditSelectionService);
 
-  readonly auditee = 'Northstar Components — Denver Assembly Plant';
-  readonly criteria = 'ISO 14001:2026';
+  readonly auditee = signal('Northstar Components — Denver Assembly Plant');
+  readonly criteria = signal('ISO 14001:2026');
+  readonly audits = signal<AuditSummary[]>([]);
+  readonly selectedAuditId = this.selection.selectedAuditId;
 
   readonly items = signal<FieldChecklistItem[]>(seedItems());
   readonly evidence = signal<FieldEvidence[]>(seedEvidence());
