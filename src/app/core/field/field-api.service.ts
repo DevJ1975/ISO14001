@@ -104,6 +104,33 @@ export class FieldApiService {
     return firstValueFrom(this.http.post(`${this.base()}/evidence`, body));
   }
 
+  /** Downscale the photo, then POST the bytes through the function to Storage. */
+  async uploadEvidencePhoto(evidenceId: string, file: Blob): Promise<boolean> {
+    try {
+      const image = await downscaleImage(file);
+      await firstValueFrom(
+        this.http.post(`${this.base()}/evidence/${encodeURIComponent(evidenceId)}/photo`, image, {
+          headers: { 'content-type': image.type || 'image/jpeg' },
+        }),
+      );
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /** Short-lived signed URL to view an uploaded photo (private bucket). */
+  async evidenceViewUrl(evidenceId: string): Promise<string | null> {
+    try {
+      const { url } = await firstValueFrom(
+        this.http.get<{ url: string }>(`${this.base()}/evidence/${encodeURIComponent(evidenceId)}/view-url`),
+      );
+      return url ?? null;
+    } catch {
+      return null;
+    }
+  }
+
   upsertFinding(body: Omit<FieldFinding, 'sync'>): Promise<unknown> {
     return firstValueFrom(this.http.put(`${this.base()}/findings/${encodeURIComponent(body.id)}`, body));
   }
@@ -154,5 +181,31 @@ export class FieldApiService {
 
   private base(): string {
     return `${this.tenantBase()}/audits/${this.selection.selectedAuditId()}`;
+  }
+}
+
+/**
+ * Downscale a captured photo to a sensible field size (long edge ~1600px,
+ * JPEG q0.8) so uploads stay small over cellular. Falls back to the original
+ * blob if the browser can't decode it (e.g. HEIC without codec support).
+ */
+async function downscaleImage(file: Blob, maxEdge = 1600, quality = 0.8): Promise<Blob> {
+  if (typeof document === 'undefined' || typeof createImageBitmap === 'undefined') return file;
+  try {
+    const bitmap = await createImageBitmap(file);
+    const scale = Math.min(1, maxEdge / Math.max(bitmap.width, bitmap.height));
+    const width = Math.round(bitmap.width * scale);
+    const height = Math.round(bitmap.height * scale);
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return file;
+    ctx.drawImage(bitmap, 0, 0, width, height);
+    bitmap.close();
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', quality));
+    return blob ?? file;
+  } catch {
+    return file;
   }
 }

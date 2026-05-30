@@ -24,10 +24,15 @@
     @for (evidence of store.evidence(); track evidence.id) {
       <article class="tile ev-card">
         <div class="thumb">
-          @if (evidence.thumbUrl) {
-            <img [src]="evidence.thumbUrl" alt="Captured evidence" />
+          @if (photoUrl(evidence); as url) {
+            <img [src]="url" alt="Captured evidence" />
           } @else {
             <mat-icon aria-hidden="true">{{ evidence.kind === 'photo' ? 'image' : 'sticky_note_2' }}</mat-icon>
+          }
+          @if (evidence.kind === 'photo') {
+            <span class="up" [attr.data-up]="evidence.uploaded" [title]="evidence.uploaded ? 'Stored in the cloud' : 'On this device only'">
+              <mat-icon aria-hidden="true">{{ evidence.uploaded ? 'cloud_done' : 'cloud_off' }}</mat-icon>
+            </span>
           }
         </div>
         <div class="meta">
