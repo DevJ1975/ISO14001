@@ -10,6 +10,12 @@ export const routes: Routes = [
     title: 'Sign in',
   },
   {
+    path: 'report/print',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/report/report-print.component').then((m) => m.ReportPrintComponent),
+    title: 'Audit report (PDF)',
+  },
+  {
     path: '',
     component: ShellComponent,
     canActivate: [authGuard],

@@ -1,0 +1,371 @@
+:host {
+  display: block;
+  background: var(--surface-2, #f4f5f7);
+  min-height: 100%;
+}
+
+.toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.toolbar .hint {
+  flex: 1;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.toolbar button {
+  min-height: 44px;
+  border-radius: 11px;
+}
+
+/* The document itself: A4-ish sheet centered on screen. */
+.doc {
+  max-width: 820px;
+  margin: 20px auto 48px;
+  background: #fff;
+  color: #16181d;
+  padding: 40px 44px;
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.doc-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 2px solid #16181d;
+  padding-bottom: 14px;
+}
+
+.eyebrow {
+  margin: 0 0 2px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #5b6472;
+}
+
+.doc-head h1 {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.badge {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1.5px solid #b6562a;
+  color: #b6562a;
+}
+
+.badge[data-signed='true'] {
+  border-color: #1f7a4d;
+  color: #1f7a4d;
+}
+
+.meta-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px 22px;
+  margin: 18px 0 4px;
+}
+
+.meta-grid div {
+  display: grid;
+  gap: 1px;
+}
+
+.meta-grid span {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #5b6472;
+}
+
+.meta-grid strong {
+  font-weight: 600;
+}
+
+.summary {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+  margin: 18px 0 6px;
+}
+
+.kpi {
+  text-align: center;
+  border: 1px solid #d9dde3;
+  border-radius: 8px;
+  padding: 10px 6px;
+}
+
+.kpi strong {
+  display: block;
+  font-size: 21px;
+  font-weight: 800;
+}
+
+.kpi span {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #5b6472;
+}
+
+.block {
+  margin-top: 24px;
+  break-inside: avoid;
+}
+
+.block h2 {
+  font-size: 16px;
+  font-weight: 800;
+  margin: 0 0 10px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid #d9dde3;
+}
+
+.block h3 {
+  font-size: 13px;
+  font-weight: 700;
+  margin: 14px 0 6px;
+  color: #2b3340;
+}
+
+.fields {
+  display: grid;
+  grid-template-columns: 168px 1fr;
+  gap: 4px 14px;
+  margin: 0;
+}
+
+.fields.tight {
+  grid-template-columns: 130px 1fr;
+  font-size: 12.5px;
+}
+
+.fields dt {
+  font-weight: 700;
+  color: #2b3340;
+}
+
+.fields dd {
+  margin: 0;
+}
+
+.fields dd.strong {
+  font-weight: 800;
+}
+
+.finding {
+  border: 1px solid #d9dde3;
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  break-inside: avoid;
+}
+
+.finding-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.tag {
+  font-size: 10.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: #eef0f3;
+  color: #2b3340;
+}
+
+.tag[data-grade='majorNc'] {
+  background: #fbe4dd;
+  color: #99300f;
+}
+
+.tag[data-grade='minorNc'] {
+  background: #fdf0d8;
+  color: #8a5a00;
+}
+
+.clause {
+  font-weight: 700;
+  color: #2b3340;
+}
+
+.nc-status {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: capitalize;
+  color: #5b6472;
+}
+
+.finding-desc {
+  margin: 0 0 8px;
+  font-weight: 600;
+}
+
+.capa {
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: #f6f8fa;
+  border-radius: 7px;
+}
+
+.capa-label {
+  display: block;
+  font-size: 10.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #5b6472;
+  margin-bottom: 5px;
+}
+
+.grid {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.grid th,
+.grid td {
+  border: 1px solid #d9dde3;
+  padding: 6px 9px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.grid th {
+  background: #f0f2f5;
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.grid .nowrap {
+  white-space: nowrap;
+}
+
+.grid .note {
+  display: block;
+  margin-top: 3px;
+  color: #5b6472;
+  font-style: italic;
+}
+
+.ofi-list,
+.meeting {
+  margin: 0;
+}
+
+.ofi-list li {
+  margin-bottom: 5px;
+}
+
+.meeting {
+  margin-bottom: 10px;
+}
+
+.meeting p {
+  margin: 3px 0 0;
+}
+
+.signoff .sign-row {
+  display: grid;
+  grid-template-columns: 1fr 220px;
+  gap: 30px;
+  margin-top: 34px;
+}
+
+.sign-line span {
+  display: block;
+  border-bottom: 1.5px solid #16181d;
+  height: 28px;
+}
+
+.sign-line label {
+  display: block;
+  margin-top: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #5b6472;
+}
+
+.muted {
+  color: #5b6472;
+}
+
+.small {
+  font-size: 12px;
+}
+
+.muted.small {
+  font-size: 11.5px;
+}
+
+.doc-foot {
+  margin-top: 30px;
+  padding-top: 12px;
+  border-top: 1px solid #d9dde3;
+  font-size: 10.5px;
+  color: #8a93a0;
+  text-align: center;
+}
+
+/* ---- Print: hide the app chrome and this screen's toolbar, show only the sheet ---- */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  :host {
+    background: #fff;
+  }
+
+  .doc {
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    border-radius: 0;
+    box-shadow: none;
+    font-size: 11pt;
+  }
+
+  .block {
+    break-inside: avoid;
+  }
+
+  @page {
+    margin: 16mm 14mm;
+  }
+}
