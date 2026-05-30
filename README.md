@@ -29,9 +29,21 @@ npm run api
 ## Verification
 
 ```bash
+npm run lint        # ESLint (angular-eslint + typescript-eslint)
 npm run typecheck
 npm test
 npm run build
+```
+
+### Browser E2E (opt-in)
+
+Playwright specs in `e2e/` drive the real app (against the offline demo store, so
+no backend is needed) and include an axe accessibility scan. They are **not** in
+the gating CI because they need browser binaries:
+
+```bash
+npx playwright install chromium
+npm run e2e
 ```
 
 ## Live backend (Supabase)

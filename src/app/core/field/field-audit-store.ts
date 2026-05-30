@@ -1419,7 +1419,7 @@ export class FieldAuditStore {
   private persist(): void {
     const snapshot: PersistedState = {
       items: this.items(),
-      evidence: this.evidence().map(({ thumbUrl, ...rest }) => rest),
+      evidence: this.evidence().map(({ thumbUrl: _thumbUrl, ...rest }) => rest),
       findings: this.findings(),
       capas: this.capas(),
       auditStatus: this.auditStatus(),

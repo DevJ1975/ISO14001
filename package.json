@@ -9,6 +9,8 @@
     "api": "tsx server/api-server.ts",
     "build": "ng build",
     "test": "tsx --test test/*.test.ts",
+    "lint": "eslint .",
+    "e2e": "playwright test",
     "typecheck": "tsc --noEmit -p tsconfig.spec.json",
     "mongo:init": "tsx server/scripts/init-mongo.ts"
   },
@@ -37,8 +39,13 @@
     "@angular/build": "21.2.13",
     "@angular/cli": "21.2.13",
     "@angular/compiler-cli": "21.2.15",
+    "@axe-core/playwright": "^4.11.3",
+    "@playwright/test": "^1.60.0",
     "@types/node": "^22.15.30",
+    "angular-eslint": "^21.4.0",
+    "eslint": "^9.39.4",
     "tsx": "^4.20.6",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "typescript-eslint": "^8.60.0"
   }
 }

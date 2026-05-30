@@ -307,13 +307,13 @@
   margin-top: 34px;
 }
 
-.sign-line span {
+.sign-line .rule {
   display: block;
   border-bottom: 1.5px solid #16181d;
   height: 28px;
 }
 
-.sign-line label {
+.sign-line .cap {
   display: block;
   margin-top: 5px;
   font-size: 11px;
