@@ -60,9 +60,7 @@ appends a changelog entry. The overall knowledge-base version is
 
 ## Content boundaries
 
-These documents are Trainovate-authored guidance. They refer to ISO standards
-by **clause identifier and short title only** and do not reproduce ISO
-requirements text.
+These documents are Trainovate-authored guidance. They refer to ISO standards by clause identifier and short title only and do not reproduce ISO standard requirements text.
 
 ## Legacy manuals
 
