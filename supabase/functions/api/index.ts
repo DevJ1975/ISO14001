@@ -450,6 +450,7 @@ Deno.serve(async (req) => {
           documentedInfo: byKind('documentedInfo'),
           meetings: byKind('meeting'),
           conclusion: single('conclusion'),
+          reportMeta: single('reportMeta'),
           auditStatus: statusDoc?.status ?? auditRow?.doc?.status ?? 'fieldwork',
         }, req);
       }
@@ -570,6 +571,21 @@ Deno.serve(async (req) => {
         const doc = { ...body, updatedAt: new Date().toISOString() };
         await upsertRecord(tenantId, auditId, 'conclusion', 'conclusion', doc);
         return json(200, { conclusion: doc });
+      }
+
+      // Report front-matter (singleton). Validated like a register so it can't
+      // persist oversized/unknown-typed fields; reportVersion kept numeric.
+      if (method === 'PUT' && rest[0] === 'report-meta') {
+        requireRole(actor, ['leadAuditor', 'auditor']);
+        const body = await readJson(req);
+        const doc = cleanRegister(body, 'report-meta');
+        doc.auditType = ['internal', 'stage1', 'stage2', 'surveillance', 'recertification'].includes(body.auditType)
+          ? body.auditType
+          : 'stage2';
+        doc.impartialityDeclared = body.impartialityDeclared === true;
+        doc.reportVersion = Number.isFinite(body.reportVersion) && body.reportVersion > 0 ? Math.floor(body.reportVersion) : 1;
+        await upsertRecord(tenantId, auditId, 'reportMeta', 'reportMeta', doc);
+        return json(200, { reportMeta: doc }, req);
       }
 
       if (method === 'POST' && rest[0] === 'reports' && rest[1] === 'signoff') {

@@ -512,7 +512,8 @@ export class FieldAuditStore {
       this.competence().filter((c) => c.sync !== 'synced').length +
       this.awareness().filter((a) => a.sync !== 'synced').length +
       this.documentedInfo().filter((d) => d.sync !== 'synced').length +
-      (this.conclusion() && this.conclusion()!.sync !== 'synced' ? 1 : 0),
+      (this.conclusion() && this.conclusion()!.sync !== 'synced' ? 1 : 0) +
+      (this.reportMeta().sync !== 'synced' ? 1 : 0),
   );
 
   readonly nextAuditStatuses = computed(() => {
@@ -768,10 +769,12 @@ export class FieldAuditStore {
     this.autoFlush();
   }
 
-  /** Update the report front-matter (UK-style report metadata). Persisted locally. */
+  /** Update the report front-matter (UK-style report metadata). Synced to the
+   *  backend so it travels across devices/team members, like the conclusion. */
   updateReportMeta(patch: Partial<Omit<ReportMeta, 'sync'>>): void {
-    this.reportMeta.update((meta) => ({ ...meta, ...patch }));
+    this.reportMeta.update((meta) => ({ ...meta, ...patch, sync: 'queued' }));
     this.persist();
+    this.autoFlush();
   }
 
   addAspect(): void {
@@ -1176,6 +1179,17 @@ export class FieldAuditStore {
           this.conclusion.set({ ...conclusion, sync: 'queued' });
         }
       }
+      const reportMeta = this.reportMeta();
+      if (reportMeta.sync !== 'synced') {
+        try {
+          const { sync, ...payload } = reportMeta;
+          void sync;
+          await this.api.saveReportMeta(payload);
+          this.reportMeta.set({ ...reportMeta, sync: 'synced' });
+        } catch {
+          this.reportMeta.set({ ...reportMeta, sync: 'queued' });
+        }
+      }
       for (const aspect of this.aspects().filter((entry) => entry.sync !== 'synced')) {
         this.setSync('aspects', aspect.id, 'syncing');
         try {
@@ -1440,6 +1454,13 @@ export class FieldAuditStore {
       this.competence.set((payload.competence ?? []).map((c) => ({ ...c, sync: 'synced' as const })));
       this.awareness.set((payload.awareness ?? []).map((a) => ({ ...a, sync: 'synced' as const })));
       this.documentedInfo.set((payload.documentedInfo ?? []).map((d) => ({ ...d, sync: 'synced' as const })));
+      // Report front-matter: prefer the server copy (shared across the team),
+      // falling back to defaults, then overlay scope/dates from the audit record.
+      this.reportMeta.set(
+        payload.reportMeta
+          ? { ...defaultReportMeta(), ...payload.reportMeta, sync: 'synced' }
+          : defaultReportMeta(),
+      );
       if (payload.audit) {
         this.auditee.set(payload.audit.auditee || this.auditee());
         this.criteria.set(payload.audit.criteria || this.criteria());

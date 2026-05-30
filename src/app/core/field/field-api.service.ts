@@ -11,6 +11,7 @@ import type {
   AuditStatus,
   AuditSummary,
   AwarenessRecord,
+  ReportMeta,
   CommunicationRecord,
   CompetenceRecord,
   ComplianceObligation,
@@ -58,6 +59,7 @@ export interface FieldStatePayload {
   competence?: Array<Omit<CompetenceRecord, 'sync'>>;
   awareness?: Array<Omit<AwarenessRecord, 'sync'>>;
   documentedInfo?: Array<Omit<DocumentedInfoRecord, 'sync'>>;
+  reportMeta?: Omit<ReportMeta, 'sync'> | null;
 }
 
 /** Thin client over the tenant-scoped field-audit endpoints. The bearer token is
@@ -174,6 +176,10 @@ export class FieldApiService {
 
   saveConclusion(body: Omit<AuditConclusion, 'sync'>): Promise<unknown> {
     return firstValueFrom(this.http.put(`${this.base()}/conclusion`, body));
+  }
+
+  saveReportMeta(body: Omit<ReportMeta, 'sync'>): Promise<unknown> {
+    return firstValueFrom(this.http.put(`${this.base()}/report-meta`, body));
   }
 
   signReport(body: { attestation: string }): Promise<{ signedAt?: string }> {

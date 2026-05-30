@@ -228,6 +228,21 @@ const signoffCommandSchema = z.object({
   attestation: z.string().min(20).max(1000),
 });
 
+const reportMetaCommandSchema = z.object({
+  auditType: z.enum(['internal', 'stage1', 'stage2', 'surveillance', 'recertification']).default('stage2'),
+  scope: z.string().max(4000).default(''),
+  objectives: z.string().max(4000).default(''),
+  startsAt: z.string().optional(),
+  endsAt: z.string().optional(),
+  sites: z.string().max(2000).default(''),
+  auditTrail: z.string().max(8000).default(''),
+  leadAuditorName: z.string().max(300).default(''),
+  auditorCompetence: z.string().max(1000).default(''),
+  impartialityDeclared: z.boolean().default(false),
+  distribution: z.string().max(1000).default(''),
+  reportVersion: z.number().int().positive().default(1),
+});
+
 const registerResultSchema = z.enum(['notStarted', 'conforming', 'nonconforming', 'notApplicable', 'needsFollowUp']);
 
 const aspectUpsertCommandSchema = z.object({
@@ -775,6 +790,9 @@ export async function handleApiRequest(
         dependencies.db.collection(mongoCollections.awarenessRecords).find({ tenantId, auditId }, { projection: { _id: 0 } }).toArray(),
         dependencies.db.collection(mongoCollections.documentedInfo).find({ tenantId, auditId }, { projection: { _id: 0 } }).toArray(),
       ]);
+      const reportMeta = await dependencies.db
+        .collection(mongoCollections.reportMeta)
+        .findOne({ tenantId, auditId }, { projection: { _id: 0 } });
       sendJson(
         response,
         200,
@@ -798,6 +816,7 @@ export async function handleApiRequest(
           competence,
           awareness,
           documentedInfo,
+          reportMeta,
         },
         corsOrigin,
       );
@@ -1027,6 +1046,25 @@ export async function handleApiRequest(
         .collection(mongoCollections.auditConclusions)
         .updateOne({ tenantId, auditId }, { $set: record }, { upsert: true });
       sendJson(response, 200, { conclusion: record }, corsOrigin);
+      return;
+    }
+
+    const reportMetaMatch = matchPath(
+      new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/report-meta$`),
+      url.pathname,
+      ['tenantId', 'auditId'],
+    );
+    if (request.method === 'PUT' && reportMetaMatch && actor) {
+      const tenantId = reportMetaMatch.params['tenantId']!;
+      const auditId = reportMetaMatch.params['auditId']!;
+      requireTenant(actor, tenantId);
+      requireAnyRole(actor, ['leadAuditor', 'auditor']);
+      const command = await readJson(request, reportMetaCommandSchema);
+      const record = { ...command, tenantId, auditId, updatedAt: new Date().toISOString() };
+      await dependencies.db
+        .collection(mongoCollections.reportMeta)
+        .updateOne({ tenantId, auditId }, { $set: record }, { upsert: true });
+      sendJson(response, 200, { reportMeta: record }, corsOrigin);
       return;
     }
 
