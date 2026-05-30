@@ -4,7 +4,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { RouterLink } from '@angular/router';
 
 import { AuthService } from '../../core/auth/auth.service';
-import { FieldAuditStore, Recommendation } from '../../core/field/field-audit-store';
+import { AuditType, FieldAuditStore, Recommendation } from '../../core/field/field-audit-store';
 
 @Component({
   selector: 'app-report',
@@ -21,6 +21,16 @@ export class ReportComponent {
   protected readonly isLead = computed(() => this.auth.user()?.role === 'leadAuditor');
   protected readonly conclusion = computed(() => this.store.conclusion());
   protected readonly signError = signal<string | null>(null);
+
+  protected readonly meta = this.store.reportMeta;
+
+  protected readonly auditTypes: { value: AuditType; label: string }[] = [
+    { value: 'stage1', label: 'Stage 1' },
+    { value: 'stage2', label: 'Stage 2' },
+    { value: 'surveillance', label: 'Surveillance' },
+    { value: 'recertification', label: 'Recertification' },
+    { value: 'internal', label: 'Internal' },
+  ];
 
   protected readonly recommendations: { value: Recommendation; label: string }[] = [
     { value: 'recommend', label: 'Recommend' },
@@ -70,6 +80,14 @@ export class ReportComponent {
 
   protected recommendationLabel(value: Recommendation): string {
     return this.recommendations.find((r) => r.value === value)?.label ?? value;
+  }
+
+  protected setAuditType(value: AuditType): void {
+    this.store.updateReportMeta({ auditType: value });
+  }
+
+  protected saveMeta(patch: Parameters<FieldAuditStore['updateReportMeta']>[0]): void {
+    this.store.updateReportMeta(patch);
   }
 
   protected async sign(attestation: string): Promise<void> {

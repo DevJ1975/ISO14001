@@ -260,6 +260,45 @@ const emergencyUpsertCommandSchema = z.object({
   result: registerResultSchema.default('notStarted'),
 });
 
+const interestedPartyUpsertCommandSchema = z.object({
+  id: z.string().min(1),
+  party: z.string().max(300).default(''),
+  category: z.enum(['internal', 'external']).default('external'),
+  needs: z.string().max(2000).optional(),
+  howAddressed: z.string().max(2000).optional(),
+  result: registerResultSchema.default('notStarted'),
+});
+
+const objectiveUpsertCommandSchema = z.object({
+  id: z.string().min(1),
+  objective: z.string().max(300).default(''),
+  target: z.string().max(1000).optional(),
+  owner: z.string().max(300).optional(),
+  dueDate: z.string().optional(),
+  progress: z.enum(['notStarted', 'onTrack', 'atRisk', 'achieved']).default('notStarted'),
+  result: registerResultSchema.default('notStarted'),
+});
+
+const communicationUpsertCommandSchema = z.object({
+  id: z.string().min(1),
+  topic: z.string().max(300).default(''),
+  direction: z.enum(['internal', 'external', 'both']).default('internal'),
+  audience: z.string().max(300).optional(),
+  method: z.string().max(300).optional(),
+  frequency: z.string().max(120).optional(),
+  result: registerResultSchema.default('notStarted'),
+});
+
+const managementReviewUpsertCommandSchema = z.object({
+  id: z.string().min(1),
+  reviewDate: z.string().optional(),
+  attendees: z.string().max(2000).optional(),
+  inputs: z.string().max(4000).optional(),
+  decisions: z.string().max(4000).optional(),
+  actions: z.string().max(4000).optional(),
+  result: registerResultSchema.default('notStarted'),
+});
+
 const programmeUpsertSchema = z.object({
   cycleYear: z.number().int(),
   criteria: z.string().min(1),
@@ -675,11 +714,16 @@ export async function handleApiRequest(
         dependencies.db.collection(mongoCollections.auditMeetings).find({ tenantId, auditId }, { projection: { _id: 0 } }).toArray(),
         dependencies.db.collection(mongoCollections.auditConclusions).findOne({ tenantId, auditId }, { projection: { _id: 0 } }),
       ]);
-      const [aspects, obligations, emergencyRecords] = await Promise.all([
-        dependencies.db.collection(mongoCollections.environmentalAspects).find({ tenantId, auditId }, { projection: { _id: 0 } }).toArray(),
-        dependencies.db.collection(mongoCollections.complianceObligations).find({ tenantId, auditId }, { projection: { _id: 0 } }).toArray(),
-        dependencies.db.collection(mongoCollections.emergencyRecords).find({ tenantId, auditId }, { projection: { _id: 0 } }).toArray(),
-      ]);
+      const [aspects, obligations, emergencyRecords, interestedParties, objectives, communications, managementReviews] =
+        await Promise.all([
+          dependencies.db.collection(mongoCollections.environmentalAspects).find({ tenantId, auditId }, { projection: { _id: 0 } }).toArray(),
+          dependencies.db.collection(mongoCollections.complianceObligations).find({ tenantId, auditId }, { projection: { _id: 0 } }).toArray(),
+          dependencies.db.collection(mongoCollections.emergencyRecords).find({ tenantId, auditId }, { projection: { _id: 0 } }).toArray(),
+          dependencies.db.collection(mongoCollections.interestedParties).find({ tenantId, auditId }, { projection: { _id: 0 } }).toArray(),
+          dependencies.db.collection(mongoCollections.environmentalObjectives).find({ tenantId, auditId }, { projection: { _id: 0 } }).toArray(),
+          dependencies.db.collection(mongoCollections.communicationRecords).find({ tenantId, auditId }, { projection: { _id: 0 } }).toArray(),
+          dependencies.db.collection(mongoCollections.managementReviews).find({ tenantId, auditId }, { projection: { _id: 0 } }).toArray(),
+        ]);
       sendJson(
         response,
         200,
@@ -694,6 +738,10 @@ export async function handleApiRequest(
           aspects,
           obligations,
           emergencyRecords,
+          interestedParties,
+          objectives,
+          communications,
+          managementReviews,
         },
         corsOrigin,
       );
@@ -1013,6 +1061,83 @@ export async function handleApiRequest(
         .collection(mongoCollections.emergencyRecords)
         .updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
       sendJson(response, 200, { emergency: record }, corsOrigin);
+      return;
+    }
+
+    const interestedPartyMatch = matchPath(
+      new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/interested-parties/([^/]+)$`),
+      url.pathname,
+      ['tenantId', 'auditId', 'id'],
+    );
+    if (request.method === 'PUT' && interestedPartyMatch && actor) {
+      const tenantId = interestedPartyMatch.params['tenantId']!;
+      const auditId = interestedPartyMatch.params['auditId']!;
+      requireTenant(actor, tenantId);
+      requireAnyRole(actor, ['leadAuditor', 'auditor']);
+      const command = await readJson(request, interestedPartyUpsertCommandSchema);
+      const record = { ...command, tenantId, auditId, updatedAt: new Date().toISOString() };
+      await dependencies.db
+        .collection(mongoCollections.interestedParties)
+        .updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
+      sendJson(response, 200, { interestedParty: record }, corsOrigin);
+      return;
+    }
+
+    const objectiveMatch = matchPath(
+      new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/objectives/([^/]+)$`),
+      url.pathname,
+      ['tenantId', 'auditId', 'id'],
+    );
+    if (request.method === 'PUT' && objectiveMatch && actor) {
+      const tenantId = objectiveMatch.params['tenantId']!;
+      const auditId = objectiveMatch.params['auditId']!;
+      requireTenant(actor, tenantId);
+      requireAnyRole(actor, ['leadAuditor', 'auditor']);
+      const command = await readJson(request, objectiveUpsertCommandSchema);
+      const record = { ...command, tenantId, auditId, updatedAt: new Date().toISOString() };
+      await dependencies.db
+        .collection(mongoCollections.environmentalObjectives)
+        .updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
+      sendJson(response, 200, { objective: record }, corsOrigin);
+      return;
+    }
+
+    const communicationMatch = matchPath(
+      new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/communications/([^/]+)$`),
+      url.pathname,
+      ['tenantId', 'auditId', 'id'],
+    );
+    if (request.method === 'PUT' && communicationMatch && actor) {
+      const tenantId = communicationMatch.params['tenantId']!;
+      const auditId = communicationMatch.params['auditId']!;
+      requireTenant(actor, tenantId);
+      requireAnyRole(actor, ['leadAuditor', 'auditor']);
+      const command = await readJson(request, communicationUpsertCommandSchema);
+      const record = { ...command, tenantId, auditId, updatedAt: new Date().toISOString() };
+      await dependencies.db
+        .collection(mongoCollections.communicationRecords)
+        .updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
+      sendJson(response, 200, { communication: record }, corsOrigin);
+      return;
+    }
+
+    // Management review (cl. 9.3) is a leadership/oversight record — lead-only.
+    const managementReviewMatch = matchPath(
+      new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/management-reviews/([^/]+)$`),
+      url.pathname,
+      ['tenantId', 'auditId', 'id'],
+    );
+    if (request.method === 'PUT' && managementReviewMatch && actor) {
+      const tenantId = managementReviewMatch.params['tenantId']!;
+      const auditId = managementReviewMatch.params['auditId']!;
+      requireTenant(actor, tenantId);
+      requireAnyRole(actor, ['leadAuditor', 'auditor']);
+      const command = await readJson(request, managementReviewUpsertCommandSchema);
+      const record = { ...command, tenantId, auditId, updatedAt: new Date().toISOString() };
+      await dependencies.db
+        .collection(mongoCollections.managementReviews)
+        .updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
+      sendJson(response, 200, { managementReview: record }, corsOrigin);
       return;
     }
 

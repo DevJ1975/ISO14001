@@ -10,14 +10,18 @@ import type {
   AuditMeeting,
   AuditStatus,
   AuditSummary,
+  CommunicationRecord,
   ComplianceObligation,
   EmergencyRecord,
   EnvironmentalAspect,
+  EnvironmentalObjective,
   FieldCapa,
   FieldChecklistItem,
   FieldEvidence,
   FieldFinding,
   FieldResult,
+  InterestedParty,
+  ManagementReviewRecord,
 } from './field-audit-store';
 
 export interface Member {
@@ -40,6 +44,10 @@ export interface FieldStatePayload {
   aspects?: Array<Omit<EnvironmentalAspect, 'sync'>>;
   obligations?: Array<Omit<ComplianceObligation, 'sync'>>;
   emergencyRecords?: Array<Omit<EmergencyRecord, 'sync'>>;
+  interestedParties?: Array<Omit<InterestedParty, 'sync'>>;
+  objectives?: Array<Omit<EnvironmentalObjective, 'sync'>>;
+  communications?: Array<Omit<CommunicationRecord, 'sync'>>;
+  managementReviews?: Array<Omit<ManagementReviewRecord, 'sync'>>;
 }
 
 /** Thin client over the tenant-scoped field-audit endpoints. The bearer token is
@@ -172,6 +180,22 @@ export class FieldApiService {
 
   upsertEmergency(body: Omit<EmergencyRecord, 'sync'>): Promise<unknown> {
     return firstValueFrom(this.http.put(`${this.base()}/emergency/${encodeURIComponent(body.id)}`, body));
+  }
+
+  upsertInterestedParty(body: Omit<InterestedParty, 'sync'>): Promise<unknown> {
+    return firstValueFrom(this.http.put(`${this.base()}/interested-parties/${encodeURIComponent(body.id)}`, body));
+  }
+
+  upsertObjective(body: Omit<EnvironmentalObjective, 'sync'>): Promise<unknown> {
+    return firstValueFrom(this.http.put(`${this.base()}/objectives/${encodeURIComponent(body.id)}`, body));
+  }
+
+  upsertCommunication(body: Omit<CommunicationRecord, 'sync'>): Promise<unknown> {
+    return firstValueFrom(this.http.put(`${this.base()}/communications/${encodeURIComponent(body.id)}`, body));
+  }
+
+  upsertManagementReview(body: Omit<ManagementReviewRecord, 'sync'>): Promise<unknown> {
+    return firstValueFrom(this.http.put(`${this.base()}/management-reviews/${encodeURIComponent(body.id)}`, body));
   }
 
   private tenantBase(): string {

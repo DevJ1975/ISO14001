@@ -10,7 +10,7 @@
     </a>
   </header>
 
-  <div class="stat-grid">
+  <div class="stat-grid stagger">
     <div class="stat"><strong>{{ store.progress().percent }}%</strong><span>Complete</span></div>
     <div class="stat"><strong>{{ store.ncCountsByGrade().majorNc }}</strong><span>Major NC</span></div>
     <div class="stat"><strong>{{ store.ncCountsByGrade().minorNc }}</strong><span>Minor NC</span></div>
@@ -31,6 +31,52 @@
       }
     </ul>
   </article>
+
+  @if (isLead()) {
+    <article class="panel">
+      <h2>Report details</h2>
+      <p class="muted small">Front-matter for a UKAS-style report: audit type, scope, sampling, auditor competence and distribution.</p>
+      <div class="rec">
+        <span class="lbl">Audit type</span>
+        <div class="rec-row">
+          @for (t of auditTypes; track t.value) {
+            <button type="button" class="rec-btn" [class.on]="meta().auditType === t.value" (click)="setAuditType(t.value)">{{ t.label }}</button>
+          }
+        </div>
+      </div>
+      <label class="fld"><span>Scope of certification</span>
+        <textarea #sc rows="2" [value]="meta().scope" (change)="saveMeta({ scope: sc.value })"
+          placeholder="e.g. Design, manufacture and distribution of coated components at the Denver site"></textarea>
+      </label>
+      <label class="fld"><span>Audit objectives</span>
+        <textarea #ob rows="2" [value]="meta().objectives" (change)="saveMeta({ objectives: ob.value })"
+          placeholder="e.g. Determine conformity of the EMS with ISO 14001 and its effectiveness"></textarea>
+      </label>
+      <label class="fld"><span>Sites &amp; sampling</span>
+        <input [value]="meta().sites" (change)="saveMeta({ sites: $any($event.target).value })"
+          placeholder="e.g. Denver Assembly Plant (1 of 1 site)" />
+      </label>
+      <label class="fld"><span>Audit trail &amp; sampling notes</span>
+        <textarea #tr rows="2" [value]="meta().auditTrail" (change)="saveMeta({ auditTrail: tr.value })"
+          placeholder="Records reviewed, processes observed, personnel interviewed…"></textarea>
+      </label>
+      <label class="fld"><span>Lead auditor name</span>
+        <input [value]="meta().leadAuditorName" (change)="saveMeta({ leadAuditorName: $any($event.target).value })" />
+      </label>
+      <label class="fld"><span>Auditor competence</span>
+        <input [value]="meta().auditorCompetence" (change)="saveMeta({ auditorCompetence: $any($event.target).value })"
+          placeholder="e.g. IRCA ISO 14001 Lead Auditor, 12 years EMS auditing" />
+      </label>
+      <label class="fld"><span>Distribution list</span>
+        <input [value]="meta().distribution" (change)="saveMeta({ distribution: $any($event.target).value })"
+          placeholder="e.g. Auditee EHS Manager; certification file; auditor records" />
+      </label>
+      <label class="check">
+        <input type="checkbox" [checked]="meta().impartialityDeclared" (change)="saveMeta({ impartialityDeclared: $any($event.target).checked })" />
+        <span>Impartiality declared — no conflict of interest with the auditee</span>
+      </label>
+    </article>
+  }
 
   <article class="panel">
     <h2>Audit conclusions</h2>
