@@ -260,6 +260,31 @@ const emergencyUpsertCommandSchema = z.object({
   result: registerResultSchema.default('notStarted'),
 });
 
+const programmeUpsertSchema = z.object({
+  cycleYear: z.number().int(),
+  criteria: z.string().min(1),
+  plannedAudits: z
+    .array(
+      z.object({
+        id: z.string().min(1),
+        type: z.enum(['internal', 'certificationStage1', 'certificationStage2', 'surveillance', 'recertification', 'special']),
+        dueDate: z.string(),
+        status: z.enum(['planned', 'inProgress', 'completed', 'cancelled']).default('planned'),
+      }),
+    )
+    .default([]),
+  competence: z
+    .array(
+      z.object({
+        id: z.string().min(1),
+        memberName: z.string().default(''),
+        qualifications: z.string().default(''),
+        impartialityDeclared: z.boolean().default(false),
+      }),
+    )
+    .default([]),
+});
+
 interface SeedChecklistItem {
   id: string;
   clauseId: string;
@@ -988,6 +1013,33 @@ export async function handleApiRequest(
         .collection(mongoCollections.emergencyRecords)
         .updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
       sendJson(response, 200, { emergency: record }, corsOrigin);
+      return;
+    }
+
+    const programmeMatch = matchPath(
+      new RegExp(`^/api/tenants/${tenantPath}/programme$`),
+      url.pathname,
+      ['tenantId'],
+    );
+    if (request.method === 'GET' && programmeMatch && actor) {
+      const tenantId = programmeMatch.params['tenantId']!;
+      requireTenant(actor, tenantId);
+      const doc = await dependencies.db
+        .collection(mongoCollections.auditProgrammes)
+        .findOne({ tenantId }, { projection: { _id: 0 } });
+      sendJson(response, 200, doc ?? null, corsOrigin);
+      return;
+    }
+    if (request.method === 'PUT' && programmeMatch && actor) {
+      const tenantId = programmeMatch.params['tenantId']!;
+      requireTenant(actor, tenantId);
+      requireAnyRole(actor, ['tenantAdmin', 'leadAuditor']);
+      const command = await readJson(request, programmeUpsertSchema);
+      const record = { ...command, tenantId, updatedAt: new Date().toISOString() };
+      await dependencies.db
+        .collection(mongoCollections.auditProgrammes)
+        .updateOne({ tenantId }, { $set: record }, { upsert: true });
+      sendJson(response, 200, { programme: record }, corsOrigin);
       return;
     }
 

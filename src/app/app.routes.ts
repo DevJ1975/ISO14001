@@ -50,6 +50,11 @@ export const routes: Routes = [
         title: 'Report',
       },
       {
+        path: 'programme',
+        loadComponent: () => import('./features/programme/programme.component').then((m) => m.ProgrammeComponent),
+        title: 'Audit programme',
+      },
+      {
         path: 'manual',
         loadComponent: () => import('./features/manual/manual.component').then((m) => m.ManualComponent),
         title: 'User manual',

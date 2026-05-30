@@ -398,4 +398,48 @@ describe('field-audit API routes', () => {
     const body = JSON.parse(state.body) as { aspects: unknown[] };
     assert.equal(body.aspects.length, 1);
   });
+
+  it('lets lead/admin manage the tenant audit programme', async () => {
+    const { db } = createFakeDb();
+    const denied = makeRes();
+    await handleApiRequest(
+      makeReq({
+        method: 'PUT',
+        url: '/api/tenants/t/programme',
+        headers: authHeaders('t'),
+        body: { cycleYear: 2026, criteria: 'ISO_14001_2026', plannedAudits: [], competence: [] },
+      }),
+      denied,
+      { db, config },
+    );
+    assert.equal(denied.statusCode, 401);
+
+    const ok = makeRes();
+    await handleApiRequest(
+      makeReq({
+        method: 'PUT',
+        url: '/api/tenants/t/programme',
+        headers: leadHeaders('t'),
+        body: {
+          cycleYear: 2026,
+          criteria: 'ISO_14001_2026',
+          plannedAudits: [{ id: 'plan-1', type: 'surveillance', dueDate: '2027-01-01', status: 'planned' }],
+          competence: [],
+        },
+      }),
+      ok,
+      { db, config },
+    );
+    assert.equal(ok.statusCode, 200);
+
+    const get = makeRes();
+    await handleApiRequest(
+      makeReq({ method: 'GET', url: '/api/tenants/t/programme', headers: authHeaders('t') }),
+      get,
+      { db, config },
+    );
+    const programme = JSON.parse(get.body) as { cycleYear: number; plannedAudits: unknown[] };
+    assert.equal(programme.cycleYear, 2026);
+    assert.equal(programme.plannedAudits.length, 1);
+  });
 });
