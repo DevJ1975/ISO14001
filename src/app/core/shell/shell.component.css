@@ -265,37 +265,77 @@
   background: var(--surface);
 }
 
-.conn-chip {
-  position: relative;
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
+.source-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   flex: 0 0 auto;
+  min-height: 40px;
+  padding: 0 14px;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 999px;
   background: var(--surface-guard);
-  color: var(--primary);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
   cursor: pointer;
   touch-action: manipulation;
+  transition: border-color 0.16s ease, background 0.16s ease, color 0.16s ease;
 }
 
-.conn-chip.offline {
-  color: #c4564e;
+.source-pill .dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 22%, transparent);
 }
 
-.conn-chip .badge {
-  position: absolute;
-  top: -6px;
-  right: -6px;
-  min-width: 18px;
-  height: 18px;
+.source-pill[data-state='live'] {
+  color: var(--tone-positive-fg);
+  border-color: var(--tone-positive-bd);
+  background: var(--tone-positive-bg);
+}
+
+.source-pill[data-state='local'] {
+  color: var(--tone-progress-fg);
+  border-color: var(--tone-progress-bd);
+  background: var(--tone-progress-bg);
+}
+
+.source-pill[data-state='offline'] {
+  color: var(--tone-critical-fg);
+  border-color: var(--tone-critical-bd);
+  background: var(--tone-critical-bg);
+}
+
+.source-pill.busy .dot {
+  animation: pulse-dot 1.2s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.35;
+    transform: scale(0.65);
+  }
+}
+
+.source-badge {
   display: grid;
   place-items: center;
+  min-width: 18px;
+  height: 18px;
   padding: 0 5px;
   border-radius: 999px;
-  background: var(--accent);
-  color: #fff;
+  background: color-mix(in srgb, currentColor 18%, transparent);
+  color: inherit;
   font-size: 11px;
   font-weight: 800;
 }
@@ -370,8 +410,7 @@
     display: none;
   }
 
-  .brand-mark.compact,
-  .conn-chip {
+  .brand-mark.compact {
     display: none;
   }
 

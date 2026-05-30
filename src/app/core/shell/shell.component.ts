@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
@@ -26,6 +26,23 @@ export class ShellComponent {
   protected readonly theme = inject(ThemeService);
   protected readonly conditions = inject(ConditionsService);
   protected readonly store = inject(FieldAuditStore);
+
+  /** Where the field data is coming from right now: live backend, local store, or offline. */
+  protected readonly sourceState = computed<'live' | 'local' | 'offline'>(() =>
+    !this.store.online() ? 'offline' : this.store.source(),
+  );
+
+  protected readonly sourceLabel = computed(() => {
+    const state = this.sourceState();
+    return state === 'live' ? 'Live' : state === 'offline' ? 'Offline' : 'Local';
+  });
+
+  protected readonly sourceHint = computed(() => {
+    const state = this.sourceState();
+    if (state === 'live') return 'Connected to the live backend';
+    if (state === 'offline') return 'Offline — changes are queued on this device';
+    return 'Local store — backend not connected';
+  });
 
   protected readonly nav: NavItem[] = [
     { path: '/', label: 'Overview', icon: 'dashboard', exact: true },

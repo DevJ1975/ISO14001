@@ -48,15 +48,18 @@
       </span>
 
       <button
-        class="conn-chip"
-        [class.offline]="!store.online()"
+        class="source-pill"
         type="button"
+        [attr.data-state]="sourceState()"
+        [class.busy]="store.online() && store.outboxCount() > 0"
         (click)="sync()"
-        [attr.aria-label]="store.online() ? 'Sync pending changes' : 'Offline'"
+        [title]="sourceHint()"
+        [attr.aria-label]="sourceHint() + ', ' + store.outboxCount() + ' pending. Tap to sync.'"
       >
-        <mat-icon aria-hidden="true">{{ store.online() ? 'cloud_done' : 'cloud_off' }}</mat-icon>
+        <span class="dot" aria-hidden="true"></span>
+        <span class="source-label">{{ sourceLabel() }}</span>
         @if (store.outboxCount() > 0) {
-          <span class="badge">{{ store.outboxCount() }}</span>
+          <span class="source-badge">{{ store.outboxCount() }}</span>
         }
       </button>
 
