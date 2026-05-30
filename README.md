@@ -4,13 +4,19 @@ Clean Phase 0-6 foundation for a production-grade, multi-tenant environmental-au
 
 ## Stack
 
-- Angular 21 standalone components
+- Angular 21 standalone components (signals, OnPush), offline-first PWA
 - Angular Material
-- Node API backend with MongoDB as the system of record
-- Tenant-scoped MongoDB collections, indexes, upload intents, and backend job queues
-- Camera/photo evidence capture with AI image-identification contracts
+- **Live backend: a Supabase Edge Function** (`supabase/functions/api`) over
+  Postgres JSONB document tables (`members`, `field_records`, `programmes`),
+  with custom HS256 app-JWT auth and PBKDF2 passwords (Web Crypto)
+- Tenant- and audit-scoped records; lead-only actions enforced server-side
+- Camera/photo evidence capture (on-device today; Storage upload planned)
 - TypeScript and zod domain contracts
-- Server-side AI and PDF workers planned behind MongoDB job records
+
+> The original Node API under `server/` (MongoDB) is the reference
+> implementation and is covered by the test suite, but it is **not** the
+> deployed backend. Production runs on the Supabase edge function, which
+> mirrors the same HTTP contract. Keep the two in sync when changing routes.
 
 ## Local Development
 
@@ -28,27 +34,37 @@ npm test
 npm run build
 ```
 
-## MongoDB Backend
+## Live backend (Supabase)
+
+Production points at the Supabase edge function via `APP_CONFIG.apiBaseUrl`
+(the project URL and anon key are public; the service-role key stays
+server-side in the function). The function source lives in
+`supabase/functions/api/index.ts`.
+
+Demo sign-in: `ava.brooks@example-audit.test` / `audit-demo-2026`. The header
+data-source pill shows **Live** once signed in, **Local** before sign-in or
+when the backend is unreachable (the workspace still runs on the on-device
+store), and **Offline** with no connectivity.
+
+**Hardening before real use:**
+
+- Set an `APP_JWT_SECRET` secret on the Supabase function (it currently
+  falls back to the service-role key for signing).
+- Lock the function's CORS `access-control-allow-origin` to the app domain.
+- Rotate any database password shared during setup.
+
+### Reference Node/MongoDB backend (not deployed)
 
 ```bash
 cp .env.example .env
-npm run mongo:init
+npm run mongo:init    # prints the demo email + password
 npm run api
 ```
 
-MongoDB is accessed only from the Node API under `server/`. Do not expose `MONGODB_URI` to Angular or commit database credentials, JWT signing keys, API keys, private keys, or customer data.
-
-## Authentication
-
-The API authenticates requests with a signed **JWT bearer token** (HS256, verified server-side with `JWT_SECRET`). The Angular app signs in at `POST /api/auth/login`, stores the token, and an HTTP interceptor attaches it to every `/api` call. Passwords are stored as scrypt hashes on member records.
-
-```bash
-# 1. set MONGODB_URI + JWT_SECRET in .env, then seed a demo lead auditor:
-npm run mongo:init    # prints the demo email + password
-# 2. run the API and app, then sign in with the seeded credentials.
-```
-
-If the backend is unreachable, the sign-in screen offers **"Continue in offline demo mode"**, which runs the workspace on the local offline store. The `ALLOW_DEV_AUTH_HEADERS` path remains for local tooling only and must stay disabled in production; real production federation can swap the first-party HS256 tokens for an external IdP (JWKS).
+This mirrors the same HTTP contract for local development and is what the
+test suite exercises. Do not expose `MONGODB_URI`/`JWT_SECRET` to Angular or
+commit credentials. The `ALLOW_DEV_AUTH_HEADERS` path is local-only and must
+stay disabled in production.
 
 ## Standards Guardrail
 
