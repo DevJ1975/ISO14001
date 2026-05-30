@@ -5,6 +5,19 @@
   color: var(--text);
 }
 
+.report-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.report-head a {
+  min-height: 44px;
+  border-radius: 11px;
+}
+
 .checks {
   display: grid;
   gap: 10px;

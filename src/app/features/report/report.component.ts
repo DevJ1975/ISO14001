@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { RouterLink } from '@angular/router';
 
 import { AuthService } from '../../core/auth/auth.service';
 import { FieldAuditStore, Recommendation } from '../../core/field/field-audit-store';
@@ -8,7 +9,7 @@ import { FieldAuditStore, Recommendation } from '../../core/field/field-audit-st
 @Component({
   selector: 'app-report',
   standalone: true,
-  imports: [MatButtonModule, MatIconModule],
+  imports: [MatButtonModule, MatIconModule, RouterLink],
   templateUrl: './report.component.html',
   styleUrl: './report.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,

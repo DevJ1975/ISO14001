@@ -1,0 +1,211 @@
+<div class="toolbar no-print">
+  <button mat-stroked-button type="button" (click)="back()">
+    <mat-icon aria-hidden="true">arrow_back</mat-icon>Back
+  </button>
+  <span class="hint">Use your browser's “Save as PDF” to export this report.</span>
+  <button mat-flat-button color="primary" type="button" (click)="print()">
+    <mat-icon aria-hidden="true">picture_as_pdf</mat-icon>Print / Save as PDF
+  </button>
+</div>
+
+<article class="doc">
+  <header class="doc-head">
+    <div>
+      <p class="eyebrow">ISO 14001 Environmental Management System</p>
+      <h1>Audit Report</h1>
+    </div>
+    <div class="badge" [attr.data-signed]="!!store.reportSignedAt()">
+      {{ store.reportSignedAt() ? 'Signed' : 'Draft' }}
+    </div>
+  </header>
+
+  <section class="meta-grid">
+    <div><span>Auditee</span><strong>{{ store.auditee() }}</strong></div>
+    <div><span>Audit criteria</span><strong>{{ store.criteria() }}</strong></div>
+    <div><span>Audit status</span><strong>{{ store.auditStatus() }}</strong></div>
+    <div><span>Prepared by</span><strong>{{ preparedBy() }}</strong></div>
+    <div><span>Generated</span><strong>{{ formatDateTime(generatedAt) }}</strong></div>
+    <div><span>Completion</span><strong>{{ store.progress().percent }}%</strong></div>
+  </section>
+
+  <section class="summary">
+    <div class="kpi"><strong>{{ store.ncCountsByGrade().majorNc }}</strong><span>Major NC</span></div>
+    <div class="kpi"><strong>{{ store.ncCountsByGrade().minorNc }}</strong><span>Minor NC</span></div>
+    <div class="kpi"><strong>{{ store.ncCountsByGrade().ofi }}</strong><span>OFI</span></div>
+    <div class="kpi"><strong>{{ store.evidence().length }}</strong><span>Evidence</span></div>
+    <div class="kpi"><strong>{{ store.openNcCount() }}</strong><span>Open NC</span></div>
+  </section>
+
+  <!-- 1. Conclusions -->
+  <section class="block">
+    <h2>1. Audit conclusions</h2>
+    @if (store.conclusion(); as c) {
+      <dl class="fields">
+        <dt>Overall conformity</dt><dd>{{ c.overallConformity || '—' }}</dd>
+        <dt>EMS effectiveness opinion</dt><dd>{{ c.emsEffectivenessOpinion || '—' }}</dd>
+        <dt>Degree criteria were met</dt><dd>{{ c.criteriaMetStatement || '—' }}</dd>
+        <dt>Unresolved diverging opinions</dt><dd>{{ c.divergingOpinions || 'None' }}</dd>
+        <dt>Recommendation</dt><dd class="strong">{{ recommendationLabel(c.recommendation) }}</dd>
+      </dl>
+    } @else {
+      <p class="muted">No conclusions recorded.</p>
+    }
+  </section>
+
+  <!-- 2. Nonconformities + corrective actions -->
+  <section class="block">
+    <h2>2. Nonconformities &amp; corrective actions</h2>
+    @for (finding of nonconformities(); track finding.id) {
+      <div class="finding">
+        <div class="finding-head">
+          <span class="tag" [attr.data-grade]="finding.type">{{ findingLabel(finding.type) }}</span>
+          <span class="clause">Clause {{ finding.clauseId }} — {{ finding.clauseTitle }}</span>
+          <span class="nc-status">{{ finding.status }}</span>
+        </div>
+        <p class="finding-desc">{{ finding.description }}</p>
+        <dl class="fields tight">
+          @if (finding.requirementSummary) { <dt>Requirement</dt><dd>{{ finding.requirementSummary }}</dd> }
+          @if (finding.objectiveEvidence) { <dt>Objective evidence</dt><dd>{{ finding.objectiveEvidence }}</dd> }
+          @if (finding.gradingRationale) { <dt>Grading rationale</dt><dd>{{ finding.gradingRationale }}</dd> }
+        </dl>
+        @if (capaFor(finding); as capa) {
+          <div class="capa">
+            <span class="capa-label">Corrective action</span>
+            <dl class="fields tight">
+              @if (capa.correction) { <dt>Correction</dt><dd>{{ capa.correction }}</dd> }
+              @if (capa.rootCause) { <dt>Root cause</dt><dd>{{ capa.rootCause }}</dd> }
+              @if (capa.action) { <dt>Action</dt><dd>{{ capa.action }}</dd> }
+              <dt>Owner / due</dt><dd>{{ capa.owner || '—' }} · {{ formatDate(capa.dueDate) }}</dd>
+              <dt>Status</dt><dd>{{ capa.status }}@if (capa.verifiedAt) { · verified {{ formatDate(capa.verifiedAt) }} }</dd>
+            </dl>
+          </div>
+        } @else {
+          <p class="muted small">No corrective action recorded yet.</p>
+        }
+      </div>
+    } @empty {
+      <p class="muted">No nonconformities raised.</p>
+    }
+  </section>
+
+  <!-- 3. Opportunities for improvement -->
+  @if (opportunities().length) {
+    <section class="block">
+      <h2>3. Opportunities for improvement</h2>
+      <ul class="ofi-list">
+        @for (ofi of opportunities(); track ofi.id) {
+          <li><strong>Clause {{ ofi.clauseId }}:</strong> {{ ofi.description }}</li>
+        }
+      </ul>
+    </section>
+  }
+
+  <!-- 4. Checklist results -->
+  <section class="block">
+    <h2>4. Checklist results by clause</h2>
+    <table class="grid">
+      <thead><tr><th>Clause</th><th>Question</th><th>Result</th></tr></thead>
+      <tbody>
+        @for (item of store.items(); track item.id) {
+          <tr>
+            <td class="nowrap">{{ item.clauseId }} — {{ item.clauseTitle }}</td>
+            <td>{{ item.question }}@if (item.note) { <em class="note">{{ item.note }}</em> }</td>
+            <td class="nowrap">{{ resultLabel(item.result) }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </section>
+
+  <!-- 5. EMS registers -->
+  @if (store.aspects().length || store.obligations().length || store.emergencyRecords().length) {
+    <section class="block">
+      <h2>5. EMS registers</h2>
+      @if (store.aspects().length) {
+        <h3>Significant environmental aspects</h3>
+        <table class="grid">
+          <thead><tr><th>Aspect</th><th>Activity</th><th>Impact</th><th>Significance</th><th>Result</th></tr></thead>
+          <tbody>
+            @for (a of store.aspects(); track a.id) {
+              <tr><td>{{ a.aspect }}</td><td>{{ a.activity }}</td><td>{{ a.impact }}</td>
+                <td class="nowrap">{{ a.significance }}</td><td class="nowrap">{{ resultLabel(a.result) }}</td></tr>
+            }
+          </tbody>
+        </table>
+      }
+      @if (store.obligations().length) {
+        <h3>Evaluation of compliance</h3>
+        <table class="grid">
+          <thead><tr><th>Obligation</th><th>Requirement</th><th>Status</th><th>Result</th></tr></thead>
+          <tbody>
+            @for (o of store.obligations(); track o.id) {
+              <tr><td>{{ o.obligation }}</td><td>{{ o.requirement }}</td>
+                <td class="nowrap">{{ o.complianceStatus }}</td><td class="nowrap">{{ resultLabel(o.result) }}</td></tr>
+            }
+          </tbody>
+        </table>
+      }
+      @if (store.emergencyRecords().length) {
+        <h3>Emergency preparedness</h3>
+        <table class="grid">
+          <thead><tr><th>Scenario</th><th>Procedure</th><th>Last drill</th><th>Result</th></tr></thead>
+          <tbody>
+            @for (e of store.emergencyRecords(); track e.id) {
+              <tr><td>{{ e.scenario }}</td><td>{{ e.procedureRef || '—' }}</td>
+                <td class="nowrap">{{ formatDate(e.lastDrillAt) }}</td><td class="nowrap">{{ resultLabel(e.result) }}</td></tr>
+            }
+          </tbody>
+        </table>
+      }
+    </section>
+  }
+
+  <!-- 6. Meetings -->
+  @if (store.meetings().length) {
+    <section class="block">
+      <h2>6. Audit meetings</h2>
+      @for (m of store.meetings(); track m.id) {
+        <div class="meeting">
+          <strong>{{ m.kind === 'opening' ? 'Opening meeting' : 'Closing meeting' }}</strong>
+          <span class="muted small">{{ formatDateTime(m.datetimeAt) }}</span>
+          <p class="small">Attendees: {{ m.attendees.join(', ') || '—' }}</p>
+          @if (m.notes) { <p class="small">{{ m.notes }}</p> }
+        </div>
+      }
+    </section>
+  }
+
+  <!-- 7. Evidence log -->
+  <section class="block">
+    <h2>7. Evidence log</h2>
+    <table class="grid">
+      <thead><tr><th>Type</th><th>Description</th><th>Captured by</th><th>When</th></tr></thead>
+      <tbody>
+        @for (ev of store.evidence(); track ev.id) {
+          <tr><td class="nowrap">{{ ev.kind }}</td><td>{{ ev.label }}</td>
+            <td class="nowrap">{{ ev.capturedByName }}</td><td class="nowrap">{{ formatDateTime(ev.capturedAt) }}</td></tr>
+        } @empty {
+          <tr><td colspan="4" class="muted">No evidence captured.</td></tr>
+        }
+      </tbody>
+    </table>
+  </section>
+
+  <!-- 8. Sign-off -->
+  <section class="block signoff">
+    <h2>8. Lead auditor sign-off</h2>
+    @if (store.reportSignedAt(); as signedAt) {
+      <p>This report was signed off by the lead auditor on <strong>{{ formatDateTime(signedAt) }}</strong>.</p>
+    } @else {
+      <p class="muted">This report has not yet been signed off.</p>
+    }
+    <div class="sign-row">
+      <div class="sign-line"><span></span><label>Lead auditor — {{ preparedBy() }}</label></div>
+      <div class="sign-line"><span></span><label>Date</label></div>
+    </div>
+  </section>
+
+  <footer class="doc-foot">
+    Generated by the Trainovate ISO 14001 audit platform · {{ formatDateTime(generatedAt) }}
+  </footer>
+</article>

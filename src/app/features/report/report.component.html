@@ -1,7 +1,13 @@
 <section class="screen">
-  <header class="screen-head">
-    <h1>Report</h1>
-    <p>{{ store.auditee() }} · {{ store.criteria() }}</p>
+  <header class="screen-head report-head">
+    <div>
+      <h1>Report</h1>
+      <p>{{ store.auditee() }} · {{ store.criteria() }}</p>
+    </div>
+    <a mat-flat-button color="primary" routerLink="/report/print">
+      <mat-icon aria-hidden="true">picture_as_pdf</mat-icon>
+      Generate PDF
+    </a>
   </header>
 
   <div class="stat-grid">
