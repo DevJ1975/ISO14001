@@ -440,14 +440,20 @@ Deno.serve(async (req) => {
         return json(201, { evidence: body });
       }
 
-      // Signed upload URL: the browser PUTs the photo straight to Storage; the
-      // service-role key never leaves the function. Path is tenant/audit-scoped.
-      if (method === 'POST' && rest[0] === 'evidence' && rest[1] && rest[2] === 'upload-url') {
+      // Photo upload proxied through the function: the browser downscales the
+      // image and POSTs the bytes here; we write them to the private bucket
+      // with the service role. Path is tenant/audit-scoped.
+      if (method === 'POST' && rest[0] === 'evidence' && rest[1] && rest[2] === 'photo') {
         requireRole(actor, ['leadAuditor', 'auditor']);
+        const contentType = req.headers.get('content-type') || 'image/jpeg';
+        if (!contentType.startsWith('image/')) return json(400, { error: 'Expected an image upload.' });
+        const bytes = new Uint8Array(await req.arrayBuffer());
+        if (bytes.length === 0) return json(400, { error: 'Empty upload.' });
+        if (bytes.length > 6_000_000) return json(413, { error: 'Photo too large (max ~6 MB after downscaling).' });
         const storagePath = `${tenantId}/${auditId}/${rest[1]}`;
-        const { data, error } = await db.storage.from('evidence').createSignedUploadUrl(storagePath, { upsert: true });
-        if (error || !data) return json(500, { error: 'Could not create an upload URL.' });
-        return json(200, { signedUrl: data.signedUrl, path: storagePath });
+        const { error } = await db.storage.from('evidence').upload(storagePath, bytes, { contentType, upsert: true });
+        if (error) return json(500, { error: 'Photo upload failed.' });
+        return json(200, { ok: true, path: storagePath });
       }
 
       // Short-lived signed read URL for an uploaded photo (private bucket).
