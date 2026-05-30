@@ -727,9 +727,10 @@ export class FieldAuditStore {
   }
 
   private autoFlush(): void {
-    if (this.source() === 'live' && this.online()) {
-      void this.flushLive();
-    }
+    // Defer to syncNow, which branches per mode: live+online replays to the API
+    // (real upload); local/offline-demo runs the simulated flush so captures
+    // settle to "synced" instead of hanging at "queued"; truly offline waits.
+    this.syncNow();
   }
 
   private async flushLive(): Promise<void> {
