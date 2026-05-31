@@ -9,6 +9,8 @@ import {
   CalibrationStatus,
   calibrationStatus,
   clauseGuideFor,
+  DocumentReviewStatus,
+  documentReviewStatus,
   evaluateAspectSignificance,
   metricVariance,
   PermitExpiryStatus,
@@ -140,6 +142,25 @@ export class RegistersComponent {
   /** Training status (current / due soon / expired / not trained) for badge display. */
   protected trainingBadge(record: { completedAt?: string; expiresAt?: string }): TrainingStatus {
     return trainingStatus(record);
+  }
+
+  /** Document review status (current / due soon / overdue / no date) for badge display. */
+  protected documentBadge(record: { nextReviewAt?: string }): DocumentReviewStatus {
+    return documentReviewStatus(record);
+  }
+
+  /** Attach a picked file to a controlled document, then reset the input. */
+  protected onDocumentFile(docId: string, event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (file) void this.store.addDocumentAttachment(docId, file);
+    input.value = '';
+  }
+
+  /** Open a document attachment in a new tab (resolves the local blob URL). */
+  protected async openAttachment(blobKey: string | undefined): Promise<void> {
+    const url = await this.store.resolveAttachmentUrl(blobKey);
+    if (url && typeof window !== 'undefined') window.open(url, '_blank');
   }
 
   /** Count of permits expiring soon or already expired, for the register alert. */

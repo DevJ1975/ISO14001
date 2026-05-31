@@ -253,6 +253,17 @@ export interface AwarenessRecord {
   sync: SyncState;
 }
 
+/** Metadata for a file attached to a controlled document (blob held locally; mirrors photo evidence). */
+export interface DocumentAttachment {
+  id: string;
+  name: string;
+  mime?: string;
+  size?: number;
+  blobKey?: string;
+  uploaded?: boolean;
+  addedAt: string;
+}
+
 /** Documented information & its control (ISO 14001 cl. 7.5). */
 export interface DocumentedInfoRecord {
   id: string;
@@ -260,6 +271,13 @@ export interface DocumentedInfoRecord {
   docType?: string;
   controlStatus: 'controlled' | 'uncontrolled' | 'draft' | 'obsolete';
   retention?: string;
+  /** Document-control extensions: version, owner and periodic-review cycle. */
+  version?: string;
+  owner?: string;
+  lastReviewedAt?: string;
+  nextReviewAt?: string;
+  reviewFrequencyMonths?: number;
+  attachments?: DocumentAttachment[];
   result: RegisterResult;
   updatedAt: string;
   sync: SyncState;
@@ -467,6 +485,26 @@ function seedCalibration(): CalibrationRecord[] {
     base({ equipment: 'Stack gas analyser', identifier: 'AN-204', parameter: 'NOx / CO', lastCalibratedAt: '2026-01-15', nextDueAt: '2027-01-15', frequencyMonths: 12, result: 'conforming' }),
     base({ equipment: 'Effluent pH meter', identifier: 'PH-11', parameter: 'pH', lastCalibratedAt: '2025-12-01', nextDueAt: '2026-06-25', frequencyMonths: 6, result: 'needsFollowUp' }),
     base({ equipment: 'Noise level meter', identifier: 'NL-03', parameter: 'dB(A)', lastCalibratedAt: '2025-02-01', nextDueAt: '2026-02-01', frequencyMonths: 12, result: 'nonconforming' }),
+  ];
+}
+
+/** Demonstration controlled documents — current, due-soon and overdue review cycles. */
+function seedDocumentedInfo(): DocumentedInfoRecord[] {
+  const now = '2026-06-15T15:00:00.000Z';
+  const base = (extra: Partial<DocumentedInfoRecord>): DocumentedInfoRecord => ({
+    id: uid('doc'),
+    document: '',
+    controlStatus: 'controlled',
+    attachments: [],
+    result: 'notStarted',
+    updatedAt: now,
+    sync: 'synced',
+    ...extra,
+  });
+  return [
+    base({ document: 'Environmental policy', docType: 'Policy', controlStatus: 'controlled', version: 'v3.0', owner: 'EHS Manager', lastReviewedAt: '2025-10-01', nextReviewAt: '2026-10-01', reviewFrequencyMonths: 12, retention: 'Indefinite', result: 'conforming' }),
+    base({ document: 'Aspects & impacts procedure', docType: 'Procedure', controlStatus: 'controlled', version: 'v2.1', owner: 'EHS Lead', lastReviewedAt: '2025-06-20', nextReviewAt: '2026-06-20', reviewFrequencyMonths: 12, result: 'needsFollowUp' }),
+    base({ document: 'Emergency preparedness plan', docType: 'Plan', controlStatus: 'controlled', version: 'v1.4', owner: 'Site Manager', lastReviewedAt: '2024-12-01', nextReviewAt: '2025-12-01', reviewFrequencyMonths: 12, result: 'nonconforming' }),
   ];
 }
 
@@ -686,7 +724,7 @@ export class FieldAuditStore {
   readonly resources = signal<ResourceRecord[]>([]);
   readonly competence = signal<CompetenceRecord[]>([]);
   readonly awareness = signal<AwarenessRecord[]>([]);
-  readonly documentedInfo = signal<DocumentedInfoRecord[]>([]);
+  readonly documentedInfo = signal<DocumentedInfoRecord[]>(seedDocumentedInfo());
   readonly performanceMetrics = signal<PerformanceMetric[]>(seedPerformanceMetrics());
   readonly permits = signal<Permit[]>(seedPermits());
   readonly incidents = signal<EnvironmentalIncident[]>(seedIncidents());
@@ -849,6 +887,13 @@ export class FieldAuditStore {
       this.evidence.update((list) => list.map((entry) => (entry.id === evidenceId ? { ...entry, thumbUrl: url } : entry)));
     }
     return url;
+  }
+
+  /** Resolve a downloadable object URL for a document attachment held locally. */
+  async resolveAttachmentUrl(blobKey: string | undefined): Promise<string | null> {
+    if (!blobKey || typeof URL === 'undefined') return null;
+    const blob = await idbGet<Blob>('blobs', blobKey);
+    return blob ? URL.createObjectURL(blob) : null;
   }
 
   /** Raise a nonconformity / OFI from a checklist item. */
@@ -1186,9 +1231,49 @@ export class FieldAuditStore {
 
   addDocumentedInfo(): void {
     this.documentedInfo.update((list) => [
-      { id: uid('doc'), document: '', controlStatus: 'controlled', result: 'notStarted', updatedAt: new Date().toISOString(), sync: 'queued' },
+      { id: uid('doc'), document: '', controlStatus: 'controlled', attachments: [], result: 'notStarted', updatedAt: new Date().toISOString(), sync: 'queued' },
       ...list,
     ]);
+    this.persist();
+    this.autoFlush();
+  }
+
+  /** Attach a file to a controlled document; the blob is stored locally (mirrors photo evidence). */
+  async addDocumentAttachment(docId: string, file: File): Promise<void> {
+    const attachmentId = uid('docfile');
+    const blobKey = attachmentId;
+    await idbSet('blobs', blobKey, file);
+    const attachment: DocumentAttachment = {
+      id: attachmentId,
+      name: file.name || 'Attachment',
+      mime: file.type || undefined,
+      size: file.size || undefined,
+      blobKey,
+      addedAt: new Date().toISOString(),
+    };
+    this.documentedInfo.update((list) =>
+      list.map((entry) =>
+        entry.id === docId
+          ? { ...entry, attachments: [...(entry.attachments ?? []), attachment], updatedAt: new Date().toISOString(), sync: 'queued' }
+          : entry,
+      ),
+    );
+    this.persist();
+    this.autoFlush();
+  }
+
+  /** Remove an attachment from a controlled document and delete its local blob. */
+  async removeDocumentAttachment(docId: string, attachmentId: string): Promise<void> {
+    const doc = this.documentedInfo().find((entry) => entry.id === docId);
+    const attachment = doc?.attachments?.find((a) => a.id === attachmentId);
+    if (attachment?.blobKey) await idbDelete('blobs', attachment.blobKey);
+    this.documentedInfo.update((list) =>
+      list.map((entry) =>
+        entry.id === docId
+          ? { ...entry, attachments: (entry.attachments ?? []).filter((a) => a.id !== attachmentId), updatedAt: new Date().toISOString(), sync: 'queued' }
+          : entry,
+      ),
+    );
     this.persist();
     this.autoFlush();
   }
@@ -1351,7 +1436,7 @@ export class FieldAuditStore {
     this.resources.set([]);
     this.competence.set([]);
     this.awareness.set([]);
-    this.documentedInfo.set([]);
+    this.documentedInfo.set(seedDocumentedInfo());
     this.performanceMetrics.set(seedPerformanceMetrics());
     this.permits.set(seedPermits());
     this.incidents.set(seedIncidents());

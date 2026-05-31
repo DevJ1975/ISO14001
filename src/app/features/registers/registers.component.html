@@ -373,21 +373,48 @@
     @case ('documents') {
       <div class="reg">
         <div class="reg-head">
-          <h2>Documented information</h2>
+          <h2>Documented information &amp; document control</h2>
           <button mat-flat-button color="primary" type="button" (click)="store.addDocumentedInfo()"><mat-icon aria-hidden="true">add</mat-icon>Add</button>
         </div>
         @for (row of store.documentedInfo(); track row.id) {
           <article class="tile row">
             <label class="fld"><span>Document</span><input [value]="row.document" (change)="store.updateDocumentedInfo(row.id, { document: $any($event.target).value })" /></label>
-            <div class="grid2">
+            <div class="grid3">
               <label class="fld"><span>Type</span><input [value]="row.docType || ''" (change)="store.updateDocumentedInfo(row.id, { docType: $any($event.target).value })" /></label>
+              <label class="fld"><span>Version</span><input [value]="row.version || ''" placeholder="v1.0" (change)="store.updateDocumentedInfo(row.id, { version: $any($event.target).value })" /></label>
+              <label class="fld"><span>Owner</span><input [value]="row.owner || ''" (change)="store.updateDocumentedInfo(row.id, { owner: $any($event.target).value })" /></label>
+            </div>
+            <div class="grid2">
               <label class="fld"><span>Control status</span>
                 <select [value]="row.controlStatus" (change)="store.updateDocumentedInfo(row.id, { controlStatus: $any($event.target).value })">
                   <option value="controlled">Controlled</option><option value="uncontrolled">Uncontrolled</option><option value="draft">Draft</option><option value="obsolete">Obsolete</option>
                 </select>
               </label>
+              <label class="fld"><span>Retention</span><input [value]="row.retention || ''" (change)="store.updateDocumentedInfo(row.id, { retention: $any($event.target).value })" /></label>
             </div>
-            <label class="fld"><span>Retention</span><input [value]="row.retention || ''" (change)="store.updateDocumentedInfo(row.id, { retention: $any($event.target).value })" /></label>
+            <div class="grid3">
+              <label class="fld"><span>Last reviewed</span><input type="date" [value]="row.lastReviewedAt || ''" (change)="store.updateDocumentedInfo(row.id, { lastReviewedAt: $any($event.target).value })" /></label>
+              <label class="fld"><span>Next review</span><input type="date" [value]="row.nextReviewAt || ''" (change)="store.updateDocumentedInfo(row.id, { nextReviewAt: $any($event.target).value })" /></label>
+              <div class="fld"><span>Review</span>
+                <output class="permit-badge {{ documentBadge(row) }}">
+                  {{ documentBadge(row) === 'overdue' ? 'Review overdue' : documentBadge(row) === 'dueSoon' ? 'Review due soon' : documentBadge(row) === 'current' ? 'Up to date' : 'No date' }}
+                </output>
+              </div>
+            </div>
+            <div class="attachments">
+              <div class="att-head">
+                <span>Attachments</span>
+                <label class="att-add"><input type="file" hidden (change)="onDocumentFile(row.id, $event)" /><mat-icon aria-hidden="true">attach_file</mat-icon>Attach file</label>
+              </div>
+              @for (att of row.attachments || []; track att.id) {
+                <div class="att-item">
+                  <button type="button" class="att-name" (click)="openAttachment(att.blobKey)"><mat-icon aria-hidden="true">description</mat-icon>{{ att.name }}</button>
+                  <button type="button" class="att-del" aria-label="Remove attachment" (click)="store.removeDocumentAttachment(row.id, att.id)"><mat-icon aria-hidden="true">close</mat-icon></button>
+                </div>
+              } @empty {
+                <span class="att-empty">No files attached.</span>
+              }
+            </div>
             <div class="results">
               @for (r of results; track r.value) {
                 <button type="button" class="rp {{ r.tone }}" [class.on]="row.result === r.value" (click)="store.updateDocumentedInfo(row.id, { result: r.value })">{{ r.label }}</button>
@@ -395,7 +422,7 @@
             </div>
           </article>
         } @empty {
-          <div class="panel empty"><mat-icon aria-hidden="true">description</mat-icon><strong>No documented information yet</strong><span>Record controlled documents and retention (cl. 7.5).</span></div>
+          <div class="panel empty"><mat-icon aria-hidden="true">description</mat-icon><strong>No documented information yet</strong><span>Record controlled documents, versions, review cycle and attachments (cl. 7.5).</span></div>
         }
       </div>
     }

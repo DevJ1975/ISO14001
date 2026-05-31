@@ -275,13 +275,14 @@
         </table>
       }
       @if (store.documentedInfo().length) {
-        <h3>Documented information (cl. 7.5)</h3>
+        <h3>Documented information &amp; document control (cl. 7.5)</h3>
         <table class="grid">
-          <thead><tr><th>Document</th><th>Type</th><th>Control</th><th>Retention</th><th>Result</th></tr></thead>
+          <thead><tr><th>Document</th><th>Ver.</th><th>Owner</th><th>Control</th><th>Next review</th><th>Result</th></tr></thead>
           <tbody>
             @for (d of store.documentedInfo(); track d.id) {
-              <tr><td>{{ d.document }}</td><td class="nowrap">{{ d.docType || '—' }}</td><td class="nowrap">{{ d.controlStatus }}</td>
-                <td>{{ d.retention || '—' }}</td><td class="nowrap">{{ resultLabel(d.result) }}</td></tr>
+              <tr><td>{{ d.document }}{{ d.attachments && d.attachments.length ? ' (' + d.attachments.length + ' file' + (d.attachments.length > 1 ? 's' : '') + ')' : '' }}</td>
+                <td class="nowrap">{{ d.version || '—' }}</td><td class="nowrap">{{ d.owner || '—' }}</td><td class="nowrap">{{ d.controlStatus }}</td>
+                <td class="nowrap">{{ formatDate(d.nextReviewAt) }} {{ documentLabel(d) }}</td><td class="nowrap">{{ resultLabel(d.result) }}</td></tr>
             }
           </tbody>
         </table>

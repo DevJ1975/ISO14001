@@ -403,12 +403,28 @@ const awarenessUpsertCommandSchema = z.object({
   result: registerResultSchema.default('notStarted'),
 });
 
+const documentAttachmentSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().max(300),
+  mime: z.string().max(200).optional(),
+  size: z.number().int().min(0).optional(),
+  blobKey: z.string().max(200).optional(),
+  uploaded: z.boolean().optional(),
+  addedAt: z.string().max(40),
+});
+
 const documentedInfoUpsertCommandSchema = z.object({
   id: z.string().min(1),
   document: z.string().max(300).default(''),
   docType: z.string().max(120).optional(),
   controlStatus: z.enum(['controlled', 'uncontrolled', 'draft', 'obsolete']).default('controlled'),
   retention: z.string().max(300).optional(),
+  version: z.string().max(60).optional(),
+  owner: z.string().max(200).optional(),
+  lastReviewedAt: z.string().max(40).optional(),
+  nextReviewAt: z.string().max(40).optional(),
+  reviewFrequencyMonths: z.number().int().min(0).max(120).optional(),
+  attachments: z.array(documentAttachmentSchema).max(50).optional(),
   result: registerResultSchema.default('notStarted'),
 });
 
