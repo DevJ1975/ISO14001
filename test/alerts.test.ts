@@ -13,6 +13,7 @@ function emptyInput(overrides: Partial<AlertInput> = {}): AlertInput {
     permits: [],
     calibration: [],
     training: [],
+    suppliers: [],
     incidents: [],
     plannedAudits: [],
     complaints: [],
@@ -105,6 +106,23 @@ describe('alerts engine', () => {
     assert.equal(alerts.find((a) => a.id === 'training-t2')?.severity, 'warning');
     assert.equal(alerts.find((a) => a.id === 'training-t3'), undefined); // non-mandatory excluded
     assert.equal(alerts.find((a) => a.id === 'training-t4'), undefined); // current (no expiry) excluded
+  });
+
+  it('flags overdue and never-evaluated environmentally-relevant suppliers only', () => {
+    const alerts = buildAlerts(
+      emptyInput({
+        suppliers: [
+          { id: 's1', name: 'Waste carrier', environmentallyRelevant: true, lastEvaluatedAt: '2025-01-15', nextEvaluationAt: '2026-01-15' },
+          { id: 's2', name: 'New recycler', environmentallyRelevant: true },
+          { id: 's3', name: 'Current supplier', environmentallyRelevant: true, lastEvaluatedAt: '2026-01-01', nextEvaluationAt: '2027-01-01' },
+          { id: 's4', name: 'Stationery', environmentallyRelevant: false },
+        ],
+      }),
+    );
+    assert.equal(alerts.find((a) => a.id === 'supplier-s1')?.severity, 'critical'); // re-evaluation overdue
+    assert.equal(alerts.find((a) => a.id === 'supplier-s2')?.severity, 'warning'); // never evaluated
+    assert.equal(alerts.find((a) => a.id === 'supplier-s3'), undefined); // current
+    assert.equal(alerts.find((a) => a.id === 'supplier-s4'), undefined); // not environmentally relevant
   });
 
   it('builds a date-sorted schedule of upcoming deadlines', () => {

@@ -410,6 +410,23 @@
   color: var(--text);
 }
 
+/* Two checkboxes side by side (suppliers) */
+.chk-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+}
+
+/* Supplier evaluation badge tones (reuses .permit-badge; current/dueSoon/overdue shared above) */
+.permit-badge.notEvaluated {
+  background: var(--tone-progress-bg);
+  color: var(--tone-progress-fg);
+}
+.permit-badge.notRelevant {
+  background: var(--surface-guard);
+  color: var(--muted);
+}
+
 /* Calibration status badge tones (reuses .permit-badge) */
 .permit-badge.valid {
   background: var(--tone-positive-bg, var(--surface-guard));
