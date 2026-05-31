@@ -230,3 +230,57 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Aspect significance heat-map */
+.hm-grid {
+  display: grid;
+  grid-template-columns: 24px repeat(5, 1fr);
+  gap: 4px;
+  max-width: 420px;
+}
+
+.hm-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1;
+  border-radius: 6px;
+  font-weight: 800;
+  font-size: 14px;
+  color: #fff;
+}
+
+.hm-cell.low {
+  background: var(--tone-positive-fg, #2e7d32);
+}
+
+.hm-cell.medium {
+  background: var(--tone-progress-fg, #b8860b);
+}
+
+.hm-cell.high {
+  background: var(--tone-critical-fg, #c0392b);
+}
+
+.hm-cell.empty {
+  opacity: 0.28;
+}
+
+.hm-axis {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.hm-corner {
+  width: 24px;
+}
+
+.hm-labels {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}

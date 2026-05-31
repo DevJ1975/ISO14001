@@ -34,6 +34,7 @@ export class OverviewComponent {
 
   protected readonly topAlerts = computed(() => this.alertsService.alerts().slice(0, 6));
   protected readonly alertCounts = this.alertsService.counts;
+  protected readonly axis = [1, 2, 3, 4, 5];
 
   private readonly ncs = computed(() =>
     this.store.findings().filter((f) => f.type === 'majorNc' || f.type === 'minorNc'),
@@ -96,4 +97,18 @@ export class OverviewComponent {
   protected alertIcon(severity: string): string {
     return severity === 'critical' ? 'error' : severity === 'warning' ? 'warning' : 'info';
   }
+
+  /** 5×5 aspect significance heat-map (likelihood rows 5→1, severity cols 1→5). */
+  protected readonly heatmap = computed(() => {
+    const scored = this.store.aspects().filter((a) => a.severityScore && a.likelihoodScore);
+    const rows = [5, 4, 3, 2, 1].map((lik) => ({
+      lik,
+      cells: [1, 2, 3, 4, 5].map((sev) => {
+        const count = scored.filter((a) => a.severityScore === sev && a.likelihoodScore === lik).length;
+        const score = sev * lik;
+        return { sev, lik, count, band: score >= 15 ? 'high' : score >= 6 ? 'medium' : 'low' };
+      }),
+    }));
+    return { rows, total: scored.length };
+  });
 }

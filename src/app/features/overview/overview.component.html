@@ -71,6 +71,26 @@
     </article>
   }
 
+  <!-- Aspect significance heat-map -->
+  @if (heatmap().total) {
+    <article class="panel">
+      <h2>Aspect significance heat-map (cl. 6.1.2)</h2>
+      <div class="heatmap">
+        <div class="hm-grid">
+          @for (row of heatmap().rows; track row.lik) {
+            <span class="hm-axis hm-y">{{ row.lik }}</span>
+            @for (cell of row.cells; track cell.sev) {
+              <span class="hm-cell {{ cell.band }}" [class.empty]="cell.count === 0" [title]="'Severity ' + cell.sev + ' × likelihood ' + cell.lik">{{ cell.count || '' }}</span>
+            }
+          }
+          <span class="hm-corner"></span>
+          @for (s of axis; track s) { <span class="hm-axis hm-x">{{ s }}</span> }
+        </div>
+        <div class="hm-labels"><span>Likelihood ↑ · Severity →</span></div>
+      </div>
+    </article>
+  }
+
   <!-- Needs attention -->
   <article class="panel">
     <div class="prog-head">
