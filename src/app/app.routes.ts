@@ -71,6 +71,11 @@ export const routes: Routes = [
         title: 'Users',
       },
       {
+        path: 'guide',
+        loadComponent: () => import('./features/guide/guide.component').then((m) => m.GuideComponent),
+        title: "Auditor's field guide",
+      },
+      {
         path: 'manual',
         loadComponent: () => import('./features/manual/manual.component').then((m) => m.ManualComponent),
         title: 'User manual',

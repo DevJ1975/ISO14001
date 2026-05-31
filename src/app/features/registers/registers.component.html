@@ -12,6 +12,38 @@
     }
   </div>
 
+  @if (guide(); as g) {
+    <div class="hint panel">
+      <button type="button" class="hint-head" (click)="toggleHints()" [attr.aria-expanded]="hintsOpen()">
+        <mat-icon aria-hidden="true">{{ hintsOpen() ? 'expand_less' : 'lightbulb' }}</mat-icon>
+        <span><strong>What to look for</strong> — cl. {{ g.clauseId }} {{ g.title }}</span>
+        <mat-icon class="chev" aria-hidden="true">{{ hintsOpen() ? 'expand_less' : 'expand_more' }}</mat-icon>
+      </button>
+      @if (hintsOpen()) {
+        <div class="hint-body">
+          <p>{{ g.purpose }}</p>
+          <div class="hint-cols">
+            <div>
+              <h4><mat-icon aria-hidden="true">search</mat-icon>What to look for</h4>
+              <ul>@for (i of g.whatToLookFor; track $index) { <li>{{ i }}</li> }</ul>
+            </div>
+            <div>
+              <h4><mat-icon aria-hidden="true">help</mat-icon>Questions to ask</h4>
+              <ul>@for (i of g.questionsToAsk; track $index) { <li>{{ i }}</li> }</ul>
+            </div>
+            <div>
+              <h4><mat-icon aria-hidden="true">report_problem</mat-icon>Typical nonconformities</h4>
+              <ul>@for (i of g.typicalNonconformities; track $index) { <li>{{ i }}</li> }</ul>
+            </div>
+          </div>
+          <a class="hint-more" routerLink="/guide" [fragment]="'clause-' + g.clauseId">
+            <mat-icon aria-hidden="true">menu_book</mat-icon>Open the full field guide
+          </a>
+        </div>
+      }
+    </div>
+  }
+
   @switch (tab()) {
     @case ('aspects') {
       <div class="reg">

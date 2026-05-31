@@ -1,7 +1,9 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { RouterLink } from '@angular/router';
 
+import { ClauseGuide, clauseGuideFor } from '../../core/domain';
 import { FieldAuditStore, RegisterResult } from '../../core/field/field-audit-store';
 
 type Tab =
@@ -22,7 +24,7 @@ type Tone = 'positive' | 'progress' | 'critical' | 'neutral';
 @Component({
   selector: 'app-registers',
   standalone: true,
-  imports: [MatButtonModule, MatIconModule],
+  imports: [MatButtonModule, MatIconModule, RouterLink],
   templateUrl: './registers.component.html',
   styleUrl: './registers.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -30,6 +32,26 @@ type Tone = 'positive' | 'progress' | 'critical' | 'neutral';
 export class RegistersComponent {
   protected readonly store = inject(FieldAuditStore);
   protected readonly tab = signal<Tab>('aspects');
+  protected readonly hintsOpen = signal(false);
+
+  /** Each register maps to the ISO 14001 clause it evaluates, for contextual field-guide help. */
+  private readonly tabClause: Record<Tab, string> = {
+    aspects: '6.1.2',
+    risks: '6.1',
+    compliance: '6.1.3',
+    objectives: '6.2',
+    resources: '7.1',
+    competence: '7.2',
+    awareness: '7.3',
+    communication: '7.4',
+    documents: '7.5',
+    emergency: '8.2',
+    parties: '4.2',
+    review: '9.3',
+  };
+
+  /** Field-guide entry ("what to look for") for the active register's clause. */
+  protected readonly guide = computed<ClauseGuide | undefined>(() => clauseGuideFor(this.tabClause[this.tab()]));
 
   protected readonly tabs: { value: Tab; label: string; icon: string }[] = [
     { value: 'aspects', label: 'Aspects', icon: 'eco' },
@@ -55,6 +77,10 @@ export class RegistersComponent {
 
   protected setTab(value: Tab): void {
     this.tab.set(value);
+  }
+
+  protected toggleHints(): void {
+    this.hintsOpen.update((open) => !open);
   }
 
   protected resultTone(result: RegisterResult): Tone {

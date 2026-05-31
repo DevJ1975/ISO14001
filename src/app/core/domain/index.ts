@@ -1,4 +1,5 @@
 export * from './audit-context.js';
+export * from './audit-guide.js';
 export * from './audit-planning.js';
 export * from './audit-programme.js';
 export * from './ai-copilot.js';

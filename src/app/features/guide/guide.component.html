@@ -1,0 +1,75 @@
+<section class="screen guide">
+  <header class="screen-head">
+    <h1>Auditor's field guide</h1>
+    <p>How to run a proper ISO 14001 audit and what to look for — a starting point for auditors new to environmental management-system auditing. Grounded in ISO 19011 and ISO/IEC 17021-1; clause references are by number and title only.</p>
+  </header>
+
+  <nav class="toc panel" aria-label="Contents">
+    <a href="#method"><mat-icon aria-hidden="true">route</mat-icon>The audit, step by step</a>
+    <a href="#grading"><mat-icon aria-hidden="true">flag</mat-icon>Grading findings</a>
+    <a href="#clauses"><mat-icon aria-hidden="true">menu_book</mat-icon>What to look for by clause</a>
+  </nav>
+
+  <article class="panel doc" id="method">
+    <h2><mat-icon aria-hidden="true">route</mat-icon>The audit, step by step</h2>
+    <p>Every audit follows the same arc, from preparation to verifying that fixes worked. Trainovate's workflow mirrors it: planned → fieldwork → reporting → follow-up → closed.</p>
+    @for (stage of methodology; track stage.id) {
+      <div class="stage">
+        <h3><mat-icon aria-hidden="true">{{ stage.icon }}</mat-icon>{{ stage.title }}</h3>
+        <p>{{ stage.summary }}</p>
+        <ol>
+          @for (step of stage.steps; track $index) { <li>{{ step }}</li> }
+        </ol>
+        @if (stage.tip) {
+          <p class="note"><mat-icon aria-hidden="true">tips_and_updates</mat-icon>{{ stage.tip }}</p>
+        }
+      </div>
+    }
+  </article>
+
+  <article class="panel doc" id="grading">
+    <h2><mat-icon aria-hidden="true">flag</mat-icon>Grading findings</h2>
+    <p>A finding states a requirement, the objective evidence, and the gap — then is graded. Use the test below, not a gut feel.</p>
+    <div class="grades">
+      @for (g of grading; track g.grade) {
+        <div class="grade {{ gradeTone(g.grade) }}">
+          <h3>{{ g.label }}</h3>
+          <p class="when">{{ g.when }}</p>
+          <ul>
+            @for (ex of g.examples; track $index) { <li>{{ ex }}</li> }
+          </ul>
+          @if (g.timeline) { <p class="timeline"><mat-icon aria-hidden="true">schedule</mat-icon>{{ g.timeline }}</p> }
+        </div>
+      }
+    </div>
+  </article>
+
+  <article class="panel doc" id="clauses">
+    <h2><mat-icon aria-hidden="true">menu_book</mat-icon>What to look for by clause</h2>
+    <p>For each ISO 14001 clause (4–10): why it matters, what to look for, the evidence to request, questions to ask, and the nonconformities that commonly turn up.</p>
+    @for (c of clauses; track c.clauseId) {
+      <div class="clause" [id]="'clause-' + c.clauseId">
+        <h3><span class="ref">{{ c.clauseId }}</span>{{ c.title }}</h3>
+        <p class="purpose">{{ c.purpose }}</p>
+        <div class="lenses">
+          <div class="lens">
+            <h4><mat-icon aria-hidden="true">search</mat-icon>What to look for</h4>
+            <ul>@for (i of c.whatToLookFor; track $index) { <li>{{ i }}</li> }</ul>
+          </div>
+          <div class="lens">
+            <h4><mat-icon aria-hidden="true">inventory</mat-icon>Evidence to request</h4>
+            <ul>@for (i of c.evidenceToRequest; track $index) { <li>{{ i }}</li> }</ul>
+          </div>
+          <div class="lens">
+            <h4><mat-icon aria-hidden="true">help</mat-icon>Questions to ask</h4>
+            <ul>@for (i of c.questionsToAsk; track $index) { <li>{{ i }}</li> }</ul>
+          </div>
+          <div class="lens">
+            <h4><mat-icon aria-hidden="true">report_problem</mat-icon>Typical nonconformities</h4>
+            <ul>@for (i of c.typicalNonconformities; track $index) { <li>{{ i }}</li> }</ul>
+          </div>
+        </div>
+      </div>
+    }
+  </article>
+</section>
