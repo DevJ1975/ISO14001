@@ -407,6 +407,21 @@ const documentedInfoUpsertCommandSchema = z.object({
   result: registerResultSchema.default('notStarted'),
 });
 
+const performanceMetricUpsertCommandSchema = z.object({
+  id: z.string().min(1),
+  indicator: z.string().max(300).default(''),
+  category: z.enum(['energy', 'water', 'waste', 'emissions', 'materials', 'effluent', 'other']).default('energy'),
+  unit: z.string().max(40).default(''),
+  period: z.string().max(60).default(''),
+  baselineValue: z.number().finite().optional(),
+  targetValue: z.number().finite().optional(),
+  actualValue: z.number().finite().optional(),
+  trend: z.enum(['improving', 'stable', 'worsening', 'notEvaluated']).default('notEvaluated'),
+  monitoringMethod: z.string().max(500).optional(),
+  evaluationNotes: z.string().max(2000).optional(),
+  result: registerResultSchema.default('notStarted'),
+});
+
 const programmeUpsertSchema = z.object({
   cycleYear: z.number().int(),
   criteria: z.string().min(1),
@@ -842,12 +857,13 @@ export async function handleApiRequest(
           dependencies.db.collection(mongoCollections.communicationRecords).find({ tenantId, auditId }, { projection: { _id: 0 } }).toArray(),
           dependencies.db.collection(mongoCollections.managementReviews).find({ tenantId, auditId }, { projection: { _id: 0 } }).toArray(),
         ]);
-      const [risksOpportunities, resources, competence, awareness, documentedInfo] = await Promise.all([
+      const [risksOpportunities, resources, competence, awareness, documentedInfo, performanceMetrics] = await Promise.all([
         dependencies.db.collection(mongoCollections.risksOpportunities).find({ tenantId, auditId }, { projection: { _id: 0 } }).toArray(),
         dependencies.db.collection(mongoCollections.resourceRecords).find({ tenantId, auditId }, { projection: { _id: 0 } }).toArray(),
         dependencies.db.collection(mongoCollections.competenceRecords).find({ tenantId, auditId }, { projection: { _id: 0 } }).toArray(),
         dependencies.db.collection(mongoCollections.awarenessRecords).find({ tenantId, auditId }, { projection: { _id: 0 } }).toArray(),
         dependencies.db.collection(mongoCollections.documentedInfo).find({ tenantId, auditId }, { projection: { _id: 0 } }).toArray(),
+        dependencies.db.collection(mongoCollections.performanceMetrics).find({ tenantId, auditId }, { projection: { _id: 0 } }).toArray(),
       ]);
       const reportMeta = await dependencies.db
         .collection(mongoCollections.reportMeta)
@@ -880,6 +896,7 @@ export async function handleApiRequest(
           competence,
           awareness,
           documentedInfo,
+          performanceMetrics,
           reportMeta,
           changeLog,
         },
@@ -1403,6 +1420,25 @@ export async function handleApiRequest(
         .collection(mongoCollections.documentedInfo)
         .updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
       sendJson(response, 200, { documentedInfo: record }, corsOrigin);
+      return;
+    }
+
+    const performanceMetricMatch = matchPath(
+      new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/performance-metrics/([^/]+)$`),
+      url.pathname,
+      ['tenantId', 'auditId', 'id'],
+    );
+    if (request.method === 'PUT' && performanceMetricMatch && actor) {
+      const tenantId = performanceMetricMatch.params['tenantId']!;
+      const auditId = performanceMetricMatch.params['auditId']!;
+      requireTenant(actor, tenantId);
+      requireAnyRole(actor, ['leadAuditor', 'auditor']);
+      const command = await readJson(request, performanceMetricUpsertCommandSchema);
+      const record = { ...command, tenantId, auditId, updatedAt: new Date().toISOString() };
+      await dependencies.db
+        .collection(mongoCollections.performanceMetrics)
+        .updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
+      sendJson(response, 200, { performanceMetric: record }, corsOrigin);
       return;
     }
 

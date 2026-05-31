@@ -96,6 +96,7 @@ describe('EMS governance API routes', () => {
     { path: 'competence', collection: 'competenceRecords', body: { id: 'comp-1', role: 'Operators', status: 'competent', result: 'conforming' }, check: 'role' },
     { path: 'awareness', collection: 'awarenessRecords', body: { id: 'aware-1', topic: 'Policy', audience: 'All staff', result: 'conforming' }, check: 'topic' },
     { path: 'documented-info', collection: 'documentedInfo', body: { id: 'doc-1', document: 'EMS Manual', controlStatus: 'controlled', result: 'conforming' }, check: 'document' },
+    { path: 'performance-metrics', collection: 'performanceMetrics', body: { id: 'metric-1', indicator: 'Electricity', category: 'energy', unit: 'MWh', targetValue: 1200, actualValue: 1185, trend: 'improving', result: 'conforming' }, check: 'indicator' },
   ];
 
   for (const { path, collection, body, check } of cases) {
@@ -124,6 +125,7 @@ describe('EMS governance API routes', () => {
         'management-reviews': 'managementReviews',
         'risks-opportunities': 'risksOpportunities',
         'documented-info': 'documentedInfo',
+        'performance-metrics': 'performanceMetrics',
       };
       const key = keyMap[path] ?? path;
       assert.equal(payload[key]!.length, 1);

@@ -376,6 +376,52 @@
         }
       </div>
     }
+    @case ('performance') {
+      <div class="reg">
+        <div class="reg-head">
+          <h2>Performance — monitoring &amp; measurement</h2>
+          <button mat-flat-button color="primary" type="button" (click)="store.addPerformanceMetric()"><mat-icon aria-hidden="true">add</mat-icon>Add</button>
+        </div>
+        @for (row of store.performanceMetrics(); track row.id) {
+          <article class="tile row">
+            <div class="grid2">
+              <label class="fld"><span>Indicator</span><input [value]="row.indicator" (change)="store.updatePerformanceMetric(row.id, { indicator: $any($event.target).value })" /></label>
+              <label class="fld"><span>Category</span>
+                <select [value]="row.category" (change)="store.updatePerformanceMetric(row.id, { category: $any($event.target).value })">
+                  <option value="energy">Energy</option><option value="water">Water</option><option value="waste">Waste</option><option value="emissions">Emissions</option><option value="materials">Materials</option><option value="effluent">Effluent</option><option value="other">Other</option>
+                </select>
+              </label>
+            </div>
+            <div class="grid2">
+              <label class="fld"><span>Unit</span><input [value]="row.unit" placeholder="kWh, m³, t, tCO₂e…" (change)="store.updatePerformanceMetric(row.id, { unit: $any($event.target).value })" /></label>
+              <label class="fld"><span>Period</span><input [value]="row.period" placeholder="2025 / 2025-Q1" (change)="store.updatePerformanceMetric(row.id, { period: $any($event.target).value })" /></label>
+            </div>
+            <div class="grid3">
+              <label class="fld"><span>Baseline</span><input type="number" step="any" [value]="row.baselineValue ?? ''" (change)="store.updatePerformanceMetric(row.id, { baselineValue: num($any($event.target).value) })" /></label>
+              <label class="fld"><span>Target</span><input type="number" step="any" [value]="row.targetValue ?? ''" (change)="store.updatePerformanceMetric(row.id, { targetValue: num($any($event.target).value) })" /></label>
+              <label class="fld"><span>Actual</span><input type="number" step="any" [value]="row.actualValue ?? ''" (change)="store.updatePerformanceMetric(row.id, { actualValue: num($any($event.target).value) })" /></label>
+            </div>
+            <div class="grid2">
+              <label class="fld"><span>Trend</span>
+                <select [value]="row.trend" (change)="store.updatePerformanceMetric(row.id, { trend: $any($event.target).value })">
+                  <option value="improving">Improving</option><option value="stable">Stable</option><option value="worsening">Worsening</option><option value="notEvaluated">Not evaluated</option>
+                </select>
+              </label>
+              <div class="fld"><span>Variance vs target</span><output class="variance">{{ variance(row) }}</output></div>
+            </div>
+            <label class="fld"><span>Monitoring method</span><input [value]="row.monitoringMethod || ''" (change)="store.updatePerformanceMetric(row.id, { monitoringMethod: $any($event.target).value })" /></label>
+            <label class="fld"><span>Analysis &amp; evaluation</span><input [value]="row.evaluationNotes || ''" (change)="store.updatePerformanceMetric(row.id, { evaluationNotes: $any($event.target).value })" /></label>
+            <div class="results">
+              @for (r of results; track r.value) {
+                <button type="button" class="rp {{ r.tone }}" [class.on]="row.result === r.value" (click)="store.updatePerformanceMetric(row.id, { result: r.value })">{{ r.label }}</button>
+              }
+            </div>
+          </article>
+        } @empty {
+          <div class="panel empty"><mat-icon aria-hidden="true">monitoring</mat-icon><strong>No performance indicators yet</strong><span>Record monitored environmental performance with target vs actual and trend (cl. 9.1).</span></div>
+        }
+      </div>
+    }
     @case ('review') {
       <div class="reg">
         <div class="reg-head">

@@ -5,6 +5,7 @@ export * from './audit-programme.js';
 export * from './ai-copilot.js';
 export * from './checklists.js';
 export * from './ems-governance.js';
+export * from './ems-performance.js';
 export * from './ems-registers.js';
 export * from './nonconformity.js';
 export * from './field-execution.js';

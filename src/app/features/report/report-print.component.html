@@ -135,7 +135,8 @@
         || store.interestedParties().length || store.objectives().length
         || store.communications().length || store.managementReviews().length
         || store.risksOpportunities().length || store.resources().length
-        || store.competence().length || store.awareness().length || store.documentedInfo().length) {
+        || store.competence().length || store.awareness().length || store.documentedInfo().length
+        || store.performanceMetrics().length) {
     <section class="block">
       <h2>6. EMS registers</h2>
       @if (store.aspects().length) {
@@ -278,6 +279,19 @@
             @for (d of store.documentedInfo(); track d.id) {
               <tr><td>{{ d.document }}</td><td class="nowrap">{{ d.docType || '—' }}</td><td class="nowrap">{{ d.controlStatus }}</td>
                 <td>{{ d.retention || '—' }}</td><td class="nowrap">{{ resultLabel(d.result) }}</td></tr>
+            }
+          </tbody>
+        </table>
+      }
+      @if (store.performanceMetrics().length) {
+        <h3>Monitoring, measurement &amp; evaluation (cl. 9.1)</h3>
+        <table class="grid">
+          <thead><tr><th>Indicator</th><th>Unit</th><th>Period</th><th>Target</th><th>Actual</th><th>Trend</th><th>Result</th></tr></thead>
+          <tbody>
+            @for (m of store.performanceMetrics(); track m.id) {
+              <tr><td>{{ m.indicator }}</td><td class="nowrap">{{ m.unit || '—' }}</td><td class="nowrap">{{ m.period || '—' }}</td>
+                <td class="nowrap">{{ m.targetValue ?? '—' }}</td><td class="nowrap">{{ m.actualValue ?? '—' }}</td>
+                <td class="nowrap">{{ m.trend }}</td><td class="nowrap">{{ resultLabel(m.result) }}</td></tr>
             }
           </tbody>
         </table>

@@ -270,3 +270,24 @@
   width: 18px;
   height: 18px;
 }
+
+/* Performance metrics: three-up numeric row + variance readout */
+.grid3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.variance {
+  display: flex;
+  align-items: center;
+  min-height: 40px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+@media (max-width: 560px) {
+  .grid3 {
+    grid-template-columns: 1fr 1fr;
+  }
+}

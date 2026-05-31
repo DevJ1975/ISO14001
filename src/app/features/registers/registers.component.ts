@@ -3,7 +3,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { RouterLink } from '@angular/router';
 
-import { ClauseGuide, clauseGuideFor } from '../../core/domain';
+import { ClauseGuide, clauseGuideFor, metricVariance } from '../../core/domain';
 import { FieldAuditStore, RegisterResult } from '../../core/field/field-audit-store';
 
 type Tab =
@@ -18,6 +18,7 @@ type Tab =
   | 'documents'
   | 'emergency'
   | 'parties'
+  | 'performance'
   | 'review';
 type Tone = 'positive' | 'progress' | 'critical' | 'neutral';
 
@@ -47,6 +48,7 @@ export class RegistersComponent {
     documents: '7.5',
     emergency: '8.2',
     parties: '4.2',
+    performance: '9.1',
     review: '9.3',
   };
 
@@ -65,6 +67,7 @@ export class RegistersComponent {
     { value: 'documents', label: 'Documents', icon: 'description' },
     { value: 'emergency', label: 'Emergency', icon: 'emergency' },
     { value: 'parties', label: 'Parties', icon: 'groups' },
+    { value: 'performance', label: 'Performance', icon: 'monitoring' },
     { value: 'review', label: 'Mgmt review', icon: 'fact_check' },
   ];
 
@@ -88,5 +91,22 @@ export class RegistersComponent {
     if (result === 'nonconforming') return 'critical';
     if (result === 'needsFollowUp') return 'progress';
     return 'neutral';
+  }
+
+  /** Parse a numeric input, treating blank as "not recorded" (undefined). */
+  protected num(value: unknown): number | undefined {
+    const text = String(value ?? '').trim();
+    if (text === '') return undefined;
+    const parsed = Number(text);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+
+  /** Human-readable actual-vs-target variance for a performance metric. */
+  protected variance(metric: { actualValue?: number; targetValue?: number }): string {
+    const v = metricVariance(metric);
+    if (!v) return '—';
+    const sign = v.absolute > 0 ? '+' : '';
+    const abs = Math.round(v.absolute * 100) / 100;
+    return v.percent == null ? `${sign}${abs}` : `${sign}${abs} (${sign}${v.percent}%)`;
   }
 }
