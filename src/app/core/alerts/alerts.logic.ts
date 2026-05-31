@@ -1,4 +1,5 @@
 import {
+  calibrationStatus,
   type ComplaintStatus,
   type IncidentStatus,
   isComplaintOverdue,
@@ -32,6 +33,7 @@ export interface AlertInput {
   capas: { id: string; dueDate?: string; status: string }[];
   findings: { id: string; type: string; clauseId: string; status: string }[];
   permits: { id: string; title: string; expiresAt?: string; renewalReminderDays?: number }[];
+  calibration: { id: string; equipment: string; nextDueAt?: string; outOfService?: boolean }[];
   incidents: { id: string; title: string; severity: string; status: string }[];
   plannedAudits: { id: string; type: string; dueDate: string; status: string }[];
   complaints: { id: string; kind: string; subject: string; dueDate?: string; status: string }[];
@@ -86,6 +88,21 @@ export function buildAlerts(input: AlertInput): AlertItem[] {
         title: `Open incident: ${incident.title || 'untitled'}`,
         link: '/registers',
         fragment: 'incidents',
+      });
+    }
+  }
+
+  for (const calib of input.calibration) {
+    const status = calibrationStatus(calib, new Date(input.now));
+    if (status === 'overdue' || status === 'dueSoon') {
+      items.push({
+        id: `calib-${calib.id}`,
+        severity: status === 'overdue' ? 'critical' : 'warning',
+        category: 'Calibration',
+        title: `${calib.equipment || 'Equipment'} calibration ${status === 'overdue' ? 'overdue' : 'due soon'}`,
+        due: calib.nextDueAt,
+        link: '/registers',
+        fragment: 'calibration',
       });
     }
   }

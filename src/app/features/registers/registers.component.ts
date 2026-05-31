@@ -6,6 +6,8 @@ import { RouterLink } from '@angular/router';
 import {
   AspectSignificanceResult,
   ClauseGuide,
+  CalibrationStatus,
+  calibrationStatus,
   clauseGuideFor,
   evaluateAspectSignificance,
   metricVariance,
@@ -29,6 +31,7 @@ type Tab =
   | 'performance'
   | 'permits'
   | 'incidents'
+  | 'calibration'
   | 'review';
 type Tone = 'positive' | 'progress' | 'critical' | 'neutral';
 
@@ -61,6 +64,7 @@ export class RegistersComponent {
     performance: '9.1',
     permits: '6.1.3',
     incidents: '10.2',
+    calibration: '9.1',
     review: '9.3',
   };
 
@@ -82,6 +86,7 @@ export class RegistersComponent {
     { value: 'performance', label: 'Performance', icon: 'monitoring' },
     { value: 'permits', label: 'Permits', icon: 'event_available' },
     { value: 'incidents', label: 'Incidents', icon: 'report' },
+    { value: 'calibration', label: 'Calibration', icon: 'straighten' },
     { value: 'review', label: 'Mgmt review', icon: 'fact_check' },
   ];
 
@@ -120,6 +125,11 @@ export class RegistersComponent {
   /** Permit renewal status (valid / expiring soon / expired) for badge display. */
   protected permitStatus(permit: Permit): PermitExpiryStatus {
     return permitExpiryStatus(permit);
+  }
+
+  /** Calibration status (valid / due soon / overdue / out of service) for badge display. */
+  protected calibrationBadge(record: { nextDueAt?: string; outOfService?: boolean }): CalibrationStatus {
+    return calibrationStatus(record);
   }
 
   /** Count of permits expiring soon or already expired, for the register alert. */

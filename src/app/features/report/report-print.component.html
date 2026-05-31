@@ -136,7 +136,8 @@
         || store.communications().length || store.managementReviews().length
         || store.risksOpportunities().length || store.resources().length
         || store.competence().length || store.awareness().length || store.documentedInfo().length
-        || store.performanceMetrics().length || store.permits().length || store.incidents().length) {
+        || store.performanceMetrics().length || store.permits().length || store.incidents().length
+        || store.calibration().length) {
     <section class="block">
       <h2>6. EMS registers</h2>
       @if (store.aspects().length) {
@@ -319,6 +320,18 @@
             @for (i of store.incidents(); track i.id) {
               <tr><td>{{ i.title }}</td><td class="nowrap">{{ formatDate(i.occurredAt) }}</td><td class="nowrap">{{ i.incidentType }}</td>
                 <td class="nowrap">{{ i.severity }}</td><td class="nowrap">{{ i.status }}</td><td class="nowrap">{{ resultLabel(i.result) }}</td></tr>
+            }
+          </tbody>
+        </table>
+      }
+      @if (store.calibration().length) {
+        <h3>Equipment calibration (cl. 9.1.1)</h3>
+        <table class="grid">
+          <thead><tr><th>Equipment</th><th>Asset</th><th>Measures</th><th>Next due</th><th>Status</th><th>Result</th></tr></thead>
+          <tbody>
+            @for (c of store.calibration(); track c.id) {
+              <tr><td>{{ c.equipment }}</td><td class="nowrap">{{ c.identifier || '—' }}</td><td class="nowrap">{{ c.parameter || '—' }}</td>
+                <td class="nowrap">{{ formatDate(c.nextDueAt) }}</td><td class="nowrap">{{ calibrationLabel(c) }}</td><td class="nowrap">{{ resultLabel(c.result) }}</td></tr>
             }
           </tbody>
         </table>

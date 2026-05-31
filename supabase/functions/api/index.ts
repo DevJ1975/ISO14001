@@ -484,6 +484,7 @@ Deno.serve(async (req) => {
           performanceMetrics: byKind('performanceMetric'),
           permits: byKind('permit'),
           incidents: byKind('incident'),
+          calibration: byKind('calibration'),
           meetings: byKind('meeting'),
           conclusion: single('conclusion'),
           reportMeta: single('reportMeta'),
@@ -653,6 +654,7 @@ Deno.serve(async (req) => {
         'performance-metrics': 'performanceMetric',
         permits: 'permit',
         incidents: 'incident',
+        calibration: 'calibration',
       };
       if (method === 'PUT' && registerKinds[rest[0]] && rest[1]) {
         requireRole(actor, ['leadAuditor', 'auditor']);

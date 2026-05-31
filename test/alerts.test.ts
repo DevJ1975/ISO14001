@@ -11,6 +11,7 @@ function emptyInput(overrides: Partial<AlertInput> = {}): AlertInput {
     capas: [],
     findings: [],
     permits: [],
+    calibration: [],
     incidents: [],
     plannedAudits: [],
     complaints: [],
@@ -71,6 +72,21 @@ describe('alerts engine', () => {
       alerts.map((a) => a.severity),
       ['critical', 'warning', 'info'],
     );
+  });
+
+  it('flags overdue and due-soon calibration', () => {
+    const alerts = buildAlerts(
+      emptyInput({
+        calibration: [
+          { id: 'k1', equipment: 'pH meter', nextDueAt: '2026-02-01' },
+          { id: 'k2', equipment: 'Gas analyser', nextDueAt: '2026-06-10' },
+          { id: 'k3', equipment: 'Spare', nextDueAt: '2026-02-01', outOfService: true },
+        ],
+      }),
+    );
+    assert.equal(alerts.find((a) => a.id === 'calib-k1')?.severity, 'critical');
+    assert.equal(alerts.find((a) => a.id === 'calib-k2')?.severity, 'warning');
+    assert.equal(alerts.find((a) => a.id === 'calib-k3'), undefined); // out of service is excluded
   });
 
   it('builds a date-sorted schedule of upcoming deadlines', () => {

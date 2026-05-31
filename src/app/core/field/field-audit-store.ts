@@ -283,6 +283,22 @@ export interface Permit {
   sync: SyncState;
 }
 
+/** Monitoring & measuring equipment calibration (ISO 14001 cl. 9.1.1). */
+export interface CalibrationRecord {
+  id: string;
+  equipment: string;
+  identifier?: string;
+  parameter?: string;
+  method?: string;
+  lastCalibratedAt?: string;
+  nextDueAt?: string;
+  frequencyMonths?: number;
+  outOfService?: boolean;
+  result: RegisterResult;
+  updatedAt: string;
+  sync: SyncState;
+}
+
 /** Environmental incident / near-miss (logged occurrence; ISO 14001 cl. 10.2 / 8.2). */
 export interface EnvironmentalIncident {
   id: string;
@@ -410,6 +426,7 @@ interface PersistedState {
   performanceMetrics: PerformanceMetric[];
   permits: Permit[];
   incidents: EnvironmentalIncident[];
+  calibration: CalibrationRecord[];
   reportMeta: ReportMeta;
   reportSignedAt: string | null;
 }
@@ -418,6 +435,24 @@ const AUDIT_STATUS_ORDER: AuditStatus[] = ['draft', 'planned', 'fieldwork', 'rep
 
 const META_KEY = 'state';
 const AUDITOR = 'Ava Brooks';
+
+/** Demonstration calibration records — one valid, one due soon, one overdue. */
+function seedCalibration(): CalibrationRecord[] {
+  const now = '2026-06-15T15:00:00.000Z';
+  const base = (extra: Partial<CalibrationRecord>): CalibrationRecord => ({
+    id: uid('calib'),
+    equipment: '',
+    result: 'notStarted',
+    updatedAt: now,
+    sync: 'synced',
+    ...extra,
+  });
+  return [
+    base({ equipment: 'Stack gas analyser', identifier: 'AN-204', parameter: 'NOx / CO', lastCalibratedAt: '2026-01-15', nextDueAt: '2027-01-15', frequencyMonths: 12, result: 'conforming' }),
+    base({ equipment: 'Effluent pH meter', identifier: 'PH-11', parameter: 'pH', lastCalibratedAt: '2025-12-01', nextDueAt: '2026-06-25', frequencyMonths: 6, result: 'needsFollowUp' }),
+    base({ equipment: 'Noise level meter', identifier: 'NL-03', parameter: 'dB(A)', lastCalibratedAt: '2025-02-01', nextDueAt: '2026-02-01', frequencyMonths: 12, result: 'nonconforming' }),
+  ];
+}
 
 /** Demonstration incidents — an open high-severity spill and a closed near-miss. */
 function seedIncidents(): EnvironmentalIncident[] {
@@ -619,6 +654,7 @@ export class FieldAuditStore {
   readonly performanceMetrics = signal<PerformanceMetric[]>(seedPerformanceMetrics());
   readonly permits = signal<Permit[]>(seedPermits());
   readonly incidents = signal<EnvironmentalIncident[]>(seedIncidents());
+  readonly calibration = signal<CalibrationRecord[]>(seedCalibration());
   readonly reportMeta = signal<ReportMeta>(defaultReportMeta());
   /** Read-only audit trail from the backend (not synced upward). */
   readonly changeLog = signal<ChangeLogEntry[]>([]);
@@ -657,6 +693,7 @@ export class FieldAuditStore {
       this.performanceMetrics().filter((m) => m.sync !== 'synced').length +
       this.permits().filter((p) => p.sync !== 'synced').length +
       this.incidents().filter((i) => i.sync !== 'synced').length +
+      this.calibration().filter((c) => c.sync !== 'synced').length +
       (this.conclusion() && this.conclusion()!.sync !== 'synced' ? 1 : 0) +
       (this.reportMeta().sync !== 'synced' ? 1 : 0),
   );
@@ -1177,6 +1214,23 @@ export class FieldAuditStore {
     this.autoFlush();
   }
 
+  addCalibration(): void {
+    this.calibration.update((list) => [
+      { id: uid('calib'), equipment: '', result: 'notStarted', updatedAt: new Date().toISOString(), sync: 'queued' },
+      ...list,
+    ]);
+    this.persist();
+    this.autoFlush();
+  }
+
+  updateCalibration(id: string, patch: Partial<CalibrationRecord>): void {
+    this.calibration.update((list) =>
+      list.map((entry) => (entry.id === id ? { ...entry, ...patch, updatedAt: new Date().toISOString(), sync: 'queued' } : entry)),
+    );
+    this.persist();
+    this.autoFlush();
+  }
+
   /** Lead-auditor sign-off. Persisted to the server when live; recorded locally otherwise. */
   async signOff(attestation: string): Promise<boolean> {
     if (this.source() === 'live' && this.online()) {
@@ -1246,6 +1300,7 @@ export class FieldAuditStore {
     this.performanceMetrics.set(seedPerformanceMetrics());
     this.permits.set(seedPermits());
     this.incidents.set(seedIncidents());
+    this.calibration.set(seedCalibration());
     this.reportMeta.set(defaultReportMeta());
     this.reportSignedAt.set(null);
     await idbDelete('meta', META_KEY);
@@ -1554,6 +1609,17 @@ export class FieldAuditStore {
           this.setSync('incidents', record.id, 'queued');
         }
       }
+      for (const record of this.calibration().filter((entry) => entry.sync !== 'synced')) {
+        this.setSync('calibration', record.id, 'syncing');
+        try {
+          const { sync, ...payload } = record;
+          void sync;
+          await this.api.upsertCalibration(payload);
+          this.setSync('calibration', record.id, 'synced');
+        } catch {
+          this.setSync('calibration', record.id, 'queued');
+        }
+      }
       this.persist();
     } finally {
       this.flushing = false;
@@ -1581,7 +1647,8 @@ export class FieldAuditStore {
       | 'documentedInfo'
       | 'performanceMetrics'
       | 'permits'
-      | 'incidents',
+      | 'incidents'
+      | 'calibration',
     id: string,
     sync: SyncState,
   ): void {
@@ -1607,6 +1674,7 @@ export class FieldAuditStore {
       performanceMetrics: this.performanceMetrics,
       permits: this.permits,
       incidents: this.incidents,
+      calibration: this.calibration,
     };
     const ref = map[collection] as unknown as {
       update: (fn: (list: SyncRecord[]) => SyncRecord[]) => void;
@@ -1666,6 +1734,7 @@ export class FieldAuditStore {
       performanceMetrics: this.performanceMetrics(),
       permits: this.permits(),
       incidents: this.incidents(),
+      calibration: this.calibration(),
       reportMeta: this.reportMeta(),
       reportSignedAt: this.reportSignedAt(),
     };
@@ -1698,6 +1767,7 @@ export class FieldAuditStore {
       this.performanceMetrics.set((payload.performanceMetrics ?? []).map((m) => ({ ...m, sync: 'synced' as const })));
       this.permits.set((payload.permits ?? []).map((p) => ({ ...p, sync: 'synced' as const })));
       this.incidents.set((payload.incidents ?? []).map((i) => ({ ...i, sync: 'synced' as const })));
+      this.calibration.set((payload.calibration ?? []).map((c) => ({ ...c, sync: 'synced' as const })));
       // Report front-matter: prefer the server copy (shared across the team),
       // falling back to defaults, then overlay scope/dates from the audit record.
       this.reportMeta.set(
@@ -1751,6 +1821,7 @@ export class FieldAuditStore {
     this.performanceMetrics.set(saved.performanceMetrics ?? seedPerformanceMetrics());
     this.permits.set(saved.permits ?? seedPermits());
     this.incidents.set(saved.incidents ?? seedIncidents());
+    this.calibration.set(saved.calibration ?? seedCalibration());
     if (saved.reportMeta) this.reportMeta.set({ ...defaultReportMeta(), ...saved.reportMeta });
     this.reportSignedAt.set(saved.reportSignedAt ?? null);
     const restored = await Promise.all(

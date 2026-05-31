@@ -458,6 +458,19 @@ const incidentUpsertCommandSchema = z.object({
   result: registerResultSchema.default('notStarted'),
 });
 
+const calibrationUpsertCommandSchema = z.object({
+  id: z.string().min(1),
+  equipment: z.string().max(300).default(''),
+  identifier: z.string().max(120).optional(),
+  parameter: z.string().max(200).optional(),
+  method: z.string().max(300).optional(),
+  lastCalibratedAt: z.string().max(40).optional(),
+  nextDueAt: z.string().max(40).optional(),
+  frequencyMonths: z.number().int().min(0).max(120).optional(),
+  outOfService: z.boolean().optional(),
+  result: registerResultSchema.default('notStarted'),
+});
+
 const programmeUpsertSchema = z.object({
   cycleYear: z.number().int(),
   criteria: z.string().min(1),
@@ -956,6 +969,10 @@ export async function handleApiRequest(
         dependencies.db.collection(mongoCollections.permits).find({ tenantId, auditId }, { projection: { _id: 0 } }).toArray(),
         dependencies.db.collection(mongoCollections.incidents).find({ tenantId, auditId }, { projection: { _id: 0 } }).toArray(),
       ]);
+      const calibration = await dependencies.db
+        .collection(mongoCollections.calibration)
+        .find({ tenantId, auditId }, { projection: { _id: 0 } })
+        .toArray();
       const reportMeta = await dependencies.db
         .collection(mongoCollections.reportMeta)
         .findOne({ tenantId, auditId }, { projection: { _id: 0 } });
@@ -990,6 +1007,7 @@ export async function handleApiRequest(
           performanceMetrics,
           permits,
           incidents,
+          calibration,
           reportMeta,
           changeLog,
         },
@@ -1570,6 +1588,25 @@ export async function handleApiRequest(
         .collection(mongoCollections.incidents)
         .updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
       sendJson(response, 200, { incident: record }, corsOrigin);
+      return;
+    }
+
+    const calibrationMatch = matchPath(
+      new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/calibration/([^/]+)$`),
+      url.pathname,
+      ['tenantId', 'auditId', 'id'],
+    );
+    if (request.method === 'PUT' && calibrationMatch && actor) {
+      const tenantId = calibrationMatch.params['tenantId']!;
+      const auditId = calibrationMatch.params['auditId']!;
+      requireTenant(actor, tenantId);
+      requireAnyRole(actor, ['leadAuditor', 'auditor']);
+      const command = await readJson(request, calibrationUpsertCommandSchema);
+      const record = { ...command, tenantId, auditId, updatedAt: new Date().toISOString() };
+      await dependencies.db
+        .collection(mongoCollections.calibration)
+        .updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
+      sendJson(response, 200, { calibration: record }, corsOrigin);
       return;
     }
 
