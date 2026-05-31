@@ -37,6 +37,11 @@ export const routes: Routes = [
         title: 'Notification settings',
       },
       {
+        path: 'portal',
+        loadComponent: () => import('./features/portal/portal.component').then((m) => m.PortalComponent),
+        title: 'Auditee portal',
+      },
+      {
         path: 'showcase',
         loadComponent: () => import('./features/dashboard/dashboard.component').then((m) => m.DashboardComponent),
         title: 'Capability showcase',

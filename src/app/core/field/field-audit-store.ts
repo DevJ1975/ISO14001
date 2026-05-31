@@ -467,6 +467,9 @@ export interface FieldFinding {
   status: NcStatus;
   createdByName: string;
   createdAt: string;
+  /** Auditee acknowledgement + proposed correction, captured via the auditee portal (cl. 10.2). */
+  acknowledgedAt?: string;
+  responseText?: string;
   sync: SyncState;
 }
 
@@ -1060,6 +1063,18 @@ export class FieldAuditStore {
 
   advanceNcStatus(id: string, status: NcStatus): void {
     this.updateFinding(id, { status });
+  }
+
+  /**
+   * Auditee acknowledgement of a finding with a proposed correction (auditee
+   * portal). Records the response and advances an open NC to "responded".
+   */
+  acknowledgeFinding(id: string, responseText: string): void {
+    const finding = this.findings().find((f) => f.id === id);
+    if (!finding) return;
+    const acknowledgedAt = new Date().toISOString();
+    const status: NcStatus = finding.status === 'open' || finding.status === 'reopened' ? 'responded' : finding.status;
+    this.updateFinding(id, { acknowledgedAt, responseText: responseText.trim(), status });
   }
 
   /** Start (or return) the CAPA record for a nonconformity. */
