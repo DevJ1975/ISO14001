@@ -129,3 +129,154 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* CB-ops sections: planning aids, certificates, complaints */
+.fld {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.fld span {
+  font-size: 12px;
+}
+
+.fld input,
+.fld select {
+  font: inherit;
+  font-weight: 500;
+  color: var(--text);
+  min-height: 40px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.grid2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.grid3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.aids {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.aid-out {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 200px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-guard);
+}
+
+.kpi strong {
+  font-size: 22px;
+  color: var(--primary);
+}
+
+.kpi span {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.certrow,
+.caserow {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.certrow input,
+.caserow > input {
+  font: inherit;
+  min-height: 40px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.certfoot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.certfoot select {
+  min-height: 40px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  padding: 0 10px;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: capitalize;
+  background: var(--surface-guard);
+  color: var(--text);
+}
+
+.badge[data-tone='positive'],
+[data-tone='positive'] {
+  color: var(--tone-positive-fg, var(--text));
+}
+
+.badge[data-tone='progress'] {
+  background: var(--tone-progress-bg);
+  color: var(--tone-progress-fg);
+}
+
+.badge[data-tone='critical'] {
+  background: var(--tone-critical-bg);
+  color: var(--tone-critical-fg);
+}
+
+.badge[data-tone='positive'] {
+  background: var(--tone-positive-bg, var(--surface-guard));
+}
+
+.caserow.overdue {
+  border-color: var(--tone-critical-bd);
+}
+
+.addpair {
+  display: inline-flex;
+  gap: 8px;
+}
+
+.small {
+  font-size: 12px;
+}

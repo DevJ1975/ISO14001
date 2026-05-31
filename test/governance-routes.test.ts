@@ -133,6 +133,30 @@ describe('EMS governance API routes', () => {
     });
   }
 
+  it('persists certificates, complaints and planning on the audit programme', async () => {
+    const { db, store } = createFakeDb();
+    const leadHeaders = { ...authHeaders('t'), 'x-iso-role': 'leadAuditor' };
+    const body = {
+      cycleYear: 2026,
+      criteria: 'ISO_14001_2026',
+      plannedAudits: [],
+      competence: [],
+      certificates: [
+        { id: 'cert-1', certificateNumber: 'EMS-0007', scopeStatement: 'Assembly', status: 'active', history: [{ action: 'issued', at: '2026-01-01' }] },
+      ],
+      complaintsAppeals: [{ id: 'case-1', kind: 'complaint', subject: 'Noise', status: 'received' }],
+      planning: { effectivePersonnel: 50, complexity: 'high', siteCount: 9, stage: 'initial' },
+    };
+    const put = makeRes();
+    await handleApiRequest(makeReq({ method: 'PUT', url: '/api/tenants/t/programme', headers: leadHeaders, body }), put, { db, config });
+    assert.equal(put.statusCode, 200);
+
+    const saved = store.get('auditProgrammes')!.find((d) => d['tenantId'] === 't')!;
+    assert.equal((saved['certificates'] as unknown[]).length, 1);
+    assert.equal((saved['complaintsAppeals'] as unknown[]).length, 1);
+    assert.equal((saved['planning'] as Record<string, unknown>)['effectivePersonnel'], 50);
+  });
+
   it('rejects an unknown register result with 400', async () => {
     const { db } = createFakeDb();
     const res = makeRes();

@@ -465,6 +465,57 @@ const programmeUpsertSchema = z.object({
       }),
     )
     .default([]),
+  certificates: z
+    .array(
+      z.object({
+        id: z.string().min(1),
+        certificateNumber: z.string().max(120).default(''),
+        auditeeName: z.string().max(300).optional(),
+        edition: z.string().max(40).optional(),
+        scopeStatement: z.string().max(2000).default(''),
+        sites: z.array(z.string().max(300)).default([]),
+        issuedAt: z.string().max(40).optional(),
+        expiresAt: z.string().max(40).optional(),
+        status: z.enum(['active', 'suspended', 'withdrawn', 'expired', 'reducedScope']).default('active'),
+        history: z
+          .array(
+            z.object({
+              action: z.string().max(40),
+              at: z.string().max(40),
+              by: z.string().max(200).optional(),
+              reason: z.string().max(1000).optional(),
+            }),
+          )
+          .default([]),
+        updatedAt: z.string().max(40).optional(),
+      }),
+    )
+    .default([]),
+  complaintsAppeals: z
+    .array(
+      z.object({
+        id: z.string().min(1),
+        kind: z.enum(['complaint', 'appeal']).default('complaint'),
+        subject: z.string().max(300).default(''),
+        source: z.string().max(300).optional(),
+        description: z.string().max(2000).default(''),
+        receivedAt: z.string().max(40).optional(),
+        dueDate: z.string().max(40).optional(),
+        status: z.enum(['received', 'underReview', 'resolved', 'closed', 'upheld', 'rejected']).default('received'),
+        handledBy: z.string().max(200).optional(),
+        resolution: z.string().max(2000).optional(),
+        updatedAt: z.string().max(40).optional(),
+      }),
+    )
+    .default([]),
+  planning: z
+    .object({
+      effectivePersonnel: z.number().int().min(0).max(1000000).optional(),
+      complexity: z.enum(['high', 'medium', 'low', 'limited']).optional(),
+      siteCount: z.number().int().min(0).max(100000).optional(),
+      stage: z.enum(['initial', 'surveillance', 'recertification']).optional(),
+    })
+    .optional(),
 });
 
 interface SeedChecklistItem {

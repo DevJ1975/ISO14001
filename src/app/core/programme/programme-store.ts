@@ -2,6 +2,13 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
+import {
+  type Certificate,
+  type CertificateStatus,
+  type ComplaintAppeal,
+  type ComplaintKind,
+  transitionCertificate,
+} from '../domain';
 import { AuthService } from '../auth/auth.service';
 import { APP_CONFIG } from '../config/app-config';
 import { idbGet, idbSet } from '../field/idb';
@@ -29,12 +36,23 @@ export interface CompetenceRecord {
   impartialityDeclared: boolean;
 }
 
+/** Inputs for the audit-time (IAF MD 5) and √N sampling (IAF MD 1) calculators. */
+export interface PlanningInputs {
+  effectivePersonnel?: number;
+  complexity?: 'high' | 'medium' | 'low' | 'limited';
+  siteCount?: number;
+  stage?: 'initial' | 'surveillance' | 'recertification';
+}
+
 export interface Programme {
   tenantId: string;
   cycleYear: number;
   criteria: string;
   plannedAudits: PlannedAudit[];
   competence: CompetenceRecord[];
+  certificates: Certificate[];
+  complaintsAppeals: ComplaintAppeal[];
+  planning: PlanningInputs;
   updatedAt: string;
 }
 
@@ -43,6 +61,19 @@ let counter = 0;
 function uid(prefix: string): string {
   counter += 1;
   return `${prefix}-${Date.now().toString(36)}-${counter}`;
+}
+
+/** Backfill arrays/objects added after a programme was first stored. */
+function normalize(programme: Programme | null): Programme | null {
+  if (!programme) return null;
+  return {
+    ...programme,
+    plannedAudits: programme.plannedAudits ?? [],
+    competence: programme.competence ?? [],
+    certificates: programme.certificates ?? [],
+    complaintsAppeals: programme.complaintsAppeals ?? [],
+    planning: programme.planning ?? {},
+  };
 }
 
 /** Tenant-scoped audit programme (surveillance/recert schedule + competence). Whole-document sync. */
@@ -75,6 +106,9 @@ export class ProgrammeStore {
       criteria: 'ISO_14001_2026',
       plannedAudits: [],
       competence: [],
+      certificates: [],
+      complaintsAppeals: [],
+      planning: {},
       updatedAt: new Date().toISOString(),
     };
     this.programme.set(created);
@@ -130,6 +164,107 @@ export class ProgrammeStore {
     this.save();
   }
 
+  // --- Certificates (ISO/IEC 17021-1 cl. 9.5–9.6) ---
+
+  addCertificate(): void {
+    const programme = this.ensure();
+    const now = new Date().toISOString();
+    const certificate: Certificate = {
+      id: uid('cert'),
+      certificateNumber: '',
+      edition: 'ISO_14001_2026',
+      scopeStatement: '',
+      sites: [],
+      status: 'active',
+      history: [{ action: 'issued', at: now }],
+      updatedAt: now,
+    };
+    this.programme.set({ ...programme, certificates: [...programme.certificates, certificate] });
+    this.save();
+  }
+
+  updateCertificate(id: string, patch: Partial<Certificate>): void {
+    const programme = this.ensure();
+    this.programme.set({
+      ...programme,
+      certificates: programme.certificates.map((entry) =>
+        entry.id === id ? { ...entry, ...patch, updatedAt: new Date().toISOString() } : entry,
+      ),
+    });
+    this.save();
+  }
+
+  /** Apply a lifecycle transition; no-op if the transition is illegal. */
+  transitionCertificate(id: string, to: CertificateStatus, reason?: string): void {
+    const programme = this.ensure();
+    const by = this.auth.user()?.displayName ?? 'Lead auditor';
+    const at = new Date().toISOString();
+    this.programme.set({
+      ...programme,
+      certificates: programme.certificates.map((entry) => {
+        if (entry.id !== id) return entry;
+        try {
+          return transitionCertificate(entry, to, by, at, reason);
+        } catch {
+          return entry;
+        }
+      }),
+    });
+    this.save();
+  }
+
+  removeCertificate(id: string): void {
+    const programme = this.ensure();
+    this.programme.set({ ...programme, certificates: programme.certificates.filter((entry) => entry.id !== id) });
+    this.save();
+  }
+
+  // --- Complaints & appeals (ISO/IEC 17021-1 cl. 9.7–9.8) ---
+
+  addComplaint(kind: ComplaintKind): void {
+    const programme = this.ensure();
+    const now = new Date().toISOString();
+    const item: ComplaintAppeal = {
+      id: uid('case'),
+      kind,
+      subject: '',
+      description: '',
+      receivedAt: now.slice(0, 10),
+      status: 'received',
+      updatedAt: now,
+    };
+    this.programme.set({ ...programme, complaintsAppeals: [...programme.complaintsAppeals, item] });
+    this.save();
+  }
+
+  updateComplaint(id: string, patch: Partial<ComplaintAppeal>): void {
+    const programme = this.ensure();
+    this.programme.set({
+      ...programme,
+      complaintsAppeals: programme.complaintsAppeals.map((entry) =>
+        entry.id === id ? { ...entry, ...patch, updatedAt: new Date().toISOString() } : entry,
+      ),
+    });
+    this.save();
+  }
+
+  removeComplaint(id: string): void {
+    const programme = this.ensure();
+    this.programme.set({
+      ...programme,
+      complaintsAppeals: programme.complaintsAppeals.filter((entry) => entry.id !== id),
+    });
+    this.save();
+  }
+
+  // --- Planning aids (IAF MD 5 audit time / MD 1 sampling) ---
+
+  setPlanning(patch: Partial<PlanningInputs>): void {
+    const programme = this.ensure();
+    this.programme.set({ ...programme, planning: { ...programme.planning, ...patch } });
+    this.save();
+  }
+
   private save(): void {
     const programme = this.programme();
     if (!programme) return;
@@ -144,13 +279,13 @@ export class ProgrammeStore {
   private async bootstrap(): Promise<void> {
     try {
       const programme = await firstValueFrom(this.http.get<Programme | null>(`${this.base()}/programme`));
-      this.programme.set(programme ?? null);
+      this.programme.set(normalize(programme ?? null));
       this.source.set('live');
       this.online.set(true);
     } catch {
       this.source.set('local');
       const saved = await idbGet<Programme>('meta', KEY);
-      if (saved) this.programme.set(saved);
+      if (saved) this.programme.set(normalize(saved));
     }
   }
 
