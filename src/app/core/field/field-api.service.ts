@@ -28,6 +28,7 @@ import type {
   FieldFinding,
   FieldResult,
   InterestedParty,
+  ManagementOfChangeRecord,
   ManagementReviewRecord,
   PerformanceMetric,
   Permit,
@@ -72,6 +73,7 @@ export interface FieldStatePayload {
   calibration?: Array<Omit<CalibrationRecord, 'sync'>>;
   training?: Array<Omit<TrainingRecord, 'sync'>>;
   suppliers?: Array<Omit<SupplierRecord, 'sync'>>;
+  changes?: Array<Omit<ManagementOfChangeRecord, 'sync'>>;
   reportMeta?: Omit<ReportMeta, 'sync'> | null;
   changeLog?: ChangeLogEntry[];
 }
@@ -270,6 +272,10 @@ export class FieldApiService {
 
   upsertSupplier(body: Omit<SupplierRecord, 'sync'>): Promise<unknown> {
     return firstValueFrom(this.http.put(`${this.base()}/suppliers/${encodeURIComponent(body.id)}`, body));
+  }
+
+  upsertChange(body: Omit<ManagementOfChangeRecord, 'sync'>): Promise<unknown> {
+    return firstValueFrom(this.http.put(`${this.base()}/changes/${encodeURIComponent(body.id)}`, body));
   }
 
   private tenantBase(): string {

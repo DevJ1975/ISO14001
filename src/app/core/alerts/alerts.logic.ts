@@ -4,6 +4,8 @@ import {
   type IncidentStatus,
   isComplaintOverdue,
   isIncidentOpen,
+  mocAttention,
+  type MocStatus,
   permitExpiryStatus,
   supplierEvaluationStatus,
   trainingStatus,
@@ -38,6 +40,7 @@ export interface AlertInput {
   calibration: { id: string; equipment: string; nextDueAt?: string; outOfService?: boolean }[];
   training: { id: string; person: string; course: string; completedAt?: string; expiresAt?: string; mandatory?: boolean }[];
   suppliers: { id: string; name: string; environmentallyRelevant?: boolean; lastEvaluatedAt?: string; nextEvaluationAt?: string }[];
+  changes: { id: string; title: string; status: string; aspectsReviewed?: boolean; targetDate?: string }[];
   incidents: { id: string; title: string; severity: string; status: string }[];
   plannedAudits: { id: string; type: string; dueDate: string; status: string }[];
   complaints: { id: string; kind: string; subject: string; dueDate?: string; status: string }[];
@@ -140,6 +143,23 @@ export function buildAlerts(input: AlertInput): AlertItem[] {
         due: s.nextEvaluationAt,
         link: '/registers',
         fragment: 'suppliers',
+      });
+    }
+  }
+
+  for (const change of input.changes) {
+    const attention = mocAttention({ status: change.status as MocStatus, aspectsReviewed: change.aspectsReviewed, targetDate: change.targetDate }, new Date(input.now));
+    // A change approved/implemented without an aspects review is the key cl. 8.1
+    // control gap (critical); an open change past its target date is a warning.
+    if (attention === 'aspectsOutstanding' || attention === 'overdue') {
+      items.push({
+        id: `moc-${change.id}`,
+        severity: attention === 'aspectsOutstanding' ? 'critical' : 'warning',
+        category: 'Change',
+        title: `${change.title || 'Change'} ${attention === 'aspectsOutstanding' ? '— aspects not assessed' : 'overdue'}`,
+        due: change.targetDate,
+        link: '/registers',
+        fragment: 'changes',
       });
     }
   }
