@@ -271,3 +271,88 @@
 .signed-state small {
   color: var(--muted);
 }
+
+/* E-signature detail (tamper-evident fingerprint + verify) */
+.sig-detail {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.sig-attest {
+  font-style: italic;
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.sig-meta {
+  margin: 0;
+}
+
+.sig-meta dt {
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+}
+
+.sig-meta dd {
+  margin: 2px 0 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sig-meta code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 14px;
+  letter-spacing: 0.06em;
+  color: var(--text);
+}
+
+.sig-algo {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: var(--surface-guard);
+  color: var(--muted);
+}
+
+.sig-verify {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.vstate {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.vstate mat-icon {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+}
+
+.vstate.ok {
+  color: var(--tone-positive-fg, #2e7d32);
+}
+
+.vstate.bad {
+  color: var(--tone-critical-fg, #c0392b);
+}
+
+.sig-note {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+}

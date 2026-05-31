@@ -1,5 +1,6 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 
+import { ReportSignature, SignableReport, reportContentHash } from '../domain';
 import { AuditSelectionService } from './audit-selection.service';
 import { FieldApiService } from './field-api.service';
 import { idbDelete, idbGet, idbSet } from './idb';
@@ -518,6 +519,7 @@ interface PersistedState {
   carbon: CarbonEntry[];
   reportMeta: ReportMeta;
   reportSignedAt: string | null;
+  reportSignature?: ReportSignature | null;
 }
 
 const AUDIT_STATUS_ORDER: AuditStatus[] = ['draft', 'planned', 'fieldwork', 'reporting', 'followUp', 'closed', 'archived'];
@@ -857,6 +859,8 @@ export class FieldAuditStore {
   /** Read-only audit trail from the backend (not synced upward). */
   readonly changeLog = signal<ChangeLogEntry[]>([]);
   readonly reportSignedAt = signal<string | null>(null);
+  /** Tamper-evident e-signature captured at sign-off (signer, attestation, content hash). */
+  readonly reportSignature = signal<ReportSignature | null>(null);
   readonly online = signal(typeof navigator === 'undefined' ? true : navigator.onLine);
   readonly source = signal<DataSource>('local');
 
@@ -1548,19 +1552,62 @@ export class FieldAuditStore {
     this.autoFlush();
   }
 
-  /** Lead-auditor sign-off. Persisted to the server when live; recorded locally otherwise. */
-  async signOff(attestation: string): Promise<boolean> {
+  /** The order-stable view of the report that an e-signature attests to. */
+  signableReport(): SignableReport {
+    const conclusion = this.conclusion();
+    const meta = this.reportMeta();
+    return {
+      auditee: this.auditee(),
+      criteria: this.criteria(),
+      scope: meta.scope,
+      auditType: meta.auditType,
+      overallConformity: conclusion?.overallConformity,
+      recommendation: conclusion?.recommendation,
+      findings: this.findings().map((f) => ({
+        id: f.id,
+        type: f.type,
+        clauseId: f.clauseId,
+        status: f.status,
+        description: f.description,
+      })),
+    };
+  }
+
+  /**
+   * Lead-auditor sign-off. Captures a tamper-evident e-signature (signer +
+   * attestation + SHA-256 of the report content). Persisted to the server when
+   * live; recorded locally otherwise.
+   */
+  async signOff(
+    attestation: string,
+    signer: { uid: string; name: string; role: string } = { uid: 'guest', name: 'Lead auditor', role: 'leadAuditor' },
+  ): Promise<boolean> {
+    const contentHash = await reportContentHash(this.signableReport());
+    const signedAt = new Date().toISOString();
+    const buildSignature = (at: string): ReportSignature => ({
+      signerName: signer.name,
+      signerUid: signer.uid,
+      signerRole: signer.role,
+      signedAt: at,
+      attestation,
+      contentHash,
+      algorithm: 'SHA-256',
+      hashVersion: 1,
+    });
     if (this.source() === 'live' && this.online()) {
       try {
-        const result = (await this.api.signReport({ attestation })) as { signedAt?: string };
-        this.reportSignedAt.set(result?.signedAt ?? new Date().toISOString());
+        const result = (await this.api.signReport({ attestation, contentHash })) as { signedAt?: string };
+        const at = result?.signedAt ?? signedAt;
+        this.reportSignedAt.set(at);
+        this.reportSignature.set(buildSignature(at));
         this.persist();
         return true;
       } catch {
         return false;
       }
     }
-    this.reportSignedAt.set(new Date().toISOString());
+    this.reportSignedAt.set(signedAt);
+    this.reportSignature.set(buildSignature(signedAt));
     this.persist();
     return true;
   }
@@ -1624,6 +1671,7 @@ export class FieldAuditStore {
     this.carbon.set(seedCarbon());
     this.reportMeta.set(defaultReportMeta());
     this.reportSignedAt.set(null);
+    this.reportSignature.set(null);
     await idbDelete('meta', META_KEY);
   }
 
@@ -2114,6 +2162,7 @@ export class FieldAuditStore {
       carbon: this.carbon(),
       reportMeta: this.reportMeta(),
       reportSignedAt: this.reportSignedAt(),
+      reportSignature: this.reportSignature(),
     };
     void idbSet('meta', META_KEY, snapshot);
   }
@@ -2209,6 +2258,7 @@ export class FieldAuditStore {
     this.carbon.set(saved.carbon ?? seedCarbon());
     if (saved.reportMeta) this.reportMeta.set({ ...defaultReportMeta(), ...saved.reportMeta });
     this.reportSignedAt.set(saved.reportSignedAt ?? null);
+    this.reportSignature.set(saved.reportSignature ?? null);
     const restored = await Promise.all(
       saved.evidence.map(async (record) => {
         if (record.kind !== 'photo' || !record.blobKey || typeof URL === 'undefined') return record;

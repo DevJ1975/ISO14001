@@ -133,9 +133,33 @@
         <mat-icon aria-hidden="true">verified</mat-icon>
         <div>
           <strong>Report signed</strong>
-          <small>Lead auditor · {{ formatTime(signedAt) }}</small>
+          @if (signature(); as sig) {
+            <small>{{ sig.signerName }} ({{ sig.signerRole }}) · {{ formatTime(sig.signedAt) }}</small>
+          } @else {
+            <small>Lead auditor · {{ formatTime(signedAt) }}</small>
+          }
         </div>
       </div>
+      @if (signature(); as sig) {
+        <div class="sig-detail">
+          <div class="sig-attest">“{{ sig.attestation }}”</div>
+          <dl class="sig-meta">
+            <div><dt>Integrity fingerprint</dt><dd><code>{{ fingerprint() }}</code> <span class="sig-algo">{{ sig.algorithm }}</span></dd></div>
+          </dl>
+          <div class="sig-verify">
+            <button mat-stroked-button type="button" (click)="verify()">
+              <mat-icon aria-hidden="true">fact_check</mat-icon>Verify integrity
+            </button>
+            @switch (verifyState()) {
+              @case ('valid') { <span class="vstate ok"><mat-icon aria-hidden="true">verified_user</mat-icon>Content matches the signature.</span> }
+              @case ('tampered') { <span class="vstate bad"><mat-icon aria-hidden="true">gpp_bad</mat-icon>Content changed since signing.</span> }
+              @case ('checking') { <span class="vstate">Checking…</span> }
+              @default {}
+            }
+          </div>
+          <p class="sig-note">Simple electronic signature — content integrity + attestation. Not a PKI/qualified e-signature.</p>
+        </div>
+      }
     } @else if (isLead()) {
       <div class="sign-copy">
         <strong>Lead auditor sign-off</strong>

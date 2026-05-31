@@ -452,7 +452,13 @@
       <dt>Distribution</dt><dd>{{ meta().distribution || '—' }}</dd>
     </dl>
     @if (store.reportSignedAt(); as signedAt) {
-      <p>This report was signed off by the lead auditor on <strong>{{ formatDateTime(signedAt) }}</strong>.</p>
+      @if (store.reportSignature(); as sig) {
+        <p>This report was signed off by <strong>{{ sig.signerName }}</strong> ({{ sig.signerRole }}) on <strong>{{ formatDateTime(sig.signedAt) }}</strong>.</p>
+        <p class="sig-print">Attestation: “{{ sig.attestation }}”<br />
+          Integrity fingerprint ({{ sig.algorithm }}): <code>{{ signatureFingerprint() }}</code></p>
+      } @else {
+        <p>This report was signed off by the lead auditor on <strong>{{ formatDateTime(signedAt) }}</strong>.</p>
+      }
     } @else {
       <p class="muted">This report has not yet been signed off.</p>
     }
