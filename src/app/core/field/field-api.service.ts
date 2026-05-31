@@ -11,6 +11,7 @@ import type {
   AuditStatus,
   AuditSummary,
   AwarenessRecord,
+  CalibrationRecord,
   ChangeLogEntry,
   ReportMeta,
   CommunicationRecord,
@@ -19,6 +20,7 @@ import type {
   DocumentedInfoRecord,
   EmergencyRecord,
   EnvironmentalAspect,
+  EnvironmentalIncident,
   EnvironmentalObjective,
   FieldCapa,
   FieldChecklistItem,
@@ -64,6 +66,8 @@ export interface FieldStatePayload {
   documentedInfo?: Array<Omit<DocumentedInfoRecord, 'sync'>>;
   performanceMetrics?: Array<Omit<PerformanceMetric, 'sync'>>;
   permits?: Array<Omit<Permit, 'sync'>>;
+  incidents?: Array<Omit<EnvironmentalIncident, 'sync'>>;
+  calibration?: Array<Omit<CalibrationRecord, 'sync'>>;
   reportMeta?: Omit<ReportMeta, 'sync'> | null;
   changeLog?: ChangeLogEntry[];
 }
@@ -246,6 +250,14 @@ export class FieldApiService {
 
   upsertPermit(body: Omit<Permit, 'sync'>): Promise<unknown> {
     return firstValueFrom(this.http.put(`${this.base()}/permits/${encodeURIComponent(body.id)}`, body));
+  }
+
+  upsertIncident(body: Omit<EnvironmentalIncident, 'sync'>): Promise<unknown> {
+    return firstValueFrom(this.http.put(`${this.base()}/incidents/${encodeURIComponent(body.id)}`, body));
+  }
+
+  upsertCalibration(body: Omit<CalibrationRecord, 'sync'>): Promise<unknown> {
+    return firstValueFrom(this.http.put(`${this.base()}/calibration/${encodeURIComponent(body.id)}`, body));
   }
 
   private tenantBase(): string {

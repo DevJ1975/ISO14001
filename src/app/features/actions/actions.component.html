@@ -1,0 +1,32 @@
+<section class="screen actions">
+  <header class="screen-head">
+    <h1>Actions &amp; alerts</h1>
+    <p>Everything outstanding across this audit and the programme — overdue corrective actions, open nonconformities, permit renewals, incidents, audits and complaints.</p>
+  </header>
+
+  <div class="summary">
+    <span class="pill crit">{{ counts().critical }} critical</span>
+    <span class="pill warn">{{ counts().warning }} need attention</span>
+    <span class="pill">{{ counts().total }} total</span>
+  </div>
+
+  @for (group of groups(); track group.severity) {
+    <article class="panel">
+      <h2>{{ group.label }} ({{ group.items.length }})</h2>
+      @for (a of group.items; track a.id) {
+        <a class="alert {{ a.severity }}" [routerLink]="a.link" [fragment]="a.fragment">
+          <mat-icon aria-hidden="true">{{ alertIcon(a.severity) }}</mat-icon>
+          <span class="atext"><strong>{{ a.title }}</strong><small>{{ a.category }}</small></span>
+          @if (a.due) { <span class="due">{{ dueLabel(a.due) }}</span> }
+          <mat-icon class="go" aria-hidden="true">chevron_right</mat-icon>
+        </a>
+      }
+    </article>
+  } @empty {
+    <article class="panel empty-state">
+      <mat-icon aria-hidden="true">task_alt</mat-icon>
+      <strong>All clear</strong>
+      <span>No overdue actions, open nonconformities, expiring permits or outstanding cases.</span>
+    </article>
+  }
+</section>

@@ -398,3 +398,32 @@
   background: var(--tone-critical-bg);
   color: var(--tone-critical-fg);
 }
+
+/* Incident register: inline checkbox label */
+.chk2 {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* Calibration status badge tones (reuses .permit-badge) */
+.permit-badge.valid {
+  background: var(--tone-positive-bg, var(--surface-guard));
+  color: var(--tone-positive-fg, var(--text));
+}
+.permit-badge.dueSoon {
+  background: var(--tone-progress-bg);
+  color: var(--tone-progress-fg);
+}
+.permit-badge.overdue {
+  background: var(--tone-critical-bg);
+  color: var(--tone-critical-fg);
+}
+.permit-badge.outOfService {
+  background: var(--surface-guard);
+  color: var(--muted);
+}

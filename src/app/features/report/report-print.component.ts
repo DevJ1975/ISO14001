@@ -3,7 +3,7 @@ import { Location } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 
-import { permitExpiryStatus } from '../../core/domain';
+import { calibrationStatus, permitExpiryStatus } from '../../core/domain';
 import { AuthService } from '../../core/auth/auth.service';
 import {
   auditTypeLabel,
@@ -106,6 +106,19 @@ export class ReportPrintComponent {
         : status === 'valid'
           ? 'Valid'
           : '—';
+  }
+
+  protected calibrationLabel(record: { nextDueAt?: string; outOfService?: boolean }): string {
+    const status = calibrationStatus(record);
+    return status === 'overdue'
+      ? 'Overdue'
+      : status === 'dueSoon'
+        ? 'Due soon'
+        : status === 'valid'
+          ? 'In calibration'
+          : status === 'outOfService'
+            ? 'Out of service'
+            : '—';
   }
 
   protected formatDateTime(iso: string | undefined): string {

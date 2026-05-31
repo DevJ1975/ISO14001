@@ -1,0 +1,286 @@
+.overview {
+  max-width: 1000px;
+}
+
+.prog-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.prog-head h2,
+.panel > h2 {
+  margin: 0 0 12px;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.prog-head h2 {
+  margin: 0;
+}
+
+.prog-head span {
+  font-size: 14px;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.bar {
+  height: 12px;
+  border-radius: 999px;
+  background: var(--surface-guard);
+  overflow: hidden;
+}
+
+.bar .fill {
+  display: block;
+  height: 100%;
+  background: var(--primary);
+  transition: width 0.3s ease;
+}
+
+.kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+  gap: 10px;
+}
+
+.kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  text-decoration: none;
+  color: var(--text);
+}
+
+.kpi:hover {
+  border-color: var(--primary);
+}
+
+.kpi strong {
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.kpi span {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.kpi.crit strong {
+  color: var(--tone-critical-fg, #b00);
+}
+
+.cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.chartrow,
+.perfrow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.chartrow .cl {
+  flex: 0 0 84px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.track {
+  flex: 1;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--surface-guard);
+  overflow: hidden;
+}
+
+.seg {
+  display: block;
+  height: 100%;
+  background: var(--primary);
+}
+
+.seg.critical {
+  background: var(--tone-critical-fg, #c0392b);
+}
+
+.seg.progress {
+  background: var(--tone-progress-fg, #b8860b);
+}
+
+.seg.positive {
+  background: var(--tone-positive-fg, #2e7d32);
+}
+
+.chartrow .n,
+.perfrow .pv {
+  flex: 0 0 auto;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  min-width: 28px;
+  text-align: right;
+}
+
+.perfrow .pi {
+  flex: 0 0 140px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.perfrow .pv {
+  min-width: 120px;
+}
+
+.trend {
+  flex: 0 0 auto;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--surface-guard);
+  color: var(--muted);
+}
+
+.trend.improving {
+  background: var(--tone-positive-bg, var(--surface-guard));
+  color: var(--tone-positive-fg, var(--text));
+}
+
+.trend.worsening {
+  background: var(--tone-critical-bg);
+  color: var(--tone-critical-fg);
+}
+
+.seeall {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.alert {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  text-decoration: none;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
+.alert:hover {
+  background: var(--surface-guard);
+}
+
+.alert mat-icon {
+  flex: 0 0 auto;
+}
+
+.alert.critical mat-icon {
+  color: var(--tone-critical-fg, #c0392b);
+}
+
+.alert.warning mat-icon {
+  color: var(--tone-progress-fg, #b8860b);
+}
+
+.alert.info mat-icon {
+  color: var(--primary);
+}
+
+.atext {
+  display: flex;
+  flex-direction: column;
+}
+
+.atext small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.muted {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+}
+
+@media (max-width: 720px) {
+  .cols {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Aspect significance heat-map */
+.hm-grid {
+  display: grid;
+  grid-template-columns: 24px repeat(5, 1fr);
+  gap: 4px;
+  max-width: 420px;
+}
+
+.hm-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1;
+  border-radius: 6px;
+  font-weight: 800;
+  font-size: 14px;
+  color: #fff;
+}
+
+.hm-cell.low {
+  background: var(--tone-positive-fg, #2e7d32);
+}
+
+.hm-cell.medium {
+  background: var(--tone-progress-fg, #b8860b);
+}
+
+.hm-cell.high {
+  background: var(--tone-critical-fg, #c0392b);
+}
+
+.hm-cell.empty {
+  opacity: 0.28;
+}
+
+.hm-axis {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.hm-corner {
+  width: 24px;
+}
+
+.hm-labels {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}

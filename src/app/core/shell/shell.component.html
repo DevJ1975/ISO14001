@@ -20,6 +20,9 @@
         >
           <mat-icon aria-hidden="true">{{ item.icon }}</mat-icon>
           {{ item.label }}
+          @if (item.path === '/actions' && alertBadge() > 0) {
+            <span class="nav-badge">{{ alertBadge() }}</span>
+          }
         </a>
       }
     </nav>
@@ -134,6 +137,9 @@
         >
           <mat-icon aria-hidden="true">{{ item.icon }}</mat-icon>
           <span>{{ item.label }}</span>
+          @if (item.path === '/actions' && alertBadge() > 0) {
+            <span class="nav-badge tab-badge">{{ alertBadge() }}</span>
+          }
         </a>
       }
     </nav>

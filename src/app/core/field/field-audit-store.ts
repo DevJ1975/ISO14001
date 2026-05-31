@@ -283,6 +283,41 @@ export interface Permit {
   sync: SyncState;
 }
 
+/** Monitoring & measuring equipment calibration (ISO 14001 cl. 9.1.1). */
+export interface CalibrationRecord {
+  id: string;
+  equipment: string;
+  identifier?: string;
+  parameter?: string;
+  method?: string;
+  lastCalibratedAt?: string;
+  nextDueAt?: string;
+  frequencyMonths?: number;
+  outOfService?: boolean;
+  result: RegisterResult;
+  updatedAt: string;
+  sync: SyncState;
+}
+
+/** Environmental incident / near-miss (logged occurrence; ISO 14001 cl. 10.2 / 8.2). */
+export interface EnvironmentalIncident {
+  id: string;
+  title: string;
+  occurredAt?: string;
+  location?: string;
+  incidentType: 'spill' | 'release' | 'exceedance' | 'wasteBreach' | 'complaint' | 'nearMiss' | 'other';
+  severity: 'low' | 'medium' | 'high';
+  description?: string;
+  immediateAction?: string;
+  rootCause?: string;
+  correctiveActionRef?: string;
+  reportableToRegulator?: boolean;
+  status: 'open' | 'investigating' | 'actioned' | 'closed';
+  result: RegisterResult;
+  updatedAt: string;
+  sync: SyncState;
+}
+
 /** Environmental performance indicator — monitoring & measurement (ISO 14001 cl. 9.1.1). */
 export interface PerformanceMetric {
   id: string;
@@ -390,6 +425,8 @@ interface PersistedState {
   documentedInfo: DocumentedInfoRecord[];
   performanceMetrics: PerformanceMetric[];
   permits: Permit[];
+  incidents: EnvironmentalIncident[];
+  calibration: CalibrationRecord[];
   reportMeta: ReportMeta;
   reportSignedAt: string | null;
 }
@@ -398,6 +435,44 @@ const AUDIT_STATUS_ORDER: AuditStatus[] = ['draft', 'planned', 'fieldwork', 'rep
 
 const META_KEY = 'state';
 const AUDITOR = 'Ava Brooks';
+
+/** Demonstration calibration records — one valid, one due soon, one overdue. */
+function seedCalibration(): CalibrationRecord[] {
+  const now = '2026-06-15T15:00:00.000Z';
+  const base = (extra: Partial<CalibrationRecord>): CalibrationRecord => ({
+    id: uid('calib'),
+    equipment: '',
+    result: 'notStarted',
+    updatedAt: now,
+    sync: 'synced',
+    ...extra,
+  });
+  return [
+    base({ equipment: 'Stack gas analyser', identifier: 'AN-204', parameter: 'NOx / CO', lastCalibratedAt: '2026-01-15', nextDueAt: '2027-01-15', frequencyMonths: 12, result: 'conforming' }),
+    base({ equipment: 'Effluent pH meter', identifier: 'PH-11', parameter: 'pH', lastCalibratedAt: '2025-12-01', nextDueAt: '2026-06-25', frequencyMonths: 6, result: 'needsFollowUp' }),
+    base({ equipment: 'Noise level meter', identifier: 'NL-03', parameter: 'dB(A)', lastCalibratedAt: '2025-02-01', nextDueAt: '2026-02-01', frequencyMonths: 12, result: 'nonconforming' }),
+  ];
+}
+
+/** Demonstration incidents — an open high-severity spill and a closed near-miss. */
+function seedIncidents(): EnvironmentalIncident[] {
+  const now = '2026-06-15T15:00:00.000Z';
+  const base = (extra: Partial<EnvironmentalIncident>): EnvironmentalIncident => ({
+    id: uid('incident'),
+    title: '',
+    incidentType: 'spill',
+    severity: 'low',
+    status: 'open',
+    result: 'notStarted',
+    updatedAt: now,
+    sync: 'synced',
+    ...extra,
+  });
+  return [
+    base({ title: 'Hydraulic oil spill at press 3', occurredAt: '2026-05-12', location: 'Assembly hall', incidentType: 'spill', severity: 'high', status: 'investigating', result: 'needsFollowUp', immediateAction: 'Bunded and absorbed; ~20 L to interceptor isolated.', reportableToRegulator: false }),
+    base({ title: 'Near-miss: uncapped solvent drum', occurredAt: '2026-04-28', location: 'Paint store', incidentType: 'nearMiss', severity: 'low', status: 'closed', result: 'conforming', rootCause: 'Decanting procedure not followed; retraining completed.' }),
+  ];
+}
 
 /** Demonstration permits — one valid, one expiring soon, one expired (relative to the demo audit date). */
 function seedPermits(): Permit[] {
@@ -578,6 +653,8 @@ export class FieldAuditStore {
   readonly documentedInfo = signal<DocumentedInfoRecord[]>([]);
   readonly performanceMetrics = signal<PerformanceMetric[]>(seedPerformanceMetrics());
   readonly permits = signal<Permit[]>(seedPermits());
+  readonly incidents = signal<EnvironmentalIncident[]>(seedIncidents());
+  readonly calibration = signal<CalibrationRecord[]>(seedCalibration());
   readonly reportMeta = signal<ReportMeta>(defaultReportMeta());
   /** Read-only audit trail from the backend (not synced upward). */
   readonly changeLog = signal<ChangeLogEntry[]>([]);
@@ -615,6 +692,8 @@ export class FieldAuditStore {
       this.documentedInfo().filter((d) => d.sync !== 'synced').length +
       this.performanceMetrics().filter((m) => m.sync !== 'synced').length +
       this.permits().filter((p) => p.sync !== 'synced').length +
+      this.incidents().filter((i) => i.sync !== 'synced').length +
+      this.calibration().filter((c) => c.sync !== 'synced').length +
       (this.conclusion() && this.conclusion()!.sync !== 'synced' ? 1 : 0) +
       (this.reportMeta().sync !== 'synced' ? 1 : 0),
   );
@@ -1118,6 +1197,40 @@ export class FieldAuditStore {
     this.autoFlush();
   }
 
+  addIncident(): void {
+    this.incidents.update((list) => [
+      { id: uid('incident'), title: '', incidentType: 'spill', severity: 'low', status: 'open', result: 'notStarted', updatedAt: new Date().toISOString(), sync: 'queued' },
+      ...list,
+    ]);
+    this.persist();
+    this.autoFlush();
+  }
+
+  updateIncident(id: string, patch: Partial<EnvironmentalIncident>): void {
+    this.incidents.update((list) =>
+      list.map((entry) => (entry.id === id ? { ...entry, ...patch, updatedAt: new Date().toISOString(), sync: 'queued' } : entry)),
+    );
+    this.persist();
+    this.autoFlush();
+  }
+
+  addCalibration(): void {
+    this.calibration.update((list) => [
+      { id: uid('calib'), equipment: '', result: 'notStarted', updatedAt: new Date().toISOString(), sync: 'queued' },
+      ...list,
+    ]);
+    this.persist();
+    this.autoFlush();
+  }
+
+  updateCalibration(id: string, patch: Partial<CalibrationRecord>): void {
+    this.calibration.update((list) =>
+      list.map((entry) => (entry.id === id ? { ...entry, ...patch, updatedAt: new Date().toISOString(), sync: 'queued' } : entry)),
+    );
+    this.persist();
+    this.autoFlush();
+  }
+
   /** Lead-auditor sign-off. Persisted to the server when live; recorded locally otherwise. */
   async signOff(attestation: string): Promise<boolean> {
     if (this.source() === 'live' && this.online()) {
@@ -1186,6 +1299,8 @@ export class FieldAuditStore {
     this.documentedInfo.set([]);
     this.performanceMetrics.set(seedPerformanceMetrics());
     this.permits.set(seedPermits());
+    this.incidents.set(seedIncidents());
+    this.calibration.set(seedCalibration());
     this.reportMeta.set(defaultReportMeta());
     this.reportSignedAt.set(null);
     await idbDelete('meta', META_KEY);
@@ -1483,6 +1598,28 @@ export class FieldAuditStore {
           this.setSync('permits', record.id, 'queued');
         }
       }
+      for (const record of this.incidents().filter((entry) => entry.sync !== 'synced')) {
+        this.setSync('incidents', record.id, 'syncing');
+        try {
+          const { sync, ...payload } = record;
+          void sync;
+          await this.api.upsertIncident(payload);
+          this.setSync('incidents', record.id, 'synced');
+        } catch {
+          this.setSync('incidents', record.id, 'queued');
+        }
+      }
+      for (const record of this.calibration().filter((entry) => entry.sync !== 'synced')) {
+        this.setSync('calibration', record.id, 'syncing');
+        try {
+          const { sync, ...payload } = record;
+          void sync;
+          await this.api.upsertCalibration(payload);
+          this.setSync('calibration', record.id, 'synced');
+        } catch {
+          this.setSync('calibration', record.id, 'queued');
+        }
+      }
       this.persist();
     } finally {
       this.flushing = false;
@@ -1509,7 +1646,9 @@ export class FieldAuditStore {
       | 'awareness'
       | 'documentedInfo'
       | 'performanceMetrics'
-      | 'permits',
+      | 'permits'
+      | 'incidents'
+      | 'calibration',
     id: string,
     sync: SyncState,
   ): void {
@@ -1534,6 +1673,8 @@ export class FieldAuditStore {
       documentedInfo: this.documentedInfo,
       performanceMetrics: this.performanceMetrics,
       permits: this.permits,
+      incidents: this.incidents,
+      calibration: this.calibration,
     };
     const ref = map[collection] as unknown as {
       update: (fn: (list: SyncRecord[]) => SyncRecord[]) => void;
@@ -1592,6 +1733,8 @@ export class FieldAuditStore {
       documentedInfo: this.documentedInfo(),
       performanceMetrics: this.performanceMetrics(),
       permits: this.permits(),
+      incidents: this.incidents(),
+      calibration: this.calibration(),
       reportMeta: this.reportMeta(),
       reportSignedAt: this.reportSignedAt(),
     };
@@ -1623,6 +1766,8 @@ export class FieldAuditStore {
       this.documentedInfo.set((payload.documentedInfo ?? []).map((d) => ({ ...d, sync: 'synced' as const })));
       this.performanceMetrics.set((payload.performanceMetrics ?? []).map((m) => ({ ...m, sync: 'synced' as const })));
       this.permits.set((payload.permits ?? []).map((p) => ({ ...p, sync: 'synced' as const })));
+      this.incidents.set((payload.incidents ?? []).map((i) => ({ ...i, sync: 'synced' as const })));
+      this.calibration.set((payload.calibration ?? []).map((c) => ({ ...c, sync: 'synced' as const })));
       // Report front-matter: prefer the server copy (shared across the team),
       // falling back to defaults, then overlay scope/dates from the audit record.
       this.reportMeta.set(
@@ -1675,6 +1820,8 @@ export class FieldAuditStore {
     this.documentedInfo.set(saved.documentedInfo ?? []);
     this.performanceMetrics.set(saved.performanceMetrics ?? seedPerformanceMetrics());
     this.permits.set(saved.permits ?? seedPermits());
+    this.incidents.set(saved.incidents ?? seedIncidents());
+    this.calibration.set(saved.calibration ?? seedCalibration());
     if (saved.reportMeta) this.reportMeta.set({ ...defaultReportMeta(), ...saved.reportMeta });
     this.reportSignedAt.set(saved.reportSignedAt ?? null);
     const restored = await Promise.all(

@@ -46,6 +46,28 @@
     }
   </article>
 
+  @if (schedule().length) {
+    <article class="panel">
+      <div class="p-head"><h2>Schedule &amp; deadlines</h2></div>
+      <p class="muted">Upcoming audits, permit renewals and case deadlines on one timeline. Overdue items are flagged.</p>
+      <div class="timeline">
+        @for (group of schedule(); track group.month) {
+          <div class="tl-month">
+            <h3>{{ group.month }}</h3>
+            @for (event of group.events; track event.id) {
+              <a class="tl-event {{ event.tone }}" [class.overdue]="event.overdue" [routerLink]="event.link">
+                <span class="tl-date">{{ event.date.slice(8, 10) }}</span>
+                <mat-icon aria-hidden="true">{{ scheduleIcon(event.kind) }}</mat-icon>
+                <span class="tl-label">{{ event.label }}</span>
+                @if (event.overdue) { <span class="tl-flag">overdue</span> }
+              </a>
+            }
+          </div>
+        }
+      </div>
+    </article>
+  }
+
   @if (store.programme(); as p) {
     <article class="panel">
       <div class="p-head">
