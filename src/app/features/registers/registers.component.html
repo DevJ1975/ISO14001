@@ -495,6 +495,51 @@
         }
       </div>
     }
+    @case ('incidents') {
+      <div class="reg">
+        <div class="reg-head">
+          <h2>Environmental incidents &amp; near-misses</h2>
+          <button mat-flat-button color="primary" type="button" (click)="store.addIncident()"><mat-icon aria-hidden="true">add</mat-icon>Add</button>
+        </div>
+        @for (row of store.incidents(); track row.id) {
+          <article class="tile row">
+            <label class="fld"><span>Title</span><input [value]="row.title" (change)="store.updateIncident(row.id, { title: $any($event.target).value })" /></label>
+            <div class="grid3">
+              <label class="fld"><span>Occurred</span><input type="date" [value]="row.occurredAt || ''" (change)="store.updateIncident(row.id, { occurredAt: $any($event.target).value })" /></label>
+              <label class="fld"><span>Type</span>
+                <select [value]="row.incidentType" (change)="store.updateIncident(row.id, { incidentType: $any($event.target).value })">
+                  <option value="spill">Spill</option><option value="release">Release</option><option value="exceedance">Limit exceedance</option><option value="wasteBreach">Waste breach</option><option value="complaint">Complaint</option><option value="nearMiss">Near-miss</option><option value="other">Other</option>
+                </select>
+              </label>
+              <label class="fld"><span>Severity</span>
+                <select [value]="row.severity" (change)="store.updateIncident(row.id, { severity: $any($event.target).value })">
+                  <option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option>
+                </select>
+              </label>
+            </div>
+            <label class="fld"><span>Location</span><input [value]="row.location || ''" (change)="store.updateIncident(row.id, { location: $any($event.target).value })" /></label>
+            <label class="fld"><span>What happened</span><input [value]="row.description || ''" (change)="store.updateIncident(row.id, { description: $any($event.target).value })" /></label>
+            <label class="fld"><span>Immediate action / containment</span><input [value]="row.immediateAction || ''" (change)="store.updateIncident(row.id, { immediateAction: $any($event.target).value })" /></label>
+            <label class="fld"><span>Root cause</span><input [value]="row.rootCause || ''" (change)="store.updateIncident(row.id, { rootCause: $any($event.target).value })" /></label>
+            <div class="grid2">
+              <label class="fld"><span>Status</span>
+                <select [value]="row.status" (change)="store.updateIncident(row.id, { status: $any($event.target).value })">
+                  <option value="open">Open</option><option value="investigating">Investigating</option><option value="actioned">Actioned</option><option value="closed">Closed</option>
+                </select>
+              </label>
+              <label class="chk2"><input type="checkbox" [checked]="row.reportableToRegulator || false" (change)="store.updateIncident(row.id, { reportableToRegulator: $any($event.target).checked })" /> Reportable to regulator</label>
+            </div>
+            <div class="results">
+              @for (r of results; track r.value) {
+                <button type="button" class="rp {{ r.tone }}" [class.on]="row.result === r.value" (click)="store.updateIncident(row.id, { result: r.value })">{{ r.label }}</button>
+              }
+            </div>
+          </article>
+        } @empty {
+          <div class="panel empty"><mat-icon aria-hidden="true">report</mat-icon><strong>No incidents logged</strong><span>Record environmental incidents, spills and near-misses, their containment and root cause (cl. 10.2).</span></div>
+        }
+      </div>
+    }
     @case ('review') {
       <div class="reg">
         <div class="reg-head">

@@ -98,6 +98,7 @@ describe('EMS governance API routes', () => {
     { path: 'documented-info', collection: 'documentedInfo', body: { id: 'doc-1', document: 'EMS Manual', controlStatus: 'controlled', result: 'conforming' }, check: 'document' },
     { path: 'performance-metrics', collection: 'performanceMetrics', body: { id: 'metric-1', indicator: 'Electricity', category: 'energy', unit: 'MWh', targetValue: 1200, actualValue: 1185, trend: 'improving', result: 'conforming' }, check: 'indicator' },
     { path: 'permits', collection: 'permits', body: { id: 'permit-1', title: 'Environmental permit', permitType: 'permit', reference: 'EPR/AB1234CD', expiresAt: '2027-09-30', renewalReminderDays: 90, complianceStatus: 'compliant', result: 'conforming' }, check: 'title' },
+    { path: 'incidents', collection: 'incidents', body: { id: 'inc-1', title: 'Oil spill', incidentType: 'spill', severity: 'high', status: 'investigating', reportableToRegulator: false, result: 'needsFollowUp' }, check: 'title' },
   ];
 
   for (const { path, collection, body, check } of cases) {

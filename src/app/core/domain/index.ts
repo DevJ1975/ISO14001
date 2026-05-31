@@ -9,6 +9,7 @@ export * from './checklists.js';
 export * from './complaints.js';
 export * from './multi-site-sampling.js';
 export * from './ems-governance.js';
+export * from './ems-incidents.js';
 export * from './ems-legal.js';
 export * from './ems-performance.js';
 export * from './ems-registers.js';

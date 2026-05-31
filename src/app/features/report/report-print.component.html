@@ -136,7 +136,7 @@
         || store.communications().length || store.managementReviews().length
         || store.risksOpportunities().length || store.resources().length
         || store.competence().length || store.awareness().length || store.documentedInfo().length
-        || store.performanceMetrics().length || store.permits().length) {
+        || store.performanceMetrics().length || store.permits().length || store.incidents().length) {
     <section class="block">
       <h2>6. EMS registers</h2>
       @if (store.aspects().length) {
@@ -307,6 +307,18 @@
               <tr><td>{{ p.title }}</td><td class="nowrap">{{ p.permitType }}</td><td class="nowrap">{{ p.reference || '—' }}</td>
                 <td class="nowrap">{{ formatDate(p.expiresAt) }}</td><td class="nowrap">{{ permitStatusLabel(p) }}</td>
                 <td class="nowrap">{{ p.complianceStatus }}</td><td class="nowrap">{{ resultLabel(p.result) }}</td></tr>
+            }
+          </tbody>
+        </table>
+      }
+      @if (store.incidents().length) {
+        <h3>Environmental incidents &amp; near-misses (cl. 10.2)</h3>
+        <table class="grid">
+          <thead><tr><th>Title</th><th>Date</th><th>Type</th><th>Severity</th><th>Status</th><th>Result</th></tr></thead>
+          <tbody>
+            @for (i of store.incidents(); track i.id) {
+              <tr><td>{{ i.title }}</td><td class="nowrap">{{ formatDate(i.occurredAt) }}</td><td class="nowrap">{{ i.incidentType }}</td>
+                <td class="nowrap">{{ i.severity }}</td><td class="nowrap">{{ i.status }}</td><td class="nowrap">{{ resultLabel(i.result) }}</td></tr>
             }
           </tbody>
         </table>
