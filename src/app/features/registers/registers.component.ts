@@ -25,7 +25,18 @@ import {
   TrainingStatus,
   trainingStatus,
 } from '../../core/domain';
+import { CsvExportService } from '../../core/export/csv-export.service';
 import { EnvironmentalAspect, FieldAuditStore, Permit, RegisterResult } from '../../core/field/field-audit-store';
+import {
+  calibrationColumns,
+  carbonColumns,
+  changeColumns,
+  documentColumns,
+  incidentColumns,
+  permitColumns,
+  supplierColumns,
+  trainingColumns,
+} from './registers-export';
 
 type Tab =
   | 'aspects'
@@ -60,6 +71,7 @@ type Tone = 'positive' | 'progress' | 'critical' | 'neutral';
 })
 export class RegistersComponent {
   protected readonly store = inject(FieldAuditStore);
+  private readonly csv = inject(CsvExportService);
   protected readonly tab = signal<Tab>('aspects');
   protected readonly hintsOpen = signal(false);
 
@@ -122,6 +134,46 @@ export class RegistersComponent {
 
   protected setTab(value: Tab): void {
     this.tab.set(value);
+  }
+
+  /**
+   * Resolve the active tab to a CSV export spec (label + rows + columns), or null
+   * for registers without a structured exporter. Keeps the template a single call.
+   */
+  private exportSpec(): { label: string; rows: readonly unknown[]; columns: readonly { header: string; value: (row: never) => unknown }[] } | null {
+    switch (this.tab()) {
+      case 'calibration':
+        return { label: 'Calibration register', rows: this.store.calibration(), columns: calibrationColumns };
+      case 'training':
+        return { label: 'Training matrix', rows: this.store.training(), columns: trainingColumns };
+      case 'suppliers':
+        return { label: 'Supplier evaluation', rows: this.store.suppliers(), columns: supplierColumns };
+      case 'changes':
+        return { label: 'Management of change', rows: this.store.changes(), columns: changeColumns };
+      case 'carbon':
+        return { label: 'Carbon inventory', rows: this.store.carbon(), columns: carbonColumns };
+      case 'incidents':
+        return { label: 'Incident register', rows: this.store.incidents(), columns: incidentColumns };
+      case 'permits':
+        return { label: 'Permit register', rows: this.store.permits(), columns: permitColumns };
+      case 'documents':
+        return { label: 'Document register', rows: this.store.documentedInfo(), columns: documentColumns };
+      default:
+        return null;
+    }
+  }
+
+  /** True when the active register has a CSV exporter and at least one row. */
+  protected canExport(): boolean {
+    const spec = this.exportSpec();
+    return !!spec && spec.rows.length > 0;
+  }
+
+  /** Download the active register as a CSV file (client-side, offline-capable). */
+  protected exportCsv(): void {
+    const spec = this.exportSpec();
+    if (!spec) return;
+    this.csv.download(spec.label, spec.rows as never[], spec.columns as never);
   }
 
   protected toggleHints(): void {
