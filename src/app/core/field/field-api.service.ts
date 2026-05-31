@@ -10,8 +10,13 @@ import type {
   AuditMeeting,
   AuditStatus,
   AuditSummary,
+  AwarenessRecord,
+  ChangeLogEntry,
+  ReportMeta,
   CommunicationRecord,
+  CompetenceRecord,
   ComplianceObligation,
+  DocumentedInfoRecord,
   EmergencyRecord,
   EnvironmentalAspect,
   EnvironmentalObjective,
@@ -22,6 +27,8 @@ import type {
   FieldResult,
   InterestedParty,
   ManagementReviewRecord,
+  ResourceRecord,
+  RiskOpportunity,
 } from './field-audit-store';
 
 export interface Member {
@@ -48,6 +55,13 @@ export interface FieldStatePayload {
   objectives?: Array<Omit<EnvironmentalObjective, 'sync'>>;
   communications?: Array<Omit<CommunicationRecord, 'sync'>>;
   managementReviews?: Array<Omit<ManagementReviewRecord, 'sync'>>;
+  risksOpportunities?: Array<Omit<RiskOpportunity, 'sync'>>;
+  resources?: Array<Omit<ResourceRecord, 'sync'>>;
+  competence?: Array<Omit<CompetenceRecord, 'sync'>>;
+  awareness?: Array<Omit<AwarenessRecord, 'sync'>>;
+  documentedInfo?: Array<Omit<DocumentedInfoRecord, 'sync'>>;
+  reportMeta?: Omit<ReportMeta, 'sync'> | null;
+  changeLog?: ChangeLogEntry[];
 }
 
 /** Thin client over the tenant-scoped field-audit endpoints. The bearer token is
@@ -166,6 +180,10 @@ export class FieldApiService {
     return firstValueFrom(this.http.put(`${this.base()}/conclusion`, body));
   }
 
+  saveReportMeta(body: Omit<ReportMeta, 'sync'>): Promise<unknown> {
+    return firstValueFrom(this.http.put(`${this.base()}/report-meta`, body));
+  }
+
   signReport(body: { attestation: string }): Promise<{ signedAt?: string }> {
     return firstValueFrom(this.http.post<{ signedAt?: string }>(`${this.base()}/reports/signoff`, body));
   }
@@ -196,6 +214,26 @@ export class FieldApiService {
 
   upsertManagementReview(body: Omit<ManagementReviewRecord, 'sync'>): Promise<unknown> {
     return firstValueFrom(this.http.put(`${this.base()}/management-reviews/${encodeURIComponent(body.id)}`, body));
+  }
+
+  upsertRiskOpportunity(body: Omit<RiskOpportunity, 'sync'>): Promise<unknown> {
+    return firstValueFrom(this.http.put(`${this.base()}/risks-opportunities/${encodeURIComponent(body.id)}`, body));
+  }
+
+  upsertResource(body: Omit<ResourceRecord, 'sync'>): Promise<unknown> {
+    return firstValueFrom(this.http.put(`${this.base()}/resources/${encodeURIComponent(body.id)}`, body));
+  }
+
+  upsertCompetence(body: Omit<CompetenceRecord, 'sync'>): Promise<unknown> {
+    return firstValueFrom(this.http.put(`${this.base()}/competence/${encodeURIComponent(body.id)}`, body));
+  }
+
+  upsertAwareness(body: Omit<AwarenessRecord, 'sync'>): Promise<unknown> {
+    return firstValueFrom(this.http.put(`${this.base()}/awareness/${encodeURIComponent(body.id)}`, body));
+  }
+
+  upsertDocumentedInfo(body: Omit<DocumentedInfoRecord, 'sync'>): Promise<unknown> {
+    return firstValueFrom(this.http.put(`${this.base()}/documented-info/${encodeURIComponent(body.id)}`, body));
   }
 
   private tenantBase(): string {

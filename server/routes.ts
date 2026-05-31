@@ -37,6 +37,35 @@ interface RouteMatch {
 
 const jsonContentType = { 'content-type': 'application/json; charset=utf-8' };
 
+// In-memory login throttle: after MAX_ATTEMPTS failures for a key within
+// WINDOW_MS, further attempts are refused until the window elapses. Good enough
+// for a single-process dev/reference server; a multi-instance deployment should
+// back this with a shared store (Redis) or an edge rate limiter.
+const LOGIN_MAX_ATTEMPTS = 5;
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const loginAttempts = new Map<string, { count: number; firstAt: number }>();
+
+function loginRateLimited(key: string): boolean {
+  const now = Date.now();
+  const entry = loginAttempts.get(key);
+  if (!entry || now - entry.firstAt > LOGIN_WINDOW_MS) return false;
+  return entry.count >= LOGIN_MAX_ATTEMPTS;
+}
+
+function recordLoginFailure(key: string): void {
+  const now = Date.now();
+  const entry = loginAttempts.get(key);
+  if (!entry || now - entry.firstAt > LOGIN_WINDOW_MS) {
+    loginAttempts.set(key, { count: 1, firstAt: now });
+  } else {
+    entry.count += 1;
+  }
+}
+
+function clearLoginFailures(key: string): void {
+  loginAttempts.delete(key);
+}
+
 const tenantPath = '([^/]+)';
 const auditPath = '([^/]+)';
 const reportPath = '([^/]+)';
@@ -89,6 +118,26 @@ function sendError(response: ServerResponse, error: unknown, corsOrigin: string)
   }
 
   sendJson(response, 500, { error: 'Unexpected backend error.' }, corsOrigin);
+}
+
+/**
+ * Append an immutable change-log entry — the audit trail an audit tool needs
+ * (who changed what, when). Best-effort: logging failure must never block the
+ * underlying write, so callers don't await rejection paths.
+ */
+async function recordChange(
+  db: Db,
+  entry: { tenantId: string; auditId?: string; actorUid: string; action: string; target: string; targetId?: string },
+): Promise<void> {
+  try {
+    await db.collection(mongoCollections.changeLog).insertOne({
+      id: `chg-${randomUUID()}`,
+      ...entry,
+      at: new Date().toISOString(),
+    });
+  } catch {
+    // Never let audit logging break the request it is recording.
+  }
 }
 
 function createBackendJob(input: {
@@ -228,6 +277,21 @@ const signoffCommandSchema = z.object({
   attestation: z.string().min(20).max(1000),
 });
 
+const reportMetaCommandSchema = z.object({
+  auditType: z.enum(['internal', 'stage1', 'stage2', 'surveillance', 'recertification']).default('stage2'),
+  scope: z.string().max(4000).default(''),
+  objectives: z.string().max(4000).default(''),
+  startsAt: z.string().optional(),
+  endsAt: z.string().optional(),
+  sites: z.string().max(2000).default(''),
+  auditTrail: z.string().max(8000).default(''),
+  leadAuditorName: z.string().max(300).default(''),
+  auditorCompetence: z.string().max(1000).default(''),
+  impartialityDeclared: z.boolean().default(false),
+  distribution: z.string().max(1000).default(''),
+  reportVersion: z.number().int().positive().default(1),
+});
+
 const registerResultSchema = z.enum(['notStarted', 'conforming', 'nonconforming', 'notApplicable', 'needsFollowUp']);
 
 const aspectUpsertCommandSchema = z.object({
@@ -296,6 +360,50 @@ const managementReviewUpsertCommandSchema = z.object({
   inputs: z.string().max(4000).optional(),
   decisions: z.string().max(4000).optional(),
   actions: z.string().max(4000).optional(),
+  result: registerResultSchema.default('notStarted'),
+});
+
+const riskOpportunityUpsertCommandSchema = z.object({
+  id: z.string().min(1),
+  description: z.string().max(500).default(''),
+  kind: z.enum(['risk', 'opportunity']).default('risk'),
+  significance: z.enum(['low', 'medium', 'high']).default('medium'),
+  treatment: z.string().max(2000).optional(),
+  result: registerResultSchema.default('notStarted'),
+});
+
+const resourceUpsertCommandSchema = z.object({
+  id: z.string().min(1),
+  resource: z.string().max(300).default(''),
+  category: z.enum(['people', 'infrastructure', 'financial', 'technology']).default('people'),
+  adequacy: z.enum(['adequate', 'partial', 'inadequate']).default('adequate'),
+  notes: z.string().max(2000).optional(),
+  result: registerResultSchema.default('notStarted'),
+});
+
+const competenceUpsertCommandSchema = z.object({
+  id: z.string().min(1),
+  role: z.string().max(300).default(''),
+  requiredCompetence: z.string().max(2000).optional(),
+  trainingEvidence: z.string().max(2000).optional(),
+  status: z.enum(['competent', 'inTraining', 'gap']).default('competent'),
+  result: registerResultSchema.default('notStarted'),
+});
+
+const awarenessUpsertCommandSchema = z.object({
+  id: z.string().min(1),
+  topic: z.string().max(300).default(''),
+  audience: z.string().max(300).optional(),
+  method: z.string().max(300).optional(),
+  result: registerResultSchema.default('notStarted'),
+});
+
+const documentedInfoUpsertCommandSchema = z.object({
+  id: z.string().min(1),
+  document: z.string().max(300).default(''),
+  docType: z.string().max(120).optional(),
+  controlStatus: z.enum(['controlled', 'uncontrolled', 'draft', 'obsolete']).default('controlled'),
+  retention: z.string().max(300).optional(),
   result: registerResultSchema.default('notStarted'),
 });
 
@@ -415,12 +523,22 @@ export async function handleApiRequest(
 
     if (request.method === 'POST' && url.pathname === '/api/auth/login') {
       const command = await readJson(request, loginCommandSchema);
+      // Throttle brute-force attempts by email + client IP.
+      const fwd = request.headers['x-forwarded-for'];
+      const clientIp = (Array.isArray(fwd) ? fwd[0] : fwd) ?? request.socket?.remoteAddress ?? 'local';
+      const rateKey = `${command.email.toLowerCase()}|${clientIp}`;
+      if (loginRateLimited(rateKey)) {
+        sendJson(response, 429, { error: 'Too many failed sign-in attempts. Try again later.' }, corsOrigin);
+        return;
+      }
       const member = await dependencies.db
         .collection(mongoCollections.members)
         .findOne({ 'profile.email': command.email.toLowerCase(), status: 'active' });
       if (!member || typeof member['passwordHash'] !== 'string' || !verifyPassword(command.password, member['passwordHash'])) {
+        recordLoginFailure(rateKey);
         throw new ApiAuthError('Invalid email or password.');
       }
+      clearLoginFailures(rateKey);
       const profile = member['profile'] as { displayName?: string; email?: string } | undefined;
       const { token, expiresAt } = issueMemberToken(
         { uid: String(member['uid']), tenantId: String(member['tenantId']), role: String(member['role']) },
@@ -724,6 +842,21 @@ export async function handleApiRequest(
           dependencies.db.collection(mongoCollections.communicationRecords).find({ tenantId, auditId }, { projection: { _id: 0 } }).toArray(),
           dependencies.db.collection(mongoCollections.managementReviews).find({ tenantId, auditId }, { projection: { _id: 0 } }).toArray(),
         ]);
+      const [risksOpportunities, resources, competence, awareness, documentedInfo] = await Promise.all([
+        dependencies.db.collection(mongoCollections.risksOpportunities).find({ tenantId, auditId }, { projection: { _id: 0 } }).toArray(),
+        dependencies.db.collection(mongoCollections.resourceRecords).find({ tenantId, auditId }, { projection: { _id: 0 } }).toArray(),
+        dependencies.db.collection(mongoCollections.competenceRecords).find({ tenantId, auditId }, { projection: { _id: 0 } }).toArray(),
+        dependencies.db.collection(mongoCollections.awarenessRecords).find({ tenantId, auditId }, { projection: { _id: 0 } }).toArray(),
+        dependencies.db.collection(mongoCollections.documentedInfo).find({ tenantId, auditId }, { projection: { _id: 0 } }).toArray(),
+      ]);
+      const reportMeta = await dependencies.db
+        .collection(mongoCollections.reportMeta)
+        .findOne({ tenantId, auditId }, { projection: { _id: 0 } });
+      const changeLog = await dependencies.db
+        .collection(mongoCollections.changeLog)
+        .find({ tenantId, auditId }, { projection: { _id: 0 } })
+        .sort({ at: -1 })
+        .toArray();
       sendJson(
         response,
         200,
@@ -742,6 +875,13 @@ export async function handleApiRequest(
           objectives,
           communications,
           managementReviews,
+          risksOpportunities,
+          resources,
+          competence,
+          awareness,
+          documentedInfo,
+          reportMeta,
+          changeLog,
         },
         corsOrigin,
       );
@@ -847,6 +987,7 @@ export async function handleApiRequest(
       await dependencies.db
         .collection(mongoCollections.findings)
         .updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
+      await recordChange(dependencies.db, { tenantId, auditId, actorUid: actor.uid, action: 'upsert', target: 'finding', targetId: command.id });
       sendJson(response, 200, { finding: record }, corsOrigin);
       return;
     }
@@ -882,6 +1023,14 @@ export async function handleApiRequest(
           { tenantId, auditId, id: command.findingId },
           { $set: { status: command.effective ? 'closed' : 'reopened', updatedAt: now } },
         );
+      await recordChange(dependencies.db, {
+        tenantId,
+        auditId,
+        actorUid: actor.uid,
+        action: command.effective ? 'verify-effective' : 'verify-ineffective',
+        target: 'capa',
+        targetId: capaId,
+      });
       sendJson(response, 200, { ok: true }, corsOrigin);
       return;
     }
@@ -932,6 +1081,7 @@ export async function handleApiRequest(
           { $set: { tenantId, id: auditId, status: command.status, updatedAt: new Date().toISOString() } },
           { upsert: true },
         );
+      await recordChange(dependencies.db, { tenantId, auditId, actorUid: actor.uid, action: 'set-status', target: 'audit', targetId: command.status });
       sendJson(response, 200, { ok: true }, corsOrigin);
       return;
     }
@@ -974,6 +1124,25 @@ export async function handleApiRequest(
       return;
     }
 
+    const reportMetaMatch = matchPath(
+      new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/report-meta$`),
+      url.pathname,
+      ['tenantId', 'auditId'],
+    );
+    if (request.method === 'PUT' && reportMetaMatch && actor) {
+      const tenantId = reportMetaMatch.params['tenantId']!;
+      const auditId = reportMetaMatch.params['auditId']!;
+      requireTenant(actor, tenantId);
+      requireAnyRole(actor, ['leadAuditor', 'auditor']);
+      const command = await readJson(request, reportMetaCommandSchema);
+      const record = { ...command, tenantId, auditId, updatedAt: new Date().toISOString() };
+      await dependencies.db
+        .collection(mongoCollections.reportMeta)
+        .updateOne({ tenantId, auditId }, { $set: record }, { upsert: true });
+      sendJson(response, 200, { reportMeta: record }, corsOrigin);
+      return;
+    }
+
     const signoffMatch = matchPath(
       new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/reports/signoff$`),
       url.pathname,
@@ -1003,6 +1172,7 @@ export async function handleApiRequest(
       await dependencies.db
         .collection(mongoCollections.reports)
         .updateOne({ tenantId, auditId, id: reportId }, { $set: report }, { upsert: true });
+      await recordChange(dependencies.db, { tenantId, auditId, actorUid: actor.uid, action: 'sign-off', target: 'report', targetId: reportId });
       sendJson(response, 200, { signedAt: now, report }, corsOrigin);
       return;
     }
@@ -1138,6 +1308,101 @@ export async function handleApiRequest(
         .collection(mongoCollections.managementReviews)
         .updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
       sendJson(response, 200, { managementReview: record }, corsOrigin);
+      return;
+    }
+
+    const riskMatch = matchPath(
+      new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/risks-opportunities/([^/]+)$`),
+      url.pathname,
+      ['tenantId', 'auditId', 'id'],
+    );
+    if (request.method === 'PUT' && riskMatch && actor) {
+      const tenantId = riskMatch.params['tenantId']!;
+      const auditId = riskMatch.params['auditId']!;
+      requireTenant(actor, tenantId);
+      requireAnyRole(actor, ['leadAuditor', 'auditor']);
+      const command = await readJson(request, riskOpportunityUpsertCommandSchema);
+      const record = { ...command, tenantId, auditId, updatedAt: new Date().toISOString() };
+      await dependencies.db
+        .collection(mongoCollections.risksOpportunities)
+        .updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
+      sendJson(response, 200, { riskOpportunity: record }, corsOrigin);
+      return;
+    }
+
+    const resourceMatch = matchPath(
+      new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/resources/([^/]+)$`),
+      url.pathname,
+      ['tenantId', 'auditId', 'id'],
+    );
+    if (request.method === 'PUT' && resourceMatch && actor) {
+      const tenantId = resourceMatch.params['tenantId']!;
+      const auditId = resourceMatch.params['auditId']!;
+      requireTenant(actor, tenantId);
+      requireAnyRole(actor, ['leadAuditor', 'auditor']);
+      const command = await readJson(request, resourceUpsertCommandSchema);
+      const record = { ...command, tenantId, auditId, updatedAt: new Date().toISOString() };
+      await dependencies.db
+        .collection(mongoCollections.resourceRecords)
+        .updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
+      sendJson(response, 200, { resource: record }, corsOrigin);
+      return;
+    }
+
+    const competenceMatch = matchPath(
+      new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/competence/([^/]+)$`),
+      url.pathname,
+      ['tenantId', 'auditId', 'id'],
+    );
+    if (request.method === 'PUT' && competenceMatch && actor) {
+      const tenantId = competenceMatch.params['tenantId']!;
+      const auditId = competenceMatch.params['auditId']!;
+      requireTenant(actor, tenantId);
+      requireAnyRole(actor, ['leadAuditor', 'auditor']);
+      const command = await readJson(request, competenceUpsertCommandSchema);
+      const record = { ...command, tenantId, auditId, updatedAt: new Date().toISOString() };
+      await dependencies.db
+        .collection(mongoCollections.competenceRecords)
+        .updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
+      sendJson(response, 200, { competence: record }, corsOrigin);
+      return;
+    }
+
+    const awarenessMatch = matchPath(
+      new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/awareness/([^/]+)$`),
+      url.pathname,
+      ['tenantId', 'auditId', 'id'],
+    );
+    if (request.method === 'PUT' && awarenessMatch && actor) {
+      const tenantId = awarenessMatch.params['tenantId']!;
+      const auditId = awarenessMatch.params['auditId']!;
+      requireTenant(actor, tenantId);
+      requireAnyRole(actor, ['leadAuditor', 'auditor']);
+      const command = await readJson(request, awarenessUpsertCommandSchema);
+      const record = { ...command, tenantId, auditId, updatedAt: new Date().toISOString() };
+      await dependencies.db
+        .collection(mongoCollections.awarenessRecords)
+        .updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
+      sendJson(response, 200, { awareness: record }, corsOrigin);
+      return;
+    }
+
+    const documentedInfoMatch = matchPath(
+      new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/documented-info/([^/]+)$`),
+      url.pathname,
+      ['tenantId', 'auditId', 'id'],
+    );
+    if (request.method === 'PUT' && documentedInfoMatch && actor) {
+      const tenantId = documentedInfoMatch.params['tenantId']!;
+      const auditId = documentedInfoMatch.params['auditId']!;
+      requireTenant(actor, tenantId);
+      requireAnyRole(actor, ['leadAuditor', 'auditor']);
+      const command = await readJson(request, documentedInfoUpsertCommandSchema);
+      const record = { ...command, tenantId, auditId, updatedAt: new Date().toISOString() };
+      await dependencies.db
+        .collection(mongoCollections.documentedInfo)
+        .updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
+      sendJson(response, 200, { documentedInfo: record }, corsOrigin);
       return;
     }
 

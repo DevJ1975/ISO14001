@@ -133,7 +133,9 @@
   <!-- 6. EMS registers -->
   @if (store.aspects().length || store.obligations().length || store.emergencyRecords().length
         || store.interestedParties().length || store.objectives().length
-        || store.communications().length || store.managementReviews().length) {
+        || store.communications().length || store.managementReviews().length
+        || store.risksOpportunities().length || store.resources().length
+        || store.competence().length || store.awareness().length || store.documentedInfo().length) {
     <section class="block">
       <h2>6. EMS registers</h2>
       @if (store.aspects().length) {
@@ -220,6 +222,66 @@
           </tbody>
         </table>
       }
+      @if (store.risksOpportunities().length) {
+        <h3>Risks &amp; opportunities (cl. 6.1.1)</h3>
+        <table class="grid">
+          <thead><tr><th>Description</th><th>Type</th><th>Significance</th><th>Treatment</th><th>Result</th></tr></thead>
+          <tbody>
+            @for (r of store.risksOpportunities(); track r.id) {
+              <tr><td>{{ r.description }}</td><td class="nowrap">{{ r.kind }}</td><td class="nowrap">{{ r.significance }}</td>
+                <td>{{ r.treatment || '—' }}</td><td class="nowrap">{{ resultLabel(r.result) }}</td></tr>
+            }
+          </tbody>
+        </table>
+      }
+      @if (store.resources().length) {
+        <h3>Resources (cl. 7.1)</h3>
+        <table class="grid">
+          <thead><tr><th>Resource</th><th>Category</th><th>Adequacy</th><th>Result</th></tr></thead>
+          <tbody>
+            @for (r of store.resources(); track r.id) {
+              <tr><td>{{ r.resource }}</td><td class="nowrap">{{ r.category }}</td><td class="nowrap">{{ r.adequacy }}</td>
+                <td class="nowrap">{{ resultLabel(r.result) }}</td></tr>
+            }
+          </tbody>
+        </table>
+      }
+      @if (store.competence().length) {
+        <h3>Competence &amp; training (cl. 7.2)</h3>
+        <table class="grid">
+          <thead><tr><th>Role</th><th>Required competence</th><th>Status</th><th>Result</th></tr></thead>
+          <tbody>
+            @for (c of store.competence(); track c.id) {
+              <tr><td>{{ c.role }}</td><td>{{ c.requiredCompetence || '—' }}</td><td class="nowrap">{{ c.status }}</td>
+                <td class="nowrap">{{ resultLabel(c.result) }}</td></tr>
+            }
+          </tbody>
+        </table>
+      }
+      @if (store.awareness().length) {
+        <h3>Awareness (cl. 7.3)</h3>
+        <table class="grid">
+          <thead><tr><th>Topic</th><th>Audience</th><th>Method</th><th>Result</th></tr></thead>
+          <tbody>
+            @for (a of store.awareness(); track a.id) {
+              <tr><td>{{ a.topic }}</td><td>{{ a.audience || '—' }}</td><td>{{ a.method || '—' }}</td>
+                <td class="nowrap">{{ resultLabel(a.result) }}</td></tr>
+            }
+          </tbody>
+        </table>
+      }
+      @if (store.documentedInfo().length) {
+        <h3>Documented information (cl. 7.5)</h3>
+        <table class="grid">
+          <thead><tr><th>Document</th><th>Type</th><th>Control</th><th>Retention</th><th>Result</th></tr></thead>
+          <tbody>
+            @for (d of store.documentedInfo(); track d.id) {
+              <tr><td>{{ d.document }}</td><td class="nowrap">{{ d.docType || '—' }}</td><td class="nowrap">{{ d.controlStatus }}</td>
+                <td>{{ d.retention || '—' }}</td><td class="nowrap">{{ resultLabel(d.result) }}</td></tr>
+            }
+          </tbody>
+        </table>
+      }
     </section>
   }
 
@@ -287,8 +349,8 @@
       <p class="muted">This report has not yet been signed off.</p>
     }
     <div class="sign-row">
-      <div class="sign-line"><span></span><label>Lead auditor — {{ preparedBy() }}</label></div>
-      <div class="sign-line"><span></span><label>Date</label></div>
+      <div class="sign-line"><span class="rule"></span><span class="cap">Lead auditor — {{ preparedBy() }}</span></div>
+      <div class="sign-line"><span class="rule"></span><span class="cap">Date</span></div>
     </div>
   </section>
 

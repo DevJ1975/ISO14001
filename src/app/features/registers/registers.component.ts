@@ -6,11 +6,16 @@ import { FieldAuditStore, RegisterResult } from '../../core/field/field-audit-st
 
 type Tab =
   | 'aspects'
+  | 'risks'
   | 'compliance'
+  | 'objectives'
+  | 'resources'
+  | 'competence'
+  | 'awareness'
+  | 'communication'
+  | 'documents'
   | 'emergency'
   | 'parties'
-  | 'objectives'
-  | 'communication'
   | 'review';
 type Tone = 'positive' | 'progress' | 'critical' | 'neutral';
 
@@ -28,11 +33,16 @@ export class RegistersComponent {
 
   protected readonly tabs: { value: Tab; label: string; icon: string }[] = [
     { value: 'aspects', label: 'Aspects', icon: 'eco' },
+    { value: 'risks', label: 'Risks/opps', icon: 'balance' },
     { value: 'compliance', label: 'Compliance', icon: 'gavel' },
+    { value: 'objectives', label: 'Objectives', icon: 'flag_circle' },
+    { value: 'resources', label: 'Resources', icon: 'inventory_2' },
+    { value: 'competence', label: 'Competence', icon: 'school' },
+    { value: 'awareness', label: 'Awareness', icon: 'campaign' },
+    { value: 'communication', label: 'Comms', icon: 'forum' },
+    { value: 'documents', label: 'Documents', icon: 'description' },
     { value: 'emergency', label: 'Emergency', icon: 'emergency' },
     { value: 'parties', label: 'Parties', icon: 'groups' },
-    { value: 'objectives', label: 'Objectives', icon: 'flag_circle' },
-    { value: 'communication', label: 'Comms', icon: 'forum' },
     { value: 'review', label: 'Mgmt review', icon: 'fact_check' },
   ];
 

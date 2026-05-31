@@ -52,6 +52,16 @@ export type RegisterResult = 'notStarted' | 'conforming' | 'nonconforming' | 'no
 
 export type AuditType = 'internal' | 'stage1' | 'stage2' | 'surveillance' | 'recertification';
 
+/** Immutable change-log entry (audit trail) returned by the backend. */
+export interface ChangeLogEntry {
+  id: string;
+  actorUid: string;
+  action: string;
+  target: string;
+  targetId?: string;
+  at: string;
+}
+
 /**
  * Report front-matter expected on a UKAS-style ISO 14001 report (audit type,
  * dates, scope, criteria, sampling, auditor competence & impartiality,
@@ -191,6 +201,65 @@ export interface ManagementReviewRecord {
   sync: SyncState;
 }
 
+/** Risks & opportunities and their treatment (ISO 14001 cl. 6.1.1). */
+export interface RiskOpportunity {
+  id: string;
+  description: string;
+  kind: 'risk' | 'opportunity';
+  significance: 'low' | 'medium' | 'high';
+  treatment?: string;
+  result: RegisterResult;
+  updatedAt: string;
+  sync: SyncState;
+}
+
+/** Resources provided for the EMS (ISO 14001 cl. 7.1). */
+export interface ResourceRecord {
+  id: string;
+  resource: string;
+  category: 'people' | 'infrastructure' | 'financial' | 'technology';
+  adequacy: 'adequate' | 'partial' | 'inadequate';
+  notes?: string;
+  result: RegisterResult;
+  updatedAt: string;
+  sync: SyncState;
+}
+
+/** Competence & training under the EMS (ISO 14001 cl. 7.2). */
+export interface CompetenceRecord {
+  id: string;
+  role: string;
+  requiredCompetence?: string;
+  trainingEvidence?: string;
+  status: 'competent' | 'inTraining' | 'gap';
+  result: RegisterResult;
+  updatedAt: string;
+  sync: SyncState;
+}
+
+/** Awareness of policy, aspects and roles (ISO 14001 cl. 7.3). */
+export interface AwarenessRecord {
+  id: string;
+  topic: string;
+  audience?: string;
+  method?: string;
+  result: RegisterResult;
+  updatedAt: string;
+  sync: SyncState;
+}
+
+/** Documented information & its control (ISO 14001 cl. 7.5). */
+export interface DocumentedInfoRecord {
+  id: string;
+  document: string;
+  docType?: string;
+  controlStatus: 'controlled' | 'uncontrolled' | 'draft' | 'obsolete';
+  retention?: string;
+  result: RegisterResult;
+  updatedAt: string;
+  sync: SyncState;
+}
+
 export interface FieldChecklistItem {
   id: string;
   clauseId: string;
@@ -273,6 +342,11 @@ interface PersistedState {
   objectives: EnvironmentalObjective[];
   communications: CommunicationRecord[];
   managementReviews: ManagementReviewRecord[];
+  risksOpportunities: RiskOpportunity[];
+  resources: ResourceRecord[];
+  competence: CompetenceRecord[];
+  awareness: AwarenessRecord[];
+  documentedInfo: DocumentedInfoRecord[];
   reportMeta: ReportMeta;
   reportSignedAt: string | null;
 }
@@ -410,7 +484,14 @@ export class FieldAuditStore {
   readonly objectives = signal<EnvironmentalObjective[]>([]);
   readonly communications = signal<CommunicationRecord[]>([]);
   readonly managementReviews = signal<ManagementReviewRecord[]>([]);
+  readonly risksOpportunities = signal<RiskOpportunity[]>([]);
+  readonly resources = signal<ResourceRecord[]>([]);
+  readonly competence = signal<CompetenceRecord[]>([]);
+  readonly awareness = signal<AwarenessRecord[]>([]);
+  readonly documentedInfo = signal<DocumentedInfoRecord[]>([]);
   readonly reportMeta = signal<ReportMeta>(defaultReportMeta());
+  /** Read-only audit trail from the backend (not synced upward). */
+  readonly changeLog = signal<ChangeLogEntry[]>([]);
   readonly reportSignedAt = signal<string | null>(null);
   readonly online = signal(typeof navigator === 'undefined' ? true : navigator.onLine);
   readonly source = signal<DataSource>('local');
@@ -438,7 +519,13 @@ export class FieldAuditStore {
       this.objectives().filter((o) => o.sync !== 'synced').length +
       this.communications().filter((c) => c.sync !== 'synced').length +
       this.managementReviews().filter((m) => m.sync !== 'synced').length +
-      (this.conclusion() && this.conclusion()!.sync !== 'synced' ? 1 : 0),
+      this.risksOpportunities().filter((r) => r.sync !== 'synced').length +
+      this.resources().filter((r) => r.sync !== 'synced').length +
+      this.competence().filter((c) => c.sync !== 'synced').length +
+      this.awareness().filter((a) => a.sync !== 'synced').length +
+      this.documentedInfo().filter((d) => d.sync !== 'synced').length +
+      (this.conclusion() && this.conclusion()!.sync !== 'synced' ? 1 : 0) +
+      (this.reportMeta().sync !== 'synced' ? 1 : 0),
   );
 
   readonly nextAuditStatuses = computed(() => {
@@ -694,10 +781,12 @@ export class FieldAuditStore {
     this.autoFlush();
   }
 
-  /** Update the report front-matter (UK-style report metadata). Persisted locally. */
+  /** Update the report front-matter (UK-style report metadata). Synced to the
+   *  backend so it travels across devices/team members, like the conclusion. */
   updateReportMeta(patch: Partial<Omit<ReportMeta, 'sync'>>): void {
-    this.reportMeta.update((meta) => ({ ...meta, ...patch }));
+    this.reportMeta.update((meta) => ({ ...meta, ...patch, sync: 'queued' }));
     this.persist();
+    this.autoFlush();
   }
 
   addAspect(): void {
@@ -819,6 +908,91 @@ export class FieldAuditStore {
     this.autoFlush();
   }
 
+  addRiskOpportunity(): void {
+    this.risksOpportunities.update((list) => [
+      { id: uid('risk'), description: '', kind: 'risk', significance: 'medium', result: 'notStarted', updatedAt: new Date().toISOString(), sync: 'queued' },
+      ...list,
+    ]);
+    this.persist();
+    this.autoFlush();
+  }
+
+  updateRiskOpportunity(id: string, patch: Partial<RiskOpportunity>): void {
+    this.risksOpportunities.update((list) =>
+      list.map((entry) => (entry.id === id ? { ...entry, ...patch, updatedAt: new Date().toISOString(), sync: 'queued' } : entry)),
+    );
+    this.persist();
+    this.autoFlush();
+  }
+
+  addResource(): void {
+    this.resources.update((list) => [
+      { id: uid('resource'), resource: '', category: 'people', adequacy: 'adequate', result: 'notStarted', updatedAt: new Date().toISOString(), sync: 'queued' },
+      ...list,
+    ]);
+    this.persist();
+    this.autoFlush();
+  }
+
+  updateResource(id: string, patch: Partial<ResourceRecord>): void {
+    this.resources.update((list) =>
+      list.map((entry) => (entry.id === id ? { ...entry, ...patch, updatedAt: new Date().toISOString(), sync: 'queued' } : entry)),
+    );
+    this.persist();
+    this.autoFlush();
+  }
+
+  addCompetence(): void {
+    this.competence.update((list) => [
+      { id: uid('competence'), role: '', status: 'competent', result: 'notStarted', updatedAt: new Date().toISOString(), sync: 'queued' },
+      ...list,
+    ]);
+    this.persist();
+    this.autoFlush();
+  }
+
+  updateCompetence(id: string, patch: Partial<CompetenceRecord>): void {
+    this.competence.update((list) =>
+      list.map((entry) => (entry.id === id ? { ...entry, ...patch, updatedAt: new Date().toISOString(), sync: 'queued' } : entry)),
+    );
+    this.persist();
+    this.autoFlush();
+  }
+
+  addAwareness(): void {
+    this.awareness.update((list) => [
+      { id: uid('awareness'), topic: '', result: 'notStarted', updatedAt: new Date().toISOString(), sync: 'queued' },
+      ...list,
+    ]);
+    this.persist();
+    this.autoFlush();
+  }
+
+  updateAwareness(id: string, patch: Partial<AwarenessRecord>): void {
+    this.awareness.update((list) =>
+      list.map((entry) => (entry.id === id ? { ...entry, ...patch, updatedAt: new Date().toISOString(), sync: 'queued' } : entry)),
+    );
+    this.persist();
+    this.autoFlush();
+  }
+
+  addDocumentedInfo(): void {
+    this.documentedInfo.update((list) => [
+      { id: uid('doc'), document: '', controlStatus: 'controlled', result: 'notStarted', updatedAt: new Date().toISOString(), sync: 'queued' },
+      ...list,
+    ]);
+    this.persist();
+    this.autoFlush();
+  }
+
+  updateDocumentedInfo(id: string, patch: Partial<DocumentedInfoRecord>): void {
+    this.documentedInfo.update((list) =>
+      list.map((entry) => (entry.id === id ? { ...entry, ...patch, updatedAt: new Date().toISOString(), sync: 'queued' } : entry)),
+    );
+    this.persist();
+    this.autoFlush();
+  }
+
   /** Lead-auditor sign-off. Persisted to the server when live; recorded locally otherwise. */
   async signOff(attestation: string): Promise<boolean> {
     if (this.source() === 'live' && this.online()) {
@@ -880,6 +1054,11 @@ export class FieldAuditStore {
     this.objectives.set([]);
     this.communications.set([]);
     this.managementReviews.set([]);
+    this.risksOpportunities.set([]);
+    this.resources.set([]);
+    this.competence.set([]);
+    this.awareness.set([]);
+    this.documentedInfo.set([]);
     this.reportMeta.set(defaultReportMeta());
     this.reportSignedAt.set(null);
     await idbDelete('meta', META_KEY);
@@ -1012,6 +1191,17 @@ export class FieldAuditStore {
           this.conclusion.set({ ...conclusion, sync: 'queued' });
         }
       }
+      const reportMeta = this.reportMeta();
+      if (reportMeta.sync !== 'synced') {
+        try {
+          const { sync, ...payload } = reportMeta;
+          void sync;
+          await this.api.saveReportMeta(payload);
+          this.reportMeta.set({ ...reportMeta, sync: 'synced' });
+        } catch {
+          this.reportMeta.set({ ...reportMeta, sync: 'queued' });
+        }
+      }
       for (const aspect of this.aspects().filter((entry) => entry.sync !== 'synced')) {
         this.setSync('aspects', aspect.id, 'syncing');
         try {
@@ -1089,6 +1279,61 @@ export class FieldAuditStore {
           this.setSync('managementReviews', record.id, 'queued');
         }
       }
+      for (const record of this.risksOpportunities().filter((entry) => entry.sync !== 'synced')) {
+        this.setSync('risksOpportunities', record.id, 'syncing');
+        try {
+          const { sync, ...payload } = record;
+          void sync;
+          await this.api.upsertRiskOpportunity(payload);
+          this.setSync('risksOpportunities', record.id, 'synced');
+        } catch {
+          this.setSync('risksOpportunities', record.id, 'queued');
+        }
+      }
+      for (const record of this.resources().filter((entry) => entry.sync !== 'synced')) {
+        this.setSync('resources', record.id, 'syncing');
+        try {
+          const { sync, ...payload } = record;
+          void sync;
+          await this.api.upsertResource(payload);
+          this.setSync('resources', record.id, 'synced');
+        } catch {
+          this.setSync('resources', record.id, 'queued');
+        }
+      }
+      for (const record of this.competence().filter((entry) => entry.sync !== 'synced')) {
+        this.setSync('competence', record.id, 'syncing');
+        try {
+          const { sync, ...payload } = record;
+          void sync;
+          await this.api.upsertCompetence(payload);
+          this.setSync('competence', record.id, 'synced');
+        } catch {
+          this.setSync('competence', record.id, 'queued');
+        }
+      }
+      for (const record of this.awareness().filter((entry) => entry.sync !== 'synced')) {
+        this.setSync('awareness', record.id, 'syncing');
+        try {
+          const { sync, ...payload } = record;
+          void sync;
+          await this.api.upsertAwareness(payload);
+          this.setSync('awareness', record.id, 'synced');
+        } catch {
+          this.setSync('awareness', record.id, 'queued');
+        }
+      }
+      for (const record of this.documentedInfo().filter((entry) => entry.sync !== 'synced')) {
+        this.setSync('documentedInfo', record.id, 'syncing');
+        try {
+          const { sync, ...payload } = record;
+          void sync;
+          await this.api.upsertDocumentedInfo(payload);
+          this.setSync('documentedInfo', record.id, 'synced');
+        } catch {
+          this.setSync('documentedInfo', record.id, 'queued');
+        }
+      }
       this.persist();
     } finally {
       this.flushing = false;
@@ -1108,7 +1353,12 @@ export class FieldAuditStore {
       | 'interestedParties'
       | 'objectives'
       | 'communications'
-      | 'managementReviews',
+      | 'managementReviews'
+      | 'risksOpportunities'
+      | 'resources'
+      | 'competence'
+      | 'awareness'
+      | 'documentedInfo',
     id: string,
     sync: SyncState,
   ): void {
@@ -1126,6 +1376,11 @@ export class FieldAuditStore {
       objectives: this.objectives,
       communications: this.communications,
       managementReviews: this.managementReviews,
+      risksOpportunities: this.risksOpportunities,
+      resources: this.resources,
+      competence: this.competence,
+      awareness: this.awareness,
+      documentedInfo: this.documentedInfo,
     };
     const ref = map[collection] as unknown as {
       update: (fn: (list: SyncRecord[]) => SyncRecord[]) => void;
@@ -1164,7 +1419,7 @@ export class FieldAuditStore {
   private persist(): void {
     const snapshot: PersistedState = {
       items: this.items(),
-      evidence: this.evidence().map(({ thumbUrl, ...rest }) => rest),
+      evidence: this.evidence().map(({ thumbUrl: _thumbUrl, ...rest }) => rest),
       findings: this.findings(),
       capas: this.capas(),
       auditStatus: this.auditStatus(),
@@ -1177,6 +1432,11 @@ export class FieldAuditStore {
       objectives: this.objectives(),
       communications: this.communications(),
       managementReviews: this.managementReviews(),
+      risksOpportunities: this.risksOpportunities(),
+      resources: this.resources(),
+      competence: this.competence(),
+      awareness: this.awareness(),
+      documentedInfo: this.documentedInfo(),
       reportMeta: this.reportMeta(),
       reportSignedAt: this.reportSignedAt(),
     };
@@ -1201,6 +1461,19 @@ export class FieldAuditStore {
       this.objectives.set((payload.objectives ?? []).map((o) => ({ ...o, sync: 'synced' as const })));
       this.communications.set((payload.communications ?? []).map((c) => ({ ...c, sync: 'synced' as const })));
       this.managementReviews.set((payload.managementReviews ?? []).map((m) => ({ ...m, sync: 'synced' as const })));
+      this.risksOpportunities.set((payload.risksOpportunities ?? []).map((r) => ({ ...r, sync: 'synced' as const })));
+      this.resources.set((payload.resources ?? []).map((r) => ({ ...r, sync: 'synced' as const })));
+      this.competence.set((payload.competence ?? []).map((c) => ({ ...c, sync: 'synced' as const })));
+      this.awareness.set((payload.awareness ?? []).map((a) => ({ ...a, sync: 'synced' as const })));
+      this.documentedInfo.set((payload.documentedInfo ?? []).map((d) => ({ ...d, sync: 'synced' as const })));
+      // Report front-matter: prefer the server copy (shared across the team),
+      // falling back to defaults, then overlay scope/dates from the audit record.
+      this.reportMeta.set(
+        payload.reportMeta
+          ? { ...defaultReportMeta(), ...payload.reportMeta, sync: 'synced' }
+          : defaultReportMeta(),
+      );
+      this.changeLog.set(payload.changeLog ?? []);
       if (payload.audit) {
         this.auditee.set(payload.audit.auditee || this.auditee());
         this.criteria.set(payload.audit.criteria || this.criteria());
@@ -1238,6 +1511,11 @@ export class FieldAuditStore {
     this.objectives.set(saved.objectives ?? []);
     this.communications.set(saved.communications ?? []);
     this.managementReviews.set(saved.managementReviews ?? []);
+    this.risksOpportunities.set(saved.risksOpportunities ?? []);
+    this.resources.set(saved.resources ?? []);
+    this.competence.set(saved.competence ?? []);
+    this.awareness.set(saved.awareness ?? []);
+    this.documentedInfo.set(saved.documentedInfo ?? []);
     if (saved.reportMeta) this.reportMeta.set({ ...defaultReportMeta(), ...saved.reportMeta });
     this.reportSignedAt.set(saved.reportSignedAt ?? null);
     const restored = await Promise.all(

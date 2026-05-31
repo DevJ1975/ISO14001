@@ -142,6 +142,32 @@ function toMember(row) {
 const TENANT_ROLES = ['tenantAdmin', 'leadAuditor', 'auditor', 'clientViewer'];
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
+// In-memory login throttle (per email+IP). Edge functions can be multi-instance,
+// so this is best-effort defense-in-depth; pair with a platform/WAF rate limit.
+const LOGIN_MAX_ATTEMPTS = 5;
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const loginAttempts = new Map();
+function loginRateLimited(key) {
+  const entry = loginAttempts.get(key);
+  if (!entry || Date.now() - entry.firstAt > LOGIN_WINDOW_MS) return false;
+  return entry.count >= LOGIN_MAX_ATTEMPTS;
+}
+function recordLoginFailure(key) {
+  const entry = loginAttempts.get(key);
+  if (!entry || Date.now() - entry.firstAt > LOGIN_WINDOW_MS) loginAttempts.set(key, { count: 1, firstAt: Date.now() });
+  else entry.count += 1;
+}
+
+// Append an immutable change-log entry as a field record (best-effort).
+async function logChange(tenantId, auditId, actorUid, action, target, targetId) {
+  try {
+    const id = `chg-${crypto.randomUUID()}`;
+    await upsertRecord(tenantId, auditId, 'change', id, { id, actorUid, action, target, targetId, at: new Date().toISOString() });
+  } catch {
+    // never let audit logging break the request it records
+  }
+}
+
 class AuthError extends Error {}
 
 async function getActor(req) {
@@ -228,6 +254,11 @@ Deno.serve(async (req) => {
       const body = await readJson(req);
       const email = String(body.email ?? '').toLowerCase().trim();
       const password = String(body.password ?? '');
+      const clientIp = (req.headers.get('x-forwarded-for') ?? '').split(',')[0].trim() || 'edge';
+      const rateKey = `${email}|${clientIp}`;
+      if (loginRateLimited(rateKey)) {
+        return json(429, { error: 'Too many failed sign-in attempts. Try again later.' }, req);
+      }
       const { data: member } = await db.from('members').select('*').ilike('email', email).maybeSingle();
       if (
         !member ||
@@ -235,8 +266,10 @@ Deno.serve(async (req) => {
         typeof member.password_hash !== 'string' ||
         !(await verifyPassword(password, member.password_hash))
       ) {
-        return json(401, { error: 'Invalid email or password.' });
+        recordLoginFailure(rateKey);
+        return json(401, { error: 'Invalid email or password.' }, req);
       }
+      loginAttempts.delete(rateKey);
       const { token, exp } = await signJwt({ sub: member.uid, tenantId: member.tenant_id, role: member.role, platform: false });
       return json(200, {
         token,
@@ -443,8 +476,15 @@ Deno.serve(async (req) => {
           objectives: byKind('objective'),
           communications: byKind('communication'),
           managementReviews: byKind('managementReview'),
+          risksOpportunities: byKind('riskOpportunity'),
+          resources: byKind('resource'),
+          competence: byKind('competence'),
+          awareness: byKind('awareness'),
+          documentedInfo: byKind('documentedInfo'),
           meetings: byKind('meeting'),
           conclusion: single('conclusion'),
+          reportMeta: single('reportMeta'),
+          changeLog: byKind('change').sort((a, b) => String(b.at).localeCompare(String(a.at))),
           auditStatus: statusDoc?.status ?? auditRow?.doc?.status ?? 'fieldwork',
         }, req);
       }
@@ -530,7 +570,8 @@ Deno.serve(async (req) => {
             await upsertRecord(tenantId, auditId, 'finding', findingId, { ...finding, status: effective ? 'closed' : 'reopened' });
           }
         }
-        return json(200, { ok: true });
+        await logChange(tenantId, auditId, actor.uid, effective ? 'verify-effective' : 'verify-ineffective', 'capa', rest[1]);
+        return json(200, { ok: true }, req);
       }
 
       if (method === 'PUT' && rest[0] === 'capa' && rest[1]) {
@@ -549,7 +590,8 @@ Deno.serve(async (req) => {
         if (auditRow?.doc) {
           await db.from('audits').update({ doc: { ...auditRow.doc, status: body.status }, updated_at: new Date().toISOString() }).eq('tenant_id', tenantId).eq('audit_id', auditId);
         }
-        return json(200, { ok: true });
+        await logChange(tenantId, auditId, actor.uid, 'set-status', 'audit', String(body.status ?? ''));
+        return json(200, { ok: true }, req);
       }
 
       if (method === 'PUT' && rest[0] === 'meetings' && rest[1]) {
@@ -567,13 +609,29 @@ Deno.serve(async (req) => {
         return json(200, { conclusion: doc });
       }
 
+      // Report front-matter (singleton). Validated like a register so it can't
+      // persist oversized/unknown-typed fields; reportVersion kept numeric.
+      if (method === 'PUT' && rest[0] === 'report-meta') {
+        requireRole(actor, ['leadAuditor', 'auditor']);
+        const body = await readJson(req);
+        const doc = cleanRegister(body, 'report-meta');
+        doc.auditType = ['internal', 'stage1', 'stage2', 'surveillance', 'recertification'].includes(body.auditType)
+          ? body.auditType
+          : 'stage2';
+        doc.impartialityDeclared = body.impartialityDeclared === true;
+        doc.reportVersion = Number.isFinite(body.reportVersion) && body.reportVersion > 0 ? Math.floor(body.reportVersion) : 1;
+        await upsertRecord(tenantId, auditId, 'reportMeta', 'reportMeta', doc);
+        return json(200, { reportMeta: doc }, req);
+      }
+
       if (method === 'POST' && rest[0] === 'reports' && rest[1] === 'signoff') {
         requireRole(actor, ['leadAuditor']);
         const body = await readJson(req);
         const now = new Date().toISOString();
         const report = { id: `report-${auditId}`, status: 'signed', signedBy: actor.uid, signedAt: now, attestation: body.attestation };
         await upsertRecord(tenantId, auditId, 'report', report.id, report);
-        return json(200, { signedAt: now, report });
+        await logChange(tenantId, auditId, actor.uid, 'sign-off', 'report', report.id);
+        return json(200, { signedAt: now, report }, req);
       }
 
       const registerKinds = {
@@ -584,6 +642,11 @@ Deno.serve(async (req) => {
         objectives: 'objective',
         communications: 'communication',
         'management-reviews': 'managementReview',
+        'risks-opportunities': 'riskOpportunity',
+        resources: 'resource',
+        competence: 'competence',
+        awareness: 'awareness',
+        'documented-info': 'documentedInfo',
       };
       if (method === 'PUT' && registerKinds[rest[0]] && rest[1]) {
         requireRole(actor, ['leadAuditor', 'auditor']);

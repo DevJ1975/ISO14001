@@ -121,6 +121,13 @@ describe('lead-auditor end-to-end journey', () => {
     assert.equal((await call(db, 'PUT', `${A}/management-reviews/mr-1`, { id: 'mr-1', inputs: 'audit results', decisions: 'reinstate evaluation', result: 'needsFollowUp' })).statusCode, 200);
     assert.equal((await call(db, 'PUT', `${A}/objectives/obj-1`, { id: 'obj-1', objective: 'Cut VOCs', progress: 'onTrack', result: 'conforming' })).statusCode, 200);
 
+    // Save the report front-matter (must travel across devices via the backend).
+    assert.equal((await call(db, 'PUT', `${A}/report-meta`, {
+      auditType: 'stage2', scope: 'Denver plant EMS', objectives: 'Conformity + effectiveness',
+      sites: '1 of 1', leadAuditorName: 'Maya Chen', auditorCompetence: 'IRCA Lead Auditor',
+      impartialityDeclared: true, distribution: 'EHS; cert file', reportVersion: 2,
+    })).statusCode, 200);
+
     // Record the conclusion and sign off (both lead-only).
     assert.equal((await call(db, 'PUT', `${A}/conclusion`, { overallConformity: 'Conforms with one major NC to close.', recommendation: 'conditional' })).statusCode, 200);
     const signed = await call(db, 'POST', `${A}/reports/signoff`, { attestation: 'I attest this audit was conducted per ISO 19011.' });
@@ -128,12 +135,17 @@ describe('lead-auditor end-to-end journey', () => {
 
     // Final field-state must reflect the whole journey.
     const state = await call(db, 'GET', `${A}/field-state`);
-    const payload = JSON.parse(state.body) as Record<string, unknown[]> & { conclusion: { recommendation?: string } | null };
+    const payload = JSON.parse(state.body) as Record<string, unknown[]> & {
+      conclusion: { recommendation?: string } | null;
+      reportMeta: { reportVersion?: number; leadAuditorName?: string } | null;
+    };
     assert.equal(payload['findings'].length, 1);
     assert.equal(payload['capas'].length, 1);
     assert.equal(payload['managementReviews'].length, 1);
     assert.equal(payload['objectives'].length, 1);
     assert.equal(payload['evidence'].length, 1);
     assert.equal(payload.conclusion?.recommendation, 'conditional');
+    assert.equal(payload.reportMeta?.reportVersion, 2);
+    assert.equal(payload.reportMeta?.leadAuditorName, 'Maya Chen');
   });
 });
