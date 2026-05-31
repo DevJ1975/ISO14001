@@ -222,6 +222,9 @@ const findingUpsertCommandSchema = z.object({
   status: ncStatusServerSchema.default('open'),
   createdByName: z.string().min(1),
   createdAt: z.string().min(1),
+  // Auditee portal response (acknowledgement + proposed correction).
+  acknowledgedAt: z.string().max(40).optional(),
+  responseText: z.string().max(8000).optional(),
 });
 
 const capaStatusServerSchema = z.enum(['open', 'inProgress', 'verificationDue', 'verified', 'overdue']);

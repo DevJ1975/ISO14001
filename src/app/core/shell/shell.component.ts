@@ -85,6 +85,7 @@ export class ShellComponent {
     { path: '/registers', label: 'EMS', icon: 'eco', exact: false },
     { path: '/report', label: 'Report', icon: 'description', exact: false },
     { path: '/programme', label: 'Programme', icon: 'calendar_month', exact: false },
+    { path: '/portal', label: 'Auditee', icon: 'handshake', exact: false },
     { path: '/users', label: 'Users', icon: 'group', exact: false },
   ];
 

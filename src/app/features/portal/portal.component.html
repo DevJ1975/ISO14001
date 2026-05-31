@@ -1,0 +1,70 @@
+<section class="screen portal">
+  <header class="screen-head">
+    <h1>Auditee portal</h1>
+    <p>{{ store.auditee() }} · {{ store.criteria() }}</p>
+  </header>
+
+  @if (!isAuditee()) {
+    <article class="panel notice">
+      <mat-icon aria-hidden="true">lock</mat-icon>
+      <div>
+        <strong>Auditee view</strong>
+        <p>This portal is for the audited organisation (auditee) to review and respond to findings. You're signed in with an auditor role, so the full workspace is available from the main navigation. In production the portal sits behind a separate auditee login.</p>
+      </div>
+    </article>
+  }
+
+  <div class="kpis">
+    <div class="kpi crit"><strong>{{ summary().major }}</strong><span>Major NCs</span></div>
+    <div class="kpi"><strong>{{ summary().minor }}</strong><span>Minor NCs</span></div>
+    <div class="kpi"><strong>{{ summary().ofi }}</strong><span>Opportunities</span></div>
+    <div class="kpi" [class.warn]="summary().awaitingResponse > 0"><strong>{{ summary().awaitingResponse }}</strong><span>Awaiting your response</span></div>
+  </div>
+
+  <article class="panel">
+    <h2>Findings raised in this audit</h2>
+    @for (f of findings(); track f.id) {
+      <div class="finding {{ f.type }}">
+        <div class="f-head">
+          <span class="grade {{ f.type }}">{{ gradeLabel(f.type) }}</span>
+          <span class="clause">Clause {{ f.clauseId }} — {{ f.clauseTitle }}</span>
+          <span class="status">{{ statusLabel(f.status) }}</span>
+        </div>
+        <p class="f-desc">{{ f.description }}</p>
+        @if (f.requirementSummary) { <p class="f-req"><strong>Requirement:</strong> {{ f.requirementSummary }}</p> }
+
+        @if (f.acknowledgedAt) {
+          <div class="f-response">
+            <mat-icon aria-hidden="true">verified</mat-icon>
+            <div>
+              <strong>Your response · {{ formatDate(f.acknowledgedAt) }}</strong>
+              <p>{{ f.responseText }}</p>
+            </div>
+          </div>
+        }
+
+        @if (canRespond(f)) {
+          <div class="f-respond">
+            <label class="fld">
+              <span>{{ f.acknowledgedAt ? 'Update your response' : 'Acknowledge & propose a correction' }}</span>
+              <textarea
+                rows="3"
+                [value]="draft(f.id)"
+                (input)="setDraft(f.id, $any($event.target).value)"
+                placeholder="Describe the immediate correction and intended corrective action…"
+              ></textarea>
+            </label>
+            <button mat-flat-button color="primary" type="button" [disabled]="draft(f.id).trim().length < 10" (click)="submit(f)">
+              <mat-icon aria-hidden="true">send</mat-icon>Submit response
+            </button>
+            @if (saved() === f.id) { <span class="ok"><mat-icon aria-hidden="true">check_circle</mat-icon>Response recorded.</span> }
+          </div>
+        } @else if (!f.acknowledgedAt && f.type === 'ofi') {
+          <p class="muted">Opportunity for improvement — no formal response required.</p>
+        }
+      </div>
+    } @empty {
+      <div class="empty"><mat-icon aria-hidden="true">task_alt</mat-icon><strong>No findings to review</strong><span>Nothing has been raised against your organisation in this audit.</span></div>
+    }
+  </article>
+</section>

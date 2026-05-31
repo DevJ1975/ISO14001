@@ -1,0 +1,260 @@
+.portal {
+  display: grid;
+  gap: 16px;
+  max-width: 860px;
+}
+
+.screen-head h1 {
+  margin: 0 0 4px;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.screen-head p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px;
+}
+
+.panel h2 {
+  margin: 0 0 12px;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.notice {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  border-color: var(--tone-progress-fg, #b8860b);
+  background: var(--tone-progress-bg);
+}
+
+.notice mat-icon {
+  flex: 0 0 auto;
+  color: var(--tone-progress-fg, #b8860b);
+}
+
+.notice strong {
+  color: var(--text);
+}
+
+.notice p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.kpis {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+.kpi {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px;
+  text-align: center;
+}
+
+.kpi strong {
+  display: block;
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.kpi span {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.kpi.crit strong {
+  color: var(--tone-critical-fg, #c0392b);
+}
+
+.kpi.warn {
+  border-color: var(--tone-progress-fg, #b8860b);
+}
+
+.finding {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.finding:last-child {
+  border-bottom: 0;
+}
+
+.f-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.grade {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: var(--surface-guard);
+  color: var(--text);
+}
+
+.grade.majorNc {
+  background: var(--tone-critical-bg);
+  color: var(--tone-critical-fg);
+}
+
+.grade.minorNc {
+  background: var(--tone-progress-bg);
+  color: var(--tone-progress-fg);
+}
+
+.grade.ofi {
+  background: var(--tone-neutral-bg, var(--surface-guard));
+  color: var(--muted);
+}
+
+.clause {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.status {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.f-desc {
+  margin: 0 0 6px;
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.f-req {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.f-response {
+  display: flex;
+  gap: 10px;
+  padding: 10px 12px;
+  margin: 8px 0;
+  border-radius: 10px;
+  background: var(--surface-guard);
+}
+
+.f-response mat-icon {
+  flex: 0 0 auto;
+  color: var(--tone-positive-fg, #2e7d32);
+}
+
+.f-response strong {
+  font-size: 13px;
+  color: var(--text);
+}
+
+.f-response p {
+  margin: 2px 0 0;
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.f-respond {
+  display: grid;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.fld {
+  display: grid;
+  gap: 4px;
+}
+
+.fld span {
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+}
+
+.fld textarea {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  padding: 10px 12px;
+  color: var(--text);
+  font: inherit;
+  resize: vertical;
+}
+
+.fld textarea:focus-visible {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--ring);
+}
+
+.f-respond button {
+  justify-self: start;
+  min-height: 42px;
+  border-radius: 10px;
+}
+
+.ok {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--tone-positive-fg, #2e7d32);
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.ok mat-icon,
+.empty mat-icon {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+}
+
+.muted {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 4px 0 0;
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 32px;
+  text-align: center;
+  color: var(--muted);
+}
+
+@media (max-width: 560px) {
+  .kpis {
+    grid-template-columns: 1fr 1fr;
+  }
+}

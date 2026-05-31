@@ -41,6 +41,9 @@ export function cleanFinding(body: Record<string, unknown>, id: string): Record<
     status: str(body['status'], 40, 'status') || 'open',
     createdByName: str(body['createdByName'], 300, 'createdByName'),
     createdAt: str(body['createdAt'], 40, 'createdAt'),
+    // Auditee portal response (acknowledgement + proposed correction).
+    acknowledgedAt: str(body['acknowledgedAt'], 40, 'acknowledgedAt'),
+    responseText: str(body['responseText'], 8000, 'responseText'),
   };
 }
 
