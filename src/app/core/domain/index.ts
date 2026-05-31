@@ -15,6 +15,7 @@ export * from './ems-incidents.js';
 export * from './ems-legal.js';
 export * from './ems-performance.js';
 export * from './ems-registers.js';
+export * from './ems-suppliers.js';
 export * from './ems-training.js';
 export * from './nonconformity.js';
 export * from './field-execution.js';

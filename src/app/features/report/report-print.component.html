@@ -137,7 +137,7 @@
         || store.risksOpportunities().length || store.resources().length
         || store.competence().length || store.awareness().length || store.documentedInfo().length
         || store.performanceMetrics().length || store.permits().length || store.incidents().length
-        || store.calibration().length || store.training().length) {
+        || store.calibration().length || store.training().length || store.suppliers().length) {
     <section class="block">
       <h2>6. EMS registers</h2>
       @if (store.aspects().length) {
@@ -345,6 +345,18 @@
             @for (t of store.training(); track t.id) {
               <tr><td>{{ t.person }}</td><td class="nowrap">{{ t.role || '—' }}</td><td>{{ t.course }}{{ t.mandatory ? ' *' : '' }}</td>
                 <td class="nowrap">{{ formatDate(t.expiresAt) }}</td><td class="nowrap">{{ trainingLabel(t) }}</td><td class="nowrap">{{ resultLabel(t.result) }}</td></tr>
+            }
+          </tbody>
+        </table>
+      }
+      @if (store.suppliers().length) {
+        <h3>Supplier &amp; contractor evaluation (cl. 8.1)</h3>
+        <table class="grid">
+          <thead><tr><th>Name</th><th>Category</th><th>Rating</th><th>Next eval.</th><th>Status</th><th>Result</th></tr></thead>
+          <tbody>
+            @for (s of store.suppliers(); track s.id) {
+              <tr><td>{{ s.name }}</td><td class="nowrap">{{ s.category }}</td><td class="nowrap">{{ s.rating }}</td>
+                <td class="nowrap">{{ formatDate(s.nextEvaluationAt) }}</td><td class="nowrap">{{ supplierLabel(s) }}</td><td class="nowrap">{{ resultLabel(s.result) }}</td></tr>
             }
           </tbody>
         </table>

@@ -499,6 +499,21 @@ const trainingUpsertCommandSchema = z.object({
   result: registerResultSchema.default('notStarted'),
 });
 
+const supplierUpsertCommandSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().max(300).default(''),
+  serviceType: z.string().max(200).optional(),
+  category: z.enum(['supplier', 'contractor', 'wasteCarrier', 'recycler', 'other']).default('supplier'),
+  environmentallyRelevant: z.boolean().optional(),
+  controlsCommunicated: z.boolean().optional(),
+  rating: z.enum(['notRated', 'approved', 'conditional', 'rejected']).default('notRated'),
+  lastEvaluatedAt: z.string().max(40).optional(),
+  nextEvaluationAt: z.string().max(40).optional(),
+  evaluationFrequencyMonths: z.number().int().min(0).max(120).optional(),
+  notes: z.string().max(2000).optional(),
+  result: registerResultSchema.default('notStarted'),
+});
+
 const programmeUpsertSchema = z.object({
   cycleYear: z.number().int(),
   criteria: z.string().min(1),
@@ -1005,6 +1020,10 @@ export async function handleApiRequest(
         .collection(mongoCollections.training)
         .find({ tenantId, auditId }, { projection: { _id: 0 } })
         .toArray();
+      const suppliers = await dependencies.db
+        .collection(mongoCollections.suppliers)
+        .find({ tenantId, auditId }, { projection: { _id: 0 } })
+        .toArray();
       const reportMeta = await dependencies.db
         .collection(mongoCollections.reportMeta)
         .findOne({ tenantId, auditId }, { projection: { _id: 0 } });
@@ -1041,6 +1060,7 @@ export async function handleApiRequest(
           incidents,
           calibration,
           training,
+          suppliers,
           reportMeta,
           changeLog,
         },
@@ -1659,6 +1679,25 @@ export async function handleApiRequest(
         .collection(mongoCollections.training)
         .updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
       sendJson(response, 200, { training: record }, corsOrigin);
+      return;
+    }
+
+    const supplierMatch = matchPath(
+      new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/suppliers/([^/]+)$`),
+      url.pathname,
+      ['tenantId', 'auditId', 'id'],
+    );
+    if (request.method === 'PUT' && supplierMatch && actor) {
+      const tenantId = supplierMatch.params['tenantId']!;
+      const auditId = supplierMatch.params['auditId']!;
+      requireTenant(actor, tenantId);
+      requireAnyRole(actor, ['leadAuditor', 'auditor']);
+      const command = await readJson(request, supplierUpsertCommandSchema);
+      const record = { ...command, tenantId, auditId, updatedAt: new Date().toISOString() };
+      await dependencies.db
+        .collection(mongoCollections.suppliers)
+        .updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
+      sendJson(response, 200, { supplier: record }, corsOrigin);
       return;
     }
 

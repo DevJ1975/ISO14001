@@ -5,6 +5,7 @@ import {
   isComplaintOverdue,
   isIncidentOpen,
   permitExpiryStatus,
+  supplierEvaluationStatus,
   trainingStatus,
 } from '../domain';
 
@@ -36,6 +37,7 @@ export interface AlertInput {
   permits: { id: string; title: string; expiresAt?: string; renewalReminderDays?: number }[];
   calibration: { id: string; equipment: string; nextDueAt?: string; outOfService?: boolean }[];
   training: { id: string; person: string; course: string; completedAt?: string; expiresAt?: string; mandatory?: boolean }[];
+  suppliers: { id: string; name: string; environmentallyRelevant?: boolean; lastEvaluatedAt?: string; nextEvaluationAt?: string }[];
   incidents: { id: string; title: string; severity: string; status: string }[];
   plannedAudits: { id: string; type: string; dueDate: string; status: string }[];
   complaints: { id: string; kind: string; subject: string; dueDate?: string; status: string }[];
@@ -121,6 +123,23 @@ export function buildAlerts(input: AlertInput): AlertItem[] {
         due: t.expiresAt,
         link: '/registers',
         fragment: 'training',
+      });
+    }
+  }
+
+  for (const s of input.suppliers) {
+    const status = supplierEvaluationStatus(s, new Date(input.now));
+    // Only environmentally-relevant suppliers are chased; overdue re-evaluation
+    // or a never-evaluated relevant supplier is a common cl. 8.1 finding.
+    if (status === 'overdue' || status === 'notEvaluated') {
+      items.push({
+        id: `supplier-${s.id}`,
+        severity: status === 'overdue' ? 'critical' : 'warning',
+        category: 'Supplier',
+        title: `${s.name || 'Supplier'} ${status === 'overdue' ? 're-evaluation overdue' : 'not yet evaluated'}`,
+        due: s.nextEvaluationAt,
+        link: '/registers',
+        fragment: 'suppliers',
       });
     }
   }

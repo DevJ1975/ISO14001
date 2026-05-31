@@ -15,6 +15,8 @@ import {
   metricVariance,
   PermitExpiryStatus,
   permitExpiryStatus,
+  SupplierEvaluationStatus,
+  supplierEvaluationStatus,
   TrainingStatus,
   trainingStatus,
 } from '../../core/domain';
@@ -37,6 +39,7 @@ type Tab =
   | 'incidents'
   | 'calibration'
   | 'training'
+  | 'suppliers'
   | 'review';
 type Tone = 'positive' | 'progress' | 'critical' | 'neutral';
 
@@ -71,6 +74,7 @@ export class RegistersComponent {
     incidents: '10.2',
     calibration: '9.1',
     training: '7.2',
+    suppliers: '8.1',
     review: '9.3',
   };
 
@@ -94,6 +98,7 @@ export class RegistersComponent {
     { value: 'incidents', label: 'Incidents', icon: 'report' },
     { value: 'calibration', label: 'Calibration', icon: 'straighten' },
     { value: 'training', label: 'Training', icon: 'workspace_premium' },
+    { value: 'suppliers', label: 'Suppliers', icon: 'local_shipping' },
     { value: 'review', label: 'Mgmt review', icon: 'fact_check' },
   ];
 
@@ -142,6 +147,15 @@ export class RegistersComponent {
   /** Training status (current / due soon / expired / not trained) for badge display. */
   protected trainingBadge(record: { completedAt?: string; expiresAt?: string }): TrainingStatus {
     return trainingStatus(record);
+  }
+
+  /** Supplier evaluation status (current / due soon / overdue / not evaluated / not relevant) for badge display. */
+  protected supplierBadge(record: {
+    environmentallyRelevant?: boolean;
+    lastEvaluatedAt?: string;
+    nextEvaluationAt?: string;
+  }): SupplierEvaluationStatus {
+    return supplierEvaluationStatus(record);
   }
 
   /** Document review status (current / due soon / overdue / no date) for badge display. */

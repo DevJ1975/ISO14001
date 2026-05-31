@@ -638,6 +638,55 @@
         }
       </div>
     }
+    @case ('suppliers') {
+      <div class="reg">
+        <div class="reg-head">
+          <h2>Supplier &amp; contractor evaluation</h2>
+          <button mat-flat-button color="primary" type="button" (click)="store.addSupplier()"><mat-icon aria-hidden="true">add</mat-icon>Add</button>
+        </div>
+        @for (row of store.suppliers(); track row.id) {
+          <article class="tile row">
+            <div class="grid2">
+              <label class="fld"><span>Name</span><input [value]="row.name" (change)="store.updateSupplier(row.id, { name: $any($event.target).value })" /></label>
+              <label class="fld"><span>Service / product</span><input [value]="row.serviceType || ''" placeholder="Waste collection, chemicals…" (change)="store.updateSupplier(row.id, { serviceType: $any($event.target).value })" /></label>
+            </div>
+            <div class="grid2">
+              <label class="fld"><span>Category</span>
+                <select [value]="row.category" (change)="store.updateSupplier(row.id, { category: $any($event.target).value })">
+                  <option value="supplier">Supplier</option><option value="contractor">Contractor</option><option value="wasteCarrier">Waste carrier</option><option value="recycler">Recycler</option><option value="other">Other</option>
+                </select>
+              </label>
+              <label class="fld"><span>Rating</span>
+                <select [value]="row.rating" (change)="store.updateSupplier(row.id, { rating: $any($event.target).value })">
+                  <option value="notRated">Not rated</option><option value="approved">Approved</option><option value="conditional">Conditional</option><option value="rejected">Rejected</option>
+                </select>
+              </label>
+            </div>
+            <div class="grid3">
+              <label class="fld"><span>Last evaluated</span><input type="date" [value]="row.lastEvaluatedAt || ''" (change)="store.updateSupplier(row.id, { lastEvaluatedAt: $any($event.target).value })" /></label>
+              <label class="fld"><span>Next evaluation</span><input type="date" [value]="row.nextEvaluationAt || ''" (change)="store.updateSupplier(row.id, { nextEvaluationAt: $any($event.target).value })" /></label>
+              <div class="fld"><span>Status</span>
+                <output class="permit-badge {{ supplierBadge(row) }}">
+                  {{ supplierBadge(row) === 'overdue' ? 'Re-eval overdue' : supplierBadge(row) === 'dueSoon' ? 'Due soon' : supplierBadge(row) === 'current' ? 'Current' : supplierBadge(row) === 'notEvaluated' ? 'Not evaluated' : 'Not relevant' }}
+                </output>
+              </div>
+            </div>
+            <div class="chk-row">
+              <label class="chk2"><input type="checkbox" [checked]="row.environmentallyRelevant || false" (change)="store.updateSupplier(row.id, { environmentallyRelevant: $any($event.target).checked })" /> Environmentally relevant (alerts on evaluation)</label>
+              <label class="chk2"><input type="checkbox" [checked]="row.controlsCommunicated || false" (change)="store.updateSupplier(row.id, { controlsCommunicated: $any($event.target).checked })" /> EMS controls communicated</label>
+            </div>
+            <label class="fld"><span>Notes</span><input [value]="row.notes || ''" (change)="store.updateSupplier(row.id, { notes: $any($event.target).value })" /></label>
+            <div class="results">
+              @for (r of results; track r.value) {
+                <button type="button" class="rp {{ r.tone }}" [class.on]="row.result === r.value" (click)="store.updateSupplier(row.id, { result: r.value })">{{ r.label }}</button>
+              }
+            </div>
+          </article>
+        } @empty {
+          <div class="panel empty"><mat-icon aria-hidden="true">local_shipping</mat-icon><strong>No suppliers yet</strong><span>Evaluate suppliers &amp; contractors that can affect the EMS; relevant parties with no current evaluation raise alerts (cl. 8.1).</span></div>
+        }
+      </div>
+    }
     @case ('review') {
       <div class="reg">
         <div class="reg-head">

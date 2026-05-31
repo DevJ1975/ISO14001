@@ -316,6 +316,24 @@ export interface TrainingRecord {
   sync: SyncState;
 }
 
+/** Supplier / contractor evaluation (ISO 14001 cl. 8.1 — control of outsourced processes & procurement). */
+export interface SupplierRecord {
+  id: string;
+  name: string;
+  serviceType?: string;
+  category: 'supplier' | 'contractor' | 'wasteCarrier' | 'recycler' | 'other';
+  environmentallyRelevant?: boolean;
+  controlsCommunicated?: boolean;
+  rating: 'notRated' | 'approved' | 'conditional' | 'rejected';
+  lastEvaluatedAt?: string;
+  nextEvaluationAt?: string;
+  evaluationFrequencyMonths?: number;
+  notes?: string;
+  result: RegisterResult;
+  updatedAt: string;
+  sync: SyncState;
+}
+
 /** Monitoring & measuring equipment calibration (ISO 14001 cl. 9.1.1). */
 export interface CalibrationRecord {
   id: string;
@@ -461,6 +479,7 @@ interface PersistedState {
   incidents: EnvironmentalIncident[];
   calibration: CalibrationRecord[];
   training: TrainingRecord[];
+  suppliers: SupplierRecord[];
   reportMeta: ReportMeta;
   reportSignedAt: string | null;
 }
@@ -525,6 +544,28 @@ function seedTraining(): TrainingRecord[] {
     base({ person: 'M. Silva', role: 'Press operator', course: 'Spill response', completedAt: '2025-07-01', expiresAt: '2026-07-01', frequencyMonths: 12, mandatory: true, result: 'needsFollowUp' }),
     base({ person: 'R. Adeyemi', role: 'Forklift driver', course: 'Forklift / FLT licence', completedAt: '2024-02-20', expiresAt: '2026-02-20', frequencyMonths: 24, mandatory: true, result: 'nonconforming' }),
     base({ person: 'L. Chen', role: 'Lab technician', course: 'Hazardous waste handling', completedAt: '2026-03-15', frequencyMonths: 0, mandatory: false, result: 'conforming' }),
+  ];
+}
+
+/** Demonstration supplier/contractor evaluations — approved, due-soon, overdue and a not-yet-evaluated party. */
+function seedSuppliers(): SupplierRecord[] {
+  const now = '2026-06-15T15:00:00.000Z';
+  const base = (extra: Partial<SupplierRecord>): SupplierRecord => ({
+    id: uid('supplier'),
+    name: '',
+    category: 'supplier',
+    rating: 'notRated',
+    result: 'notStarted',
+    updatedAt: now,
+    sync: 'synced',
+    ...extra,
+  });
+  return [
+    base({ name: 'GreenWaste Carriers Ltd', serviceType: 'Hazardous waste collection', category: 'wasteCarrier', environmentallyRelevant: true, controlsCommunicated: true, rating: 'approved', lastEvaluatedAt: '2026-01-10', nextEvaluationAt: '2027-01-10', evaluationFrequencyMonths: 12, result: 'conforming' }),
+    base({ name: 'Solvent Supplies Co', serviceType: 'Chemical supplier', category: 'supplier', environmentallyRelevant: true, controlsCommunicated: true, rating: 'conditional', lastEvaluatedAt: '2025-07-01', nextEvaluationAt: '2026-07-01', evaluationFrequencyMonths: 12, result: 'needsFollowUp', notes: 'SDS pack incomplete; chase updated documentation.' }),
+    base({ name: 'ACME Site Maintenance', serviceType: 'On-site maintenance contractor', category: 'contractor', environmentallyRelevant: true, controlsCommunicated: false, rating: 'approved', lastEvaluatedAt: '2025-01-15', nextEvaluationAt: '2026-01-15', evaluationFrequencyMonths: 12, result: 'nonconforming', notes: 'Re-evaluation overdue; environmental controls not re-communicated.' }),
+    base({ name: 'CircularPack Recyclers', serviceType: 'Packaging recycling', category: 'recycler', environmentallyRelevant: true, controlsCommunicated: false, rating: 'notRated', result: 'needsFollowUp', notes: 'New supplier — initial environmental evaluation outstanding.' }),
+    base({ name: 'Citywide Stationery', serviceType: 'Office supplies', category: 'supplier', environmentallyRelevant: false, rating: 'notRated', result: 'notApplicable' }),
   ];
 }
 
@@ -730,6 +771,7 @@ export class FieldAuditStore {
   readonly incidents = signal<EnvironmentalIncident[]>(seedIncidents());
   readonly calibration = signal<CalibrationRecord[]>(seedCalibration());
   readonly training = signal<TrainingRecord[]>(seedTraining());
+  readonly suppliers = signal<SupplierRecord[]>(seedSuppliers());
   readonly reportMeta = signal<ReportMeta>(defaultReportMeta());
   /** Read-only audit trail from the backend (not synced upward). */
   readonly changeLog = signal<ChangeLogEntry[]>([]);
@@ -770,6 +812,7 @@ export class FieldAuditStore {
       this.incidents().filter((i) => i.sync !== 'synced').length +
       this.calibration().filter((c) => c.sync !== 'synced').length +
       this.training().filter((t) => t.sync !== 'synced').length +
+      this.suppliers().filter((s) => s.sync !== 'synced').length +
       (this.conclusion() && this.conclusion()!.sync !== 'synced' ? 1 : 0) +
       (this.reportMeta().sync !== 'synced' ? 1 : 0),
   );
@@ -1371,6 +1414,23 @@ export class FieldAuditStore {
     this.autoFlush();
   }
 
+  addSupplier(): void {
+    this.suppliers.update((list) => [
+      { id: uid('supplier'), name: '', category: 'supplier', rating: 'notRated', result: 'notStarted', updatedAt: new Date().toISOString(), sync: 'queued' },
+      ...list,
+    ]);
+    this.persist();
+    this.autoFlush();
+  }
+
+  updateSupplier(id: string, patch: Partial<SupplierRecord>): void {
+    this.suppliers.update((list) =>
+      list.map((entry) => (entry.id === id ? { ...entry, ...patch, updatedAt: new Date().toISOString(), sync: 'queued' } : entry)),
+    );
+    this.persist();
+    this.autoFlush();
+  }
+
   /** Lead-auditor sign-off. Persisted to the server when live; recorded locally otherwise. */
   async signOff(attestation: string): Promise<boolean> {
     if (this.source() === 'live' && this.online()) {
@@ -1442,6 +1502,7 @@ export class FieldAuditStore {
     this.incidents.set(seedIncidents());
     this.calibration.set(seedCalibration());
     this.training.set(seedTraining());
+    this.suppliers.set(seedSuppliers());
     this.reportMeta.set(defaultReportMeta());
     this.reportSignedAt.set(null);
     await idbDelete('meta', META_KEY);
@@ -1772,6 +1833,17 @@ export class FieldAuditStore {
           this.setSync('training', record.id, 'queued');
         }
       }
+      for (const record of this.suppliers().filter((entry) => entry.sync !== 'synced')) {
+        this.setSync('suppliers', record.id, 'syncing');
+        try {
+          const { sync, ...payload } = record;
+          void sync;
+          await this.api.upsertSupplier(payload);
+          this.setSync('suppliers', record.id, 'synced');
+        } catch {
+          this.setSync('suppliers', record.id, 'queued');
+        }
+      }
       this.persist();
     } finally {
       this.flushing = false;
@@ -1801,7 +1873,8 @@ export class FieldAuditStore {
       | 'permits'
       | 'incidents'
       | 'calibration'
-      | 'training',
+      | 'training'
+      | 'suppliers',
     id: string,
     sync: SyncState,
   ): void {
@@ -1829,6 +1902,7 @@ export class FieldAuditStore {
       incidents: this.incidents,
       calibration: this.calibration,
       training: this.training,
+      suppliers: this.suppliers,
     };
     const ref = map[collection] as unknown as {
       update: (fn: (list: SyncRecord[]) => SyncRecord[]) => void;
@@ -1890,6 +1964,7 @@ export class FieldAuditStore {
       incidents: this.incidents(),
       calibration: this.calibration(),
       training: this.training(),
+      suppliers: this.suppliers(),
       reportMeta: this.reportMeta(),
       reportSignedAt: this.reportSignedAt(),
     };
@@ -1924,6 +1999,7 @@ export class FieldAuditStore {
       this.incidents.set((payload.incidents ?? []).map((i) => ({ ...i, sync: 'synced' as const })));
       this.calibration.set((payload.calibration ?? []).map((c) => ({ ...c, sync: 'synced' as const })));
       this.training.set((payload.training ?? []).map((t) => ({ ...t, sync: 'synced' as const })));
+      this.suppliers.set((payload.suppliers ?? []).map((s) => ({ ...s, sync: 'synced' as const })));
       // Report front-matter: prefer the server copy (shared across the team),
       // falling back to defaults, then overlay scope/dates from the audit record.
       this.reportMeta.set(
@@ -1979,6 +2055,7 @@ export class FieldAuditStore {
     this.incidents.set(saved.incidents ?? seedIncidents());
     this.calibration.set(saved.calibration ?? seedCalibration());
     this.training.set(saved.training ?? seedTraining());
+    this.suppliers.set(saved.suppliers ?? seedSuppliers());
     if (saved.reportMeta) this.reportMeta.set({ ...defaultReportMeta(), ...saved.reportMeta });
     this.reportSignedAt.set(saved.reportSignedAt ?? null);
     const restored = await Promise.all(
