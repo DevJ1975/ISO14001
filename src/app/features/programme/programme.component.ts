@@ -1,7 +1,9 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { RouterLink } from '@angular/router';
 
+import { AlertsService, type ScheduleEvent } from '../../core/alerts/alerts.service';
 import { AuthService } from '../../core/auth/auth.service';
 import {
   type AuditComplexity,
@@ -25,7 +27,7 @@ import { AuditTypeKind, PlannedStatus, ProgrammeStore } from '../../core/program
 @Component({
   selector: 'app-programme',
   standalone: true,
-  imports: [MatButtonModule, MatIconModule],
+  imports: [MatButtonModule, MatIconModule, RouterLink],
   templateUrl: './programme.component.html',
   styleUrl: './programme.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -33,6 +35,26 @@ import { AuditTypeKind, PlannedStatus, ProgrammeStore } from '../../core/program
 export class ProgrammeComponent {
   protected readonly store = inject(ProgrammeStore);
   private readonly auth = inject(AuthService);
+  private readonly alerts = inject(AlertsService);
+
+  /** Upcoming deadlines (planned audits, permit expiries, complaint due dates) grouped by month for the timeline. */
+  protected readonly schedule = computed(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    const groups = new Map<string, { month: string; events: (ScheduleEvent & { overdue: boolean })[] }>();
+    for (const event of this.alerts.scheduleEvents()) {
+      const key = event.date.slice(0, 7);
+      if (!groups.has(key)) {
+        const label = new Date(`${event.date}T00:00:00`).toLocaleDateString([], { month: 'long', year: 'numeric' });
+        groups.set(key, { month: label, events: [] });
+      }
+      groups.get(key)!.events.push({ ...event, overdue: event.date < today });
+    }
+    return [...groups.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([, value]) => value);
+  });
+
+  protected scheduleIcon(kind: ScheduleEvent['kind']): string {
+    return kind === 'permit' ? 'event_available' : kind === 'complaint' ? 'feedback' : 'event';
+  }
 
   protected readonly canEdit = computed(() => ['leadAuditor', 'tenantAdmin'].includes(this.auth.user()?.role ?? ''));
   protected readonly newType = signal<AuditTypeKind>('surveillance');
