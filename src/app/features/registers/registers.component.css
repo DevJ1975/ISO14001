@@ -656,3 +656,14 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* CSV export toolbar */
+.export-bar {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.export-bar button {
+  min-height: 40px;
+  border-radius: 10px;
+}

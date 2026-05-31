@@ -12,6 +12,14 @@
     }
   </div>
 
+  @if (canExport()) {
+    <div class="export-bar">
+      <button mat-stroked-button type="button" (click)="exportCsv()">
+        <mat-icon aria-hidden="true">download</mat-icon>Export CSV
+      </button>
+    </div>
+  }
+
   @if (guide(); as g) {
     <div class="hint panel">
       <button type="button" class="hint-head" (click)="toggleHints()" [attr.aria-expanded]="hintsOpen()">
