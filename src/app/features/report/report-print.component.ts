@@ -3,7 +3,7 @@ import { Location } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 
-import { calibrationStatus, permitExpiryStatus, trainingStatus } from '../../core/domain';
+import { calibrationStatus, documentReviewStatus, permitExpiryStatus, trainingStatus } from '../../core/domain';
 import { AuthService } from '../../core/auth/auth.service';
 import {
   auditTypeLabel,
@@ -130,6 +130,11 @@ export class ReportPrintComponent {
         : status === 'current'
           ? 'Current'
           : 'Not trained';
+  }
+
+  protected documentLabel(record: { nextReviewAt?: string }): string {
+    const status = documentReviewStatus(record);
+    return status === 'overdue' ? '(overdue)' : status === 'dueSoon' ? '(due soon)' : '';
   }
 
   protected formatDateTime(iso: string | undefined): string {

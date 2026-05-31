@@ -80,4 +80,31 @@ describe('supabase edge-function security & validation', () => {
     assert.equal(record['bogus'], 0); // non-finite numbers are clamped, not stringified
     assert.equal(record['result'], 'conforming');
   });
+
+  it('preserves bounded arrays (document attachments) with shallow-cleaned scalar fields', () => {
+    const record = cleanRegister(
+      {
+        document: 'EMS Manual',
+        controlStatus: 'controlled',
+        attachments: [{ id: 'att-1', name: 'manual.pdf', size: 2048, uploaded: true, junk: { nested: 'dropped-to-string' } }],
+        result: 'conforming',
+      },
+      'doc-1',
+    );
+    const attachments = record['attachments'] as Array<Record<string, unknown>>;
+    assert.equal(Array.isArray(attachments), true);
+    assert.equal(attachments.length, 1);
+    assert.equal(attachments[0]!['name'], 'manual.pdf');
+    assert.equal(attachments[0]!['size'], 2048); // finite numbers stay numbers
+    assert.equal(attachments[0]!['uploaded'], true); // booleans stay booleans
+    assert.equal(typeof attachments[0]!['junk'], 'string'); // nested objects are stringified, not preserved
+  });
+
+  it('caps oversized arrays at 50 items', () => {
+    const record = cleanRegister(
+      { document: 'D', attachments: Array.from({ length: 80 }, (_, i) => ({ id: `a${i}`, name: `f${i}` })), result: 'conforming' },
+      'doc-2',
+    );
+    assert.equal((record['attachments'] as unknown[]).length, 50);
+  });
 });

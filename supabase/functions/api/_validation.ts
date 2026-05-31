@@ -79,11 +79,29 @@ export function cleanRegister(body: Record<string, unknown>, id: string): Record
       // Numeric register fields (e.g. performance-metric values) are kept as
       // finite numbers, not stringified, so the deployed store holds real data.
       out[key] = Number.isFinite(value) ? value : 0;
+    } else if (Array.isArray(value)) {
+      // Bounded arrays (e.g. document attachments) are preserved: object items
+      // are shallow-cleaned to vetted scalar fields; scalar items are stringified.
+      out[key] = value.slice(0, 50).map((item) => cleanArrayItem(item));
     } else {
       out[key] = str(value, 2000, key);
     }
   }
   return out;
+}
+
+/** Shallow-sanitise an array item: objects keep scalar fields (bounded), scalars are stringified. */
+function cleanArrayItem(item: unknown): unknown {
+  if (item && typeof item === 'object' && !Array.isArray(item)) {
+    const cleaned: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(item as Record<string, unknown>)) {
+      if (typeof v === 'boolean') cleaned[k] = v;
+      else if (typeof v === 'number') cleaned[k] = Number.isFinite(v) ? v : 0;
+      else cleaned[k] = str(v, 2000, k);
+    }
+    return cleaned;
+  }
+  return str(item, 2000, 'item');
 }
 
 /**
