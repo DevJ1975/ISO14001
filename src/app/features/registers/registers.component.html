@@ -735,6 +735,58 @@
         }
       </div>
     }
+    @case ('carbon') {
+      <div class="reg">
+        <div class="reg-head">
+          <h2>Carbon inventory (GHG Scope 1/2/3)</h2>
+          <button mat-flat-button color="primary" type="button" (click)="store.addCarbon()"><mat-icon aria-hidden="true">add</mat-icon>Add</button>
+        </div>
+        @if (carbon().entryCount) {
+          <div class="ghg-summary">
+            <div class="ghg-total"><strong>{{ fmtTco2e(carbon().total) }}</strong><span>t CO₂e total</span></div>
+            <div class="ghg-scopes">
+              <div class="ghg-scope s1"><span class="lbl">Scope 1</span><span class="val">{{ fmtTco2e(carbon().scope1) }} t</span><span class="pct">{{ carbon().pct.scope1 }}%</span></div>
+              <div class="ghg-scope s2"><span class="lbl">Scope 2</span><span class="val">{{ fmtTco2e(carbon().scope2) }} t</span><span class="pct">{{ carbon().pct.scope2 }}%</span></div>
+              <div class="ghg-scope s3"><span class="lbl">Scope 3</span><span class="val">{{ fmtTco2e(carbon().scope3) }} t</span><span class="pct">{{ carbon().pct.scope3 }}%</span></div>
+            </div>
+            <div class="ghg-bar" role="img" aria-label="Scope share of total emissions">
+              <span class="seg-s1" [style.width.%]="carbon().pct.scope1"></span>
+              <span class="seg-s2" [style.width.%]="carbon().pct.scope2"></span>
+              <span class="seg-s3" [style.width.%]="carbon().pct.scope3"></span>
+            </div>
+          </div>
+        }
+        @for (row of store.carbon(); track row.id) {
+          <article class="tile row">
+            <div class="grid2">
+              <label class="fld"><span>Source</span><input [value]="row.source" placeholder="Natural gas, electricity, fleet…" (change)="store.updateCarbon(row.id, { source: $any($event.target).value })" /></label>
+              <label class="fld"><span>Scope</span>
+                <select [value]="row.scope" (change)="store.updateCarbon(row.id, { scope: $any(num($any($event.target).value)) })">
+                  <option [value]="1">Scope 1 — direct</option><option [value]="2">Scope 2 — energy</option><option [value]="3">Scope 3 — value chain</option>
+                </select>
+              </label>
+            </div>
+            <div class="grid2">
+              <label class="fld"><span>Category</span><input [value]="row.category || ''" (change)="store.updateCarbon(row.id, { category: $any($event.target).value })" /></label>
+              <label class="fld"><span>Period</span><input [value]="row.period || ''" placeholder="FY2025" (change)="store.updateCarbon(row.id, { period: $any($event.target).value })" /></label>
+            </div>
+            <div class="grid3">
+              <label class="fld"><span>Activity data</span><input type="number" min="0" [value]="row.activityData ?? ''" (change)="store.updateCarbon(row.id, { activityData: num($any($event.target).value) })" /></label>
+              <label class="fld"><span>Unit</span><input [value]="row.activityUnit || ''" placeholder="MWh, litres…" (change)="store.updateCarbon(row.id, { activityUnit: $any($event.target).value })" /></label>
+              <label class="fld"><span>Factor (kgCO₂e/unit)</span><input type="number" min="0" [value]="row.emissionFactor ?? ''" (change)="store.updateCarbon(row.id, { emissionFactor: num($any($event.target).value) })" /></label>
+            </div>
+            <div class="ghg-row-out"><mat-icon aria-hidden="true">co2</mat-icon><strong>{{ rowTco2e(row) }}</strong> t CO₂e</div>
+            <div class="results">
+              @for (r of results; track r.value) {
+                <button type="button" class="rp {{ r.tone }}" [class.on]="row.result === r.value" (click)="store.updateCarbon(row.id, { result: r.value })">{{ r.label }}</button>
+              }
+            </div>
+          </article>
+        } @empty {
+          <div class="panel empty"><mat-icon aria-hidden="true">co2</mat-icon><strong>No emissions logged</strong><span>Build a Scope 1/2/3 GHG inventory; tCO₂e is computed from activity data × emission factor (cl. 9.1).</span></div>
+        }
+      </div>
+    }
     @case ('review') {
       <div class="reg">
         <div class="reg-head">

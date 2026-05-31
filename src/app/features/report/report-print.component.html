@@ -138,7 +138,7 @@
         || store.competence().length || store.awareness().length || store.documentedInfo().length
         || store.performanceMetrics().length || store.permits().length || store.incidents().length
         || store.calibration().length || store.training().length || store.suppliers().length
-        || store.changes().length) {
+        || store.changes().length || store.carbon().length) {
     <section class="block">
       <h2>6. EMS registers</h2>
       @if (store.aspects().length) {
@@ -370,6 +370,22 @@
             @for (c of store.changes(); track c.id) {
               <tr><td>{{ c.title }}</td><td class="nowrap">{{ c.changeType }}</td><td class="nowrap">{{ c.status }}</td>
                 <td class="nowrap">{{ c.aspectsReviewed ? 'Yes' : 'No' }}</td><td class="nowrap">{{ changeLabel(c) }}</td><td class="nowrap">{{ resultLabel(c.result) }}</td></tr>
+            }
+          </tbody>
+        </table>
+      }
+      @if (store.carbon().length) {
+        <h3>Carbon inventory — GHG Scope 1/2/3 (cl. 9.1)</h3>
+        <p class="ghg-line">Total <strong>{{ fmtTco2e(carbon().total) }} t CO₂e</strong> ·
+          Scope 1 {{ fmtTco2e(carbon().scope1) }} t ({{ carbon().pct.scope1 }}%) ·
+          Scope 2 {{ fmtTco2e(carbon().scope2) }} t ({{ carbon().pct.scope2 }}%) ·
+          Scope 3 {{ fmtTco2e(carbon().scope3) }} t ({{ carbon().pct.scope3 }}%)</p>
+        <table class="grid">
+          <thead><tr><th>Source</th><th>Scope</th><th>Category</th><th>Activity</th><th>tCO₂e</th><th>Result</th></tr></thead>
+          <tbody>
+            @for (e of store.carbon(); track e.id) {
+              <tr><td>{{ e.source }}</td><td class="nowrap">Scope {{ e.scope }}</td><td class="nowrap">{{ e.category || '—' }}</td>
+                <td class="nowrap">{{ e.activityData ?? '—' }} {{ e.activityUnit || '' }}</td><td class="nowrap">{{ rowTco2e(e) }}</td><td class="nowrap">{{ resultLabel(e.result) }}</td></tr>
             }
           </tbody>
         </table>

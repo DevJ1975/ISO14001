@@ -352,6 +352,22 @@ export interface ManagementOfChangeRecord {
   sync: SyncState;
 }
 
+/** Greenhouse-gas (carbon) inventory entry by GHG Protocol scope (ISO 14001 cl. 9.1 / 6.1.2). */
+export interface CarbonEntry {
+  id: string;
+  source: string;
+  scope: 1 | 2 | 3;
+  category?: string;
+  period?: string;
+  activityData?: number;
+  activityUnit?: string;
+  emissionFactor?: number;
+  tco2eOverride?: number;
+  result: RegisterResult;
+  updatedAt: string;
+  sync: SyncState;
+}
+
 /** Monitoring & measuring equipment calibration (ISO 14001 cl. 9.1.1). */
 export interface CalibrationRecord {
   id: string;
@@ -499,6 +515,7 @@ interface PersistedState {
   training: TrainingRecord[];
   suppliers: SupplierRecord[];
   changes: ManagementOfChangeRecord[];
+  carbon: CarbonEntry[];
   reportMeta: ReportMeta;
   reportSignedAt: string | null;
 }
@@ -606,6 +623,28 @@ function seedChanges(): ManagementOfChangeRecord[] {
     base({ title: 'Switch degreaser to water-based', description: 'Substitute chlorinated degreaser with aqueous product.', changeType: 'material', status: 'implemented', aspectsReviewed: false, riskLevel: 'high', owner: 'EHS Lead', implementedAt: '2026-05-20', result: 'nonconforming', controls: 'Implemented before aspects/impacts reassessment — gap.' }),
     base({ title: 'Reorganise waste storage area', description: 'Relocate hazardous-waste store nearer the dock.', changeType: 'organisational', status: 'approved', aspectsReviewed: true, riskLevel: 'low', owner: 'Site Manager', targetDate: '2026-04-30', result: 'needsFollowUp', controls: 'Bunding and signage specified; target date passed.' }),
     base({ title: 'New packaging EPR reporting rules', description: 'Adapt to updated producer-responsibility regulations.', changeType: 'regulatory', status: 'closed', aspectsReviewed: true, riskLevel: 'low', owner: 'Compliance', implementedAt: '2026-02-15', result: 'conforming' }),
+  ];
+}
+
+/** Demonstration carbon inventory — Scope 1/2/3 sources with activity data & factors. */
+function seedCarbon(): CarbonEntry[] {
+  const now = '2026-06-15T15:00:00.000Z';
+  const base = (extra: Partial<CarbonEntry>): CarbonEntry => ({
+    id: uid('carbon'),
+    source: '',
+    scope: 1,
+    period: 'FY2025',
+    result: 'notStarted',
+    updatedAt: now,
+    sync: 'synced',
+    ...extra,
+  });
+  return [
+    base({ source: 'Natural gas — boilers', scope: 1, category: 'Stationary combustion', activityData: 4200, activityUnit: 'MWh', emissionFactor: 183, result: 'conforming' }),
+    base({ source: 'Diesel — site fleet', scope: 1, category: 'Mobile combustion', activityData: 38000, activityUnit: 'litres', emissionFactor: 2.51, result: 'conforming' }),
+    base({ source: 'Purchased electricity', scope: 2, category: 'Location-based', activityData: 5600, activityUnit: 'MWh', emissionFactor: 207, result: 'needsFollowUp' }),
+    base({ source: 'Business travel — air', scope: 3, category: 'Cat 6 travel', activityData: 410000, activityUnit: 'passenger-km', emissionFactor: 0.18, result: 'needsFollowUp' }),
+    base({ source: 'Waste to landfill', scope: 3, category: 'Cat 5 waste', activityData: 320, activityUnit: 'tonnes', emissionFactor: 458, result: 'notStarted' }),
   ];
 }
 
@@ -813,6 +852,7 @@ export class FieldAuditStore {
   readonly training = signal<TrainingRecord[]>(seedTraining());
   readonly suppliers = signal<SupplierRecord[]>(seedSuppliers());
   readonly changes = signal<ManagementOfChangeRecord[]>(seedChanges());
+  readonly carbon = signal<CarbonEntry[]>(seedCarbon());
   readonly reportMeta = signal<ReportMeta>(defaultReportMeta());
   /** Read-only audit trail from the backend (not synced upward). */
   readonly changeLog = signal<ChangeLogEntry[]>([]);
@@ -855,6 +895,7 @@ export class FieldAuditStore {
       this.training().filter((t) => t.sync !== 'synced').length +
       this.suppliers().filter((s) => s.sync !== 'synced').length +
       this.changes().filter((c) => c.sync !== 'synced').length +
+      this.carbon().filter((c) => c.sync !== 'synced').length +
       (this.conclusion() && this.conclusion()!.sync !== 'synced' ? 1 : 0) +
       (this.reportMeta().sync !== 'synced' ? 1 : 0),
   );
@@ -1490,6 +1531,23 @@ export class FieldAuditStore {
     this.autoFlush();
   }
 
+  addCarbon(): void {
+    this.carbon.update((list) => [
+      { id: uid('carbon'), source: '', scope: 1, result: 'notStarted', updatedAt: new Date().toISOString(), sync: 'queued' },
+      ...list,
+    ]);
+    this.persist();
+    this.autoFlush();
+  }
+
+  updateCarbon(id: string, patch: Partial<CarbonEntry>): void {
+    this.carbon.update((list) =>
+      list.map((entry) => (entry.id === id ? { ...entry, ...patch, updatedAt: new Date().toISOString(), sync: 'queued' } : entry)),
+    );
+    this.persist();
+    this.autoFlush();
+  }
+
   /** Lead-auditor sign-off. Persisted to the server when live; recorded locally otherwise. */
   async signOff(attestation: string): Promise<boolean> {
     if (this.source() === 'live' && this.online()) {
@@ -1563,6 +1621,7 @@ export class FieldAuditStore {
     this.training.set(seedTraining());
     this.suppliers.set(seedSuppliers());
     this.changes.set(seedChanges());
+    this.carbon.set(seedCarbon());
     this.reportMeta.set(defaultReportMeta());
     this.reportSignedAt.set(null);
     await idbDelete('meta', META_KEY);
@@ -1915,6 +1974,17 @@ export class FieldAuditStore {
           this.setSync('changes', record.id, 'queued');
         }
       }
+      for (const record of this.carbon().filter((entry) => entry.sync !== 'synced')) {
+        this.setSync('carbon', record.id, 'syncing');
+        try {
+          const { sync, ...payload } = record;
+          void sync;
+          await this.api.upsertCarbon(payload);
+          this.setSync('carbon', record.id, 'synced');
+        } catch {
+          this.setSync('carbon', record.id, 'queued');
+        }
+      }
       this.persist();
     } finally {
       this.flushing = false;
@@ -1946,7 +2016,8 @@ export class FieldAuditStore {
       | 'calibration'
       | 'training'
       | 'suppliers'
-      | 'changes',
+      | 'changes'
+      | 'carbon',
     id: string,
     sync: SyncState,
   ): void {
@@ -1976,6 +2047,7 @@ export class FieldAuditStore {
       training: this.training,
       suppliers: this.suppliers,
       changes: this.changes,
+      carbon: this.carbon,
     };
     const ref = map[collection] as unknown as {
       update: (fn: (list: SyncRecord[]) => SyncRecord[]) => void;
@@ -2039,6 +2111,7 @@ export class FieldAuditStore {
       training: this.training(),
       suppliers: this.suppliers(),
       changes: this.changes(),
+      carbon: this.carbon(),
       reportMeta: this.reportMeta(),
       reportSignedAt: this.reportSignedAt(),
     };
@@ -2075,6 +2148,7 @@ export class FieldAuditStore {
       this.training.set((payload.training ?? []).map((t) => ({ ...t, sync: 'synced' as const })));
       this.suppliers.set((payload.suppliers ?? []).map((s) => ({ ...s, sync: 'synced' as const })));
       this.changes.set((payload.changes ?? []).map((c) => ({ ...c, sync: 'synced' as const })));
+      this.carbon.set((payload.carbon ?? []).map((c) => ({ ...c, sync: 'synced' as const })));
       // Report front-matter: prefer the server copy (shared across the team),
       // falling back to defaults, then overlay scope/dates from the audit record.
       this.reportMeta.set(
@@ -2132,6 +2206,7 @@ export class FieldAuditStore {
     this.training.set(saved.training ?? seedTraining());
     this.suppliers.set(saved.suppliers ?? seedSuppliers());
     this.changes.set(saved.changes ?? seedChanges());
+    this.carbon.set(saved.carbon ?? seedCarbon());
     if (saved.reportMeta) this.reportMeta.set({ ...defaultReportMeta(), ...saved.reportMeta });
     this.reportSignedAt.set(saved.reportSignedAt ?? null);
     const restored = await Promise.all(

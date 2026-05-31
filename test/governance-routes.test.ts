@@ -103,6 +103,7 @@ describe('EMS governance API routes', () => {
     { path: 'training', collection: 'training', body: { id: 'trn-1', person: 'M. Silva', role: 'Operator', course: 'Spill response', completedAt: '2025-07-01', expiresAt: '2026-07-01', frequencyMonths: 12, mandatory: true, result: 'needsFollowUp' }, check: 'person' },
     { path: 'suppliers', collection: 'suppliers', body: { id: 'sup-1', name: 'GreenWaste Carriers Ltd', serviceType: 'Hazardous waste collection', category: 'wasteCarrier', environmentallyRelevant: true, controlsCommunicated: true, rating: 'approved', lastEvaluatedAt: '2026-01-10', nextEvaluationAt: '2027-01-10', evaluationFrequencyMonths: 12, result: 'conforming' }, check: 'name' },
     { path: 'changes', collection: 'changes', body: { id: 'moc-1', title: 'Switch to water-based degreaser', description: 'Material substitution', changeType: 'material', status: 'implemented', aspectsReviewed: false, riskLevel: 'high', owner: 'EHS Lead', implementedAt: '2026-05-20', result: 'nonconforming' }, check: 'title' },
+    { path: 'carbon', collection: 'carbon', body: { id: 'co2-1', source: 'Natural gas — boilers', scope: 1, category: 'Stationary combustion', period: 'FY2025', activityData: 4200, activityUnit: 'MWh', emissionFactor: 183, result: 'conforming' }, check: 'source' },
   ];
 
   for (const { path, collection, body, check } of cases) {

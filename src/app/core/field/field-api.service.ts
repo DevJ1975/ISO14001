@@ -12,6 +12,7 @@ import type {
   AuditSummary,
   AwarenessRecord,
   CalibrationRecord,
+  CarbonEntry,
   ChangeLogEntry,
   ReportMeta,
   CommunicationRecord,
@@ -74,6 +75,7 @@ export interface FieldStatePayload {
   training?: Array<Omit<TrainingRecord, 'sync'>>;
   suppliers?: Array<Omit<SupplierRecord, 'sync'>>;
   changes?: Array<Omit<ManagementOfChangeRecord, 'sync'>>;
+  carbon?: Array<Omit<CarbonEntry, 'sync'>>;
   reportMeta?: Omit<ReportMeta, 'sync'> | null;
   changeLog?: ChangeLogEntry[];
 }
@@ -276,6 +278,10 @@ export class FieldApiService {
 
   upsertChange(body: Omit<ManagementOfChangeRecord, 'sync'>): Promise<unknown> {
     return firstValueFrom(this.http.put(`${this.base()}/changes/${encodeURIComponent(body.id)}`, body));
+  }
+
+  upsertCarbon(body: Omit<CarbonEntry, 'sync'>): Promise<unknown> {
+    return firstValueFrom(this.http.put(`${this.base()}/carbon/${encodeURIComponent(body.id)}`, body));
   }
 
   private tenantBase(): string {

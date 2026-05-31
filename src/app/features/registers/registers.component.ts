@@ -13,6 +13,9 @@ import {
   documentReviewStatus,
   evaluateAspectSignificance,
   metricVariance,
+  carbonRollup,
+  emissionTco2e,
+  formatTco2e,
   MocAttention,
   mocAttention,
   PermitExpiryStatus,
@@ -43,6 +46,7 @@ type Tab =
   | 'training'
   | 'suppliers'
   | 'changes'
+  | 'carbon'
   | 'review';
 type Tone = 'positive' | 'progress' | 'critical' | 'neutral';
 
@@ -79,6 +83,7 @@ export class RegistersComponent {
     training: '7.2',
     suppliers: '8.1',
     changes: '8.1',
+    carbon: '9.1',
     review: '9.3',
   };
 
@@ -104,6 +109,7 @@ export class RegistersComponent {
     { value: 'training', label: 'Training', icon: 'workspace_premium' },
     { value: 'suppliers', label: 'Suppliers', icon: 'local_shipping' },
     { value: 'changes', label: 'Change (MoC)', icon: 'published_with_changes' },
+    { value: 'carbon', label: 'Carbon', icon: 'co2' },
     { value: 'review', label: 'Mgmt review', icon: 'fact_check' },
   ];
 
@@ -171,6 +177,16 @@ export class RegistersComponent {
   }): MocAttention {
     return mocAttention(record);
   }
+
+  /** Per-scope carbon rollup (tCO2e) for the inventory summary. */
+  protected readonly carbon = computed(() => carbonRollup(this.store.carbon()));
+
+  /** Computed tCO2e for a single inventory row (override or activity × factor ÷ 1000). */
+  protected rowTco2e(entry: { activityData?: number; emissionFactor?: number; tco2eOverride?: number }): string {
+    return formatTco2e(emissionTco2e(entry));
+  }
+
+  protected readonly fmtTco2e = formatTco2e;
 
   /** Document review status (current / due soon / overdue / no date) for badge display. */
   protected documentBadge(record: { nextReviewAt?: string }): DocumentReviewStatus {

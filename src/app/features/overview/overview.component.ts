@@ -4,7 +4,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { RouterLink } from '@angular/router';
 
 import { AlertsService } from '../../core/alerts/alerts.service';
-import { metricVariance } from '../../core/domain';
+import { carbonRollup, formatTco2e, metricVariance } from '../../core/domain';
 import { FieldAuditStore } from '../../core/field/field-audit-store';
 
 interface Bar {
@@ -111,4 +111,8 @@ export class OverviewComponent {
     }));
     return { rows, total: scored.length };
   });
+
+  /** Carbon footprint rollup (GHG Scope 1/2/3) for the dashboard summary card. */
+  protected readonly carbon = computed(() => carbonRollup(this.store.carbon()));
+  protected readonly fmtTco2e = formatTco2e;
 }
