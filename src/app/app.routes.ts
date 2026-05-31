@@ -31,6 +31,12 @@ export const routes: Routes = [
         title: 'Actions & alerts',
       },
       {
+        path: 'settings/notifications',
+        loadComponent: () =>
+          import('./features/notifications/notification-settings.component').then((m) => m.NotificationSettingsComponent),
+        title: 'Notification settings',
+      },
+      {
         path: 'showcase',
         loadComponent: () => import('./features/dashboard/dashboard.component').then((m) => m.DashboardComponent),
         title: 'Capability showcase',
