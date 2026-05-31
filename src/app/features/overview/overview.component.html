@@ -91,6 +91,26 @@
     </article>
   }
 
+  <!-- Carbon footprint rollup (GHG Scope 1/2/3) -->
+  @if (carbon().entryCount) {
+    <article class="panel">
+      <div class="prog-head">
+        <h2>Carbon footprint (GHG Scope 1/2/3)</h2>
+        <a routerLink="/registers" fragment="carbon" class="seeall">{{ fmtTco2e(carbon().total) }} t CO₂e →</a>
+      </div>
+      <div class="co2-bar">
+        <span class="seg-s1" [style.width.%]="carbon().pct.scope1" [title]="'Scope 1: ' + fmtTco2e(carbon().scope1) + ' t'"></span>
+        <span class="seg-s2" [style.width.%]="carbon().pct.scope2" [title]="'Scope 2: ' + fmtTco2e(carbon().scope2) + ' t'"></span>
+        <span class="seg-s3" [style.width.%]="carbon().pct.scope3" [title]="'Scope 3: ' + fmtTco2e(carbon().scope3) + ' t'"></span>
+      </div>
+      <div class="co2-legend">
+        <span><i class="dot s1"></i>Scope 1 · {{ fmtTco2e(carbon().scope1) }} t ({{ carbon().pct.scope1 }}%)</span>
+        <span><i class="dot s2"></i>Scope 2 · {{ fmtTco2e(carbon().scope2) }} t ({{ carbon().pct.scope2 }}%)</span>
+        <span><i class="dot s3"></i>Scope 3 · {{ fmtTco2e(carbon().scope3) }} t ({{ carbon().pct.scope3 }}%)</span>
+      </div>
+    </article>
+  }
+
   <!-- Needs attention -->
   <article class="panel">
     <div class="prog-head">

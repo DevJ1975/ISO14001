@@ -3,7 +3,7 @@ import { Location } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 
-import { calibrationStatus, documentReviewStatus, mocAttention, permitExpiryStatus, supplierEvaluationStatus, trainingStatus } from '../../core/domain';
+import { calibrationStatus, carbonRollup, documentReviewStatus, emissionTco2e, formatTco2e, mocAttention, permitExpiryStatus, supplierEvaluationStatus, trainingStatus } from '../../core/domain';
 import { AuthService } from '../../core/auth/auth.service';
 import {
   auditTypeLabel,
@@ -159,6 +159,14 @@ export class ReportPrintComponent {
         : attention === 'settled'
           ? 'Settled'
           : 'On track';
+  }
+
+  /** Per-scope carbon rollup (tCO2e) for the report's GHG summary line. */
+  protected readonly carbon = computed(() => carbonRollup(this.store.carbon()));
+  protected readonly fmtTco2e = formatTco2e;
+
+  protected rowTco2e(entry: { activityData?: number; emissionFactor?: number; tco2eOverride?: number }): string {
+    return formatTco2e(emissionTco2e(entry));
   }
 
   protected formatDateTime(iso: string | undefined): string {

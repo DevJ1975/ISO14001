@@ -8,6 +8,7 @@ export * from './certificate.js';
 export * from './checklists.js';
 export * from './complaints.js';
 export * from './ems-calibration.js';
+export * from './ems-carbon.js';
 export * from './ems-change.js';
 export * from './ems-documents.js';
 export * from './multi-site-sampling.js';

@@ -529,6 +529,19 @@ const changeUpsertCommandSchema = z.object({
   result: registerResultSchema.default('notStarted'),
 });
 
+const carbonUpsertCommandSchema = z.object({
+  id: z.string().min(1),
+  source: z.string().max(300).default(''),
+  scope: z.union([z.literal(1), z.literal(2), z.literal(3)]).default(1),
+  category: z.string().max(200).optional(),
+  period: z.string().max(60).optional(),
+  activityData: z.number().min(0).max(1e12).optional(),
+  activityUnit: z.string().max(40).optional(),
+  emissionFactor: z.number().min(0).max(1e9).optional(),
+  tco2eOverride: z.number().min(0).max(1e12).optional(),
+  result: registerResultSchema.default('notStarted'),
+});
+
 const programmeUpsertSchema = z.object({
   cycleYear: z.number().int(),
   criteria: z.string().min(1),
@@ -1043,6 +1056,10 @@ export async function handleApiRequest(
         .collection(mongoCollections.changes)
         .find({ tenantId, auditId }, { projection: { _id: 0 } })
         .toArray();
+      const carbon = await dependencies.db
+        .collection(mongoCollections.carbon)
+        .find({ tenantId, auditId }, { projection: { _id: 0 } })
+        .toArray();
       const reportMeta = await dependencies.db
         .collection(mongoCollections.reportMeta)
         .findOne({ tenantId, auditId }, { projection: { _id: 0 } });
@@ -1081,6 +1098,7 @@ export async function handleApiRequest(
           training,
           suppliers,
           changes,
+          carbon,
           reportMeta,
           changeLog,
         },
@@ -1737,6 +1755,25 @@ export async function handleApiRequest(
         .collection(mongoCollections.changes)
         .updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
       sendJson(response, 200, { change: record }, corsOrigin);
+      return;
+    }
+
+    const carbonMatch = matchPath(
+      new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/carbon/([^/]+)$`),
+      url.pathname,
+      ['tenantId', 'auditId', 'id'],
+    );
+    if (request.method === 'PUT' && carbonMatch && actor) {
+      const tenantId = carbonMatch.params['tenantId']!;
+      const auditId = carbonMatch.params['auditId']!;
+      requireTenant(actor, tenantId);
+      requireAnyRole(actor, ['leadAuditor', 'auditor']);
+      const command = await readJson(request, carbonUpsertCommandSchema);
+      const record = { ...command, tenantId, auditId, updatedAt: new Date().toISOString() };
+      await dependencies.db
+        .collection(mongoCollections.carbon)
+        .updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
+      sendJson(response, 200, { carbon: record }, corsOrigin);
       return;
     }
 
