@@ -351,3 +351,50 @@
   background: var(--tone-critical-bg);
   color: var(--tone-critical-fg);
 }
+
+/* Permits register: expiry alert + renewal badge */
+.alert {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 4px;
+  padding: 10px 14px;
+  border: 1px solid var(--tone-critical-bd);
+  border-radius: 12px;
+  background: var(--tone-critical-bg);
+  color: var(--tone-critical-fg);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.alert mat-icon {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+}
+
+.permit-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 10px;
+  border-radius: 8px;
+  font-weight: 700;
+  background: var(--surface-guard);
+  color: var(--text);
+}
+
+.permit-badge.valid {
+  background: var(--tone-positive-bg, var(--surface-guard));
+  color: var(--tone-positive-fg, var(--text));
+}
+
+.permit-badge.expiringSoon {
+  background: var(--tone-progress-bg);
+  color: var(--tone-progress-fg);
+}
+
+.permit-badge.expired {
+  background: var(--tone-critical-bg);
+  color: var(--tone-critical-fg);
+}

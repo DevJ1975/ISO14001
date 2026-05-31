@@ -265,6 +265,24 @@ export interface DocumentedInfoRecord {
   sync: SyncState;
 }
 
+/** Environmental permit, licence or consent with renewal/expiry (ISO 14001 cl. 6.1.3 / 9.1.2). */
+export interface Permit {
+  id: string;
+  title: string;
+  permitType: 'permit' | 'licence' | 'consent' | 'registration' | 'exemption';
+  reference?: string;
+  issuingAuthority?: string;
+  issuedAt?: string;
+  expiresAt?: string;
+  renewalReminderDays?: number;
+  conditionsSummary?: string;
+  monitoringRequirements?: string;
+  complianceStatus: 'compliant' | 'nonCompliant' | 'toVerify';
+  result: RegisterResult;
+  updatedAt: string;
+  sync: SyncState;
+}
+
 /** Environmental performance indicator — monitoring & measurement (ISO 14001 cl. 9.1.1). */
 export interface PerformanceMetric {
   id: string;
@@ -371,6 +389,7 @@ interface PersistedState {
   awareness: AwarenessRecord[];
   documentedInfo: DocumentedInfoRecord[];
   performanceMetrics: PerformanceMetric[];
+  permits: Permit[];
   reportMeta: ReportMeta;
   reportSignedAt: string | null;
 }
@@ -379,6 +398,27 @@ const AUDIT_STATUS_ORDER: AuditStatus[] = ['draft', 'planned', 'fieldwork', 'rep
 
 const META_KEY = 'state';
 const AUDITOR = 'Ava Brooks';
+
+/** Demonstration permits — one valid, one expiring soon, one expired (relative to the demo audit date). */
+function seedPermits(): Permit[] {
+  const now = '2026-06-15T15:00:00.000Z';
+  const base = (extra: Partial<Permit>): Permit => ({
+    id: uid('permit'),
+    title: '',
+    permitType: 'permit',
+    renewalReminderDays: 90,
+    complianceStatus: 'toVerify',
+    result: 'notStarted',
+    updatedAt: now,
+    sync: 'synced',
+    ...extra,
+  });
+  return [
+    base({ title: 'Environmental permit — installation', permitType: 'permit', reference: 'EPR/AB1234CD', issuingAuthority: 'Environment Agency', issuedAt: '2022-04-01', expiresAt: '2027-09-30', complianceStatus: 'compliant', result: 'conforming', conditionsSummary: 'Emission limits, monitoring and reporting conditions.', monitoringRequirements: 'Quarterly stack testing; annual return.' }),
+    base({ title: 'Trade effluent consent', permitType: 'consent', reference: 'TE-2024-117', issuingAuthority: 'Water utility', issuedAt: '2024-07-01', expiresAt: '2026-08-15', complianceStatus: 'toVerify', result: 'needsFollowUp', monitoringRequirements: 'Monthly composite sampling of pH and COD.' }),
+    base({ title: 'Hazardous-waste carrier registration', permitType: 'registration', reference: 'CBDU-998877', issuingAuthority: 'Environment Agency', issuedAt: '2023-03-01', expiresAt: '2026-02-28', complianceStatus: 'nonCompliant', result: 'nonconforming', conditionsSummary: 'Upper-tier carrier registration; renew before expiry.' }),
+  ];
+}
 
 /** Demonstration 9.1 performance data — energy/water/waste/emissions with a target miss and a worsening trend. */
 function seedPerformanceMetrics(): PerformanceMetric[] {
@@ -537,6 +577,7 @@ export class FieldAuditStore {
   readonly awareness = signal<AwarenessRecord[]>([]);
   readonly documentedInfo = signal<DocumentedInfoRecord[]>([]);
   readonly performanceMetrics = signal<PerformanceMetric[]>(seedPerformanceMetrics());
+  readonly permits = signal<Permit[]>(seedPermits());
   readonly reportMeta = signal<ReportMeta>(defaultReportMeta());
   /** Read-only audit trail from the backend (not synced upward). */
   readonly changeLog = signal<ChangeLogEntry[]>([]);
@@ -573,6 +614,7 @@ export class FieldAuditStore {
       this.awareness().filter((a) => a.sync !== 'synced').length +
       this.documentedInfo().filter((d) => d.sync !== 'synced').length +
       this.performanceMetrics().filter((m) => m.sync !== 'synced').length +
+      this.permits().filter((p) => p.sync !== 'synced').length +
       (this.conclusion() && this.conclusion()!.sync !== 'synced' ? 1 : 0) +
       (this.reportMeta().sync !== 'synced' ? 1 : 0),
   );
@@ -1059,6 +1101,23 @@ export class FieldAuditStore {
     this.autoFlush();
   }
 
+  addPermit(): void {
+    this.permits.update((list) => [
+      { id: uid('permit'), title: '', permitType: 'permit', renewalReminderDays: 90, complianceStatus: 'toVerify', result: 'notStarted', updatedAt: new Date().toISOString(), sync: 'queued' },
+      ...list,
+    ]);
+    this.persist();
+    this.autoFlush();
+  }
+
+  updatePermit(id: string, patch: Partial<Permit>): void {
+    this.permits.update((list) =>
+      list.map((entry) => (entry.id === id ? { ...entry, ...patch, updatedAt: new Date().toISOString(), sync: 'queued' } : entry)),
+    );
+    this.persist();
+    this.autoFlush();
+  }
+
   /** Lead-auditor sign-off. Persisted to the server when live; recorded locally otherwise. */
   async signOff(attestation: string): Promise<boolean> {
     if (this.source() === 'live' && this.online()) {
@@ -1126,6 +1185,7 @@ export class FieldAuditStore {
     this.awareness.set([]);
     this.documentedInfo.set([]);
     this.performanceMetrics.set(seedPerformanceMetrics());
+    this.permits.set(seedPermits());
     this.reportMeta.set(defaultReportMeta());
     this.reportSignedAt.set(null);
     await idbDelete('meta', META_KEY);
@@ -1412,6 +1472,17 @@ export class FieldAuditStore {
           this.setSync('performanceMetrics', record.id, 'queued');
         }
       }
+      for (const record of this.permits().filter((entry) => entry.sync !== 'synced')) {
+        this.setSync('permits', record.id, 'syncing');
+        try {
+          const { sync, ...payload } = record;
+          void sync;
+          await this.api.upsertPermit(payload);
+          this.setSync('permits', record.id, 'synced');
+        } catch {
+          this.setSync('permits', record.id, 'queued');
+        }
+      }
       this.persist();
     } finally {
       this.flushing = false;
@@ -1437,7 +1508,8 @@ export class FieldAuditStore {
       | 'competence'
       | 'awareness'
       | 'documentedInfo'
-      | 'performanceMetrics',
+      | 'performanceMetrics'
+      | 'permits',
     id: string,
     sync: SyncState,
   ): void {
@@ -1461,6 +1533,7 @@ export class FieldAuditStore {
       awareness: this.awareness,
       documentedInfo: this.documentedInfo,
       performanceMetrics: this.performanceMetrics,
+      permits: this.permits,
     };
     const ref = map[collection] as unknown as {
       update: (fn: (list: SyncRecord[]) => SyncRecord[]) => void;
@@ -1518,6 +1591,7 @@ export class FieldAuditStore {
       awareness: this.awareness(),
       documentedInfo: this.documentedInfo(),
       performanceMetrics: this.performanceMetrics(),
+      permits: this.permits(),
       reportMeta: this.reportMeta(),
       reportSignedAt: this.reportSignedAt(),
     };
@@ -1548,6 +1622,7 @@ export class FieldAuditStore {
       this.awareness.set((payload.awareness ?? []).map((a) => ({ ...a, sync: 'synced' as const })));
       this.documentedInfo.set((payload.documentedInfo ?? []).map((d) => ({ ...d, sync: 'synced' as const })));
       this.performanceMetrics.set((payload.performanceMetrics ?? []).map((m) => ({ ...m, sync: 'synced' as const })));
+      this.permits.set((payload.permits ?? []).map((p) => ({ ...p, sync: 'synced' as const })));
       // Report front-matter: prefer the server copy (shared across the team),
       // falling back to defaults, then overlay scope/dates from the audit record.
       this.reportMeta.set(
@@ -1599,6 +1674,7 @@ export class FieldAuditStore {
     this.awareness.set(saved.awareness ?? []);
     this.documentedInfo.set(saved.documentedInfo ?? []);
     this.performanceMetrics.set(saved.performanceMetrics ?? seedPerformanceMetrics());
+    this.permits.set(saved.permits ?? seedPermits());
     if (saved.reportMeta) this.reportMeta.set({ ...defaultReportMeta(), ...saved.reportMeta });
     this.reportSignedAt.set(saved.reportSignedAt ?? null);
     const restored = await Promise.all(

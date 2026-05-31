@@ -3,8 +3,16 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { RouterLink } from '@angular/router';
 
-import { AspectSignificanceResult, ClauseGuide, clauseGuideFor, evaluateAspectSignificance, metricVariance } from '../../core/domain';
-import { EnvironmentalAspect, FieldAuditStore, RegisterResult } from '../../core/field/field-audit-store';
+import {
+  AspectSignificanceResult,
+  ClauseGuide,
+  clauseGuideFor,
+  evaluateAspectSignificance,
+  metricVariance,
+  PermitExpiryStatus,
+  permitExpiryStatus,
+} from '../../core/domain';
+import { EnvironmentalAspect, FieldAuditStore, Permit, RegisterResult } from '../../core/field/field-audit-store';
 
 type Tab =
   | 'aspects'
@@ -19,6 +27,7 @@ type Tab =
   | 'emergency'
   | 'parties'
   | 'performance'
+  | 'permits'
   | 'review';
 type Tone = 'positive' | 'progress' | 'critical' | 'neutral';
 
@@ -49,6 +58,7 @@ export class RegistersComponent {
     emergency: '8.2',
     parties: '4.2',
     performance: '9.1',
+    permits: '6.1.3',
     review: '9.3',
   };
 
@@ -68,6 +78,7 @@ export class RegistersComponent {
     { value: 'emergency', label: 'Emergency', icon: 'emergency' },
     { value: 'parties', label: 'Parties', icon: 'groups' },
     { value: 'performance', label: 'Performance', icon: 'monitoring' },
+    { value: 'permits', label: 'Permits', icon: 'event_available' },
     { value: 'review', label: 'Mgmt review', icon: 'fact_check' },
   ];
 
@@ -101,6 +112,19 @@ export class RegistersComponent {
       legalConcern: aspect.legalConcern,
       stakeholderConcern: aspect.stakeholderConcern,
     });
+  }
+
+  /** Permit renewal status (valid / expiring soon / expired) for badge display. */
+  protected permitStatus(permit: Permit): PermitExpiryStatus {
+    return permitExpiryStatus(permit);
+  }
+
+  /** Count of permits expiring soon or already expired, for the register alert. */
+  protected expiringPermits(): number {
+    return this.store.permits().filter((p) => {
+      const status = permitExpiryStatus(p);
+      return status === 'expiringSoon' || status === 'expired';
+    }).length;
   }
 
   /** Parse a numeric input, treating blank as "not recorded" (undefined). */

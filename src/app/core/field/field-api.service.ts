@@ -28,6 +28,7 @@ import type {
   InterestedParty,
   ManagementReviewRecord,
   PerformanceMetric,
+  Permit,
   ResourceRecord,
   RiskOpportunity,
 } from './field-audit-store';
@@ -62,6 +63,7 @@ export interface FieldStatePayload {
   awareness?: Array<Omit<AwarenessRecord, 'sync'>>;
   documentedInfo?: Array<Omit<DocumentedInfoRecord, 'sync'>>;
   performanceMetrics?: Array<Omit<PerformanceMetric, 'sync'>>;
+  permits?: Array<Omit<Permit, 'sync'>>;
   reportMeta?: Omit<ReportMeta, 'sync'> | null;
   changeLog?: ChangeLogEntry[];
 }
@@ -240,6 +242,10 @@ export class FieldApiService {
 
   upsertPerformanceMetric(body: Omit<PerformanceMetric, 'sync'>): Promise<unknown> {
     return firstValueFrom(this.http.put(`${this.base()}/performance-metrics/${encodeURIComponent(body.id)}`, body));
+  }
+
+  upsertPermit(body: Omit<Permit, 'sync'>): Promise<unknown> {
+    return firstValueFrom(this.http.put(`${this.base()}/permits/${encodeURIComponent(body.id)}`, body));
   }
 
   private tenantBase(): string {

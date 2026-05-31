@@ -136,7 +136,7 @@
         || store.communications().length || store.managementReviews().length
         || store.risksOpportunities().length || store.resources().length
         || store.competence().length || store.awareness().length || store.documentedInfo().length
-        || store.performanceMetrics().length) {
+        || store.performanceMetrics().length || store.permits().length) {
     <section class="block">
       <h2>6. EMS registers</h2>
       @if (store.aspects().length) {
@@ -294,6 +294,19 @@
               <tr><td>{{ m.indicator }}</td><td class="nowrap">{{ m.unit || '—' }}</td><td class="nowrap">{{ m.period || '—' }}</td>
                 <td class="nowrap">{{ m.targetValue ?? '—' }}</td><td class="nowrap">{{ m.actualValue ?? '—' }}</td>
                 <td class="nowrap">{{ m.trend }}</td><td class="nowrap">{{ resultLabel(m.result) }}</td></tr>
+            }
+          </tbody>
+        </table>
+      }
+      @if (store.permits().length) {
+        <h3>Permits, licences &amp; consents (cl. 6.1.3)</h3>
+        <table class="grid">
+          <thead><tr><th>Title</th><th>Type</th><th>Reference</th><th>Expires</th><th>Renewal</th><th>Compliance</th><th>Result</th></tr></thead>
+          <tbody>
+            @for (p of store.permits(); track p.id) {
+              <tr><td>{{ p.title }}</td><td class="nowrap">{{ p.permitType }}</td><td class="nowrap">{{ p.reference || '—' }}</td>
+                <td class="nowrap">{{ formatDate(p.expiresAt) }}</td><td class="nowrap">{{ permitStatusLabel(p) }}</td>
+                <td class="nowrap">{{ p.complianceStatus }}</td><td class="nowrap">{{ resultLabel(p.result) }}</td></tr>
             }
           </tbody>
         </table>

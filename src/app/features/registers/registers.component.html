@@ -445,6 +445,56 @@
         }
       </div>
     }
+    @case ('permits') {
+      <div class="reg">
+        <div class="reg-head">
+          <h2>Permits, licences &amp; consents</h2>
+          <button mat-flat-button color="primary" type="button" (click)="store.addPermit()"><mat-icon aria-hidden="true">add</mat-icon>Add</button>
+        </div>
+        @if (expiringPermits() > 0) {
+          <p class="alert"><mat-icon aria-hidden="true">warning</mat-icon>{{ expiringPermits() }} permit(s) expiring soon or expired — check renewal.</p>
+        }
+        @for (row of store.permits(); track row.id) {
+          <article class="tile row">
+            <div class="grid2">
+              <label class="fld"><span>Title</span><input [value]="row.title" (change)="store.updatePermit(row.id, { title: $any($event.target).value })" /></label>
+              <label class="fld"><span>Type</span>
+                <select [value]="row.permitType" (change)="store.updatePermit(row.id, { permitType: $any($event.target).value })">
+                  <option value="permit">Permit</option><option value="licence">Licence</option><option value="consent">Consent</option><option value="registration">Registration</option><option value="exemption">Exemption</option>
+                </select>
+              </label>
+            </div>
+            <div class="grid2">
+              <label class="fld"><span>Reference</span><input [value]="row.reference || ''" (change)="store.updatePermit(row.id, { reference: $any($event.target).value })" /></label>
+              <label class="fld"><span>Issuing authority</span><input [value]="row.issuingAuthority || ''" (change)="store.updatePermit(row.id, { issuingAuthority: $any($event.target).value })" /></label>
+            </div>
+            <div class="grid3">
+              <label class="fld"><span>Issued</span><input type="date" [value]="row.issuedAt || ''" (change)="store.updatePermit(row.id, { issuedAt: $any($event.target).value })" /></label>
+              <label class="fld"><span>Expires</span><input type="date" [value]="row.expiresAt || ''" (change)="store.updatePermit(row.id, { expiresAt: $any($event.target).value })" /></label>
+              <div class="fld"><span>Renewal status</span>
+                <output class="permit-badge {{ permitStatus(row) }}">
+                  {{ permitStatus(row) === 'expired' ? 'Expired' : permitStatus(row) === 'expiringSoon' ? 'Expiring soon' : permitStatus(row) === 'valid' ? 'Valid' : 'No date' }}
+                </output>
+              </div>
+            </div>
+            <label class="fld"><span>Conditions (summary)</span><input [value]="row.conditionsSummary || ''" (change)="store.updatePermit(row.id, { conditionsSummary: $any($event.target).value })" /></label>
+            <label class="fld"><span>Monitoring requirements</span><input [value]="row.monitoringRequirements || ''" (change)="store.updatePermit(row.id, { monitoringRequirements: $any($event.target).value })" /></label>
+            <label class="fld"><span>Compliance status</span>
+              <select [value]="row.complianceStatus" (change)="store.updatePermit(row.id, { complianceStatus: $any($event.target).value })">
+                <option value="compliant">Compliant</option><option value="nonCompliant">Non-compliant</option><option value="toVerify">To verify</option>
+              </select>
+            </label>
+            <div class="results">
+              @for (r of results; track r.value) {
+                <button type="button" class="rp {{ r.tone }}" [class.on]="row.result === r.value" (click)="store.updatePermit(row.id, { result: r.value })">{{ r.label }}</button>
+              }
+            </div>
+          </article>
+        } @empty {
+          <div class="panel empty"><mat-icon aria-hidden="true">event_available</mat-icon><strong>No permits yet</strong><span>Record permits, licences and consents with conditions and renewal dates (cl. 6.1.3).</span></div>
+        }
+      </div>
+    }
     @case ('review') {
       <div class="reg">
         <div class="reg-head">
