@@ -13,6 +13,8 @@ import {
   documentReviewStatus,
   evaluateAspectSignificance,
   metricVariance,
+  MocAttention,
+  mocAttention,
   PermitExpiryStatus,
   permitExpiryStatus,
   SupplierEvaluationStatus,
@@ -40,6 +42,7 @@ type Tab =
   | 'calibration'
   | 'training'
   | 'suppliers'
+  | 'changes'
   | 'review';
 type Tone = 'positive' | 'progress' | 'critical' | 'neutral';
 
@@ -75,6 +78,7 @@ export class RegistersComponent {
     calibration: '9.1',
     training: '7.2',
     suppliers: '8.1',
+    changes: '8.1',
     review: '9.3',
   };
 
@@ -99,6 +103,7 @@ export class RegistersComponent {
     { value: 'calibration', label: 'Calibration', icon: 'straighten' },
     { value: 'training', label: 'Training', icon: 'workspace_premium' },
     { value: 'suppliers', label: 'Suppliers', icon: 'local_shipping' },
+    { value: 'changes', label: 'Change (MoC)', icon: 'published_with_changes' },
     { value: 'review', label: 'Mgmt review', icon: 'fact_check' },
   ];
 
@@ -156,6 +161,15 @@ export class RegistersComponent {
     nextEvaluationAt?: string;
   }): SupplierEvaluationStatus {
     return supplierEvaluationStatus(record);
+  }
+
+  /** Management-of-change attention (on-track / overdue / aspects-outstanding / settled) for badge display. */
+  protected changeBadge(record: {
+    status?: 'proposed' | 'assessing' | 'approved' | 'implemented' | 'closed' | 'rejected';
+    aspectsReviewed?: boolean;
+    targetDate?: string;
+  }): MocAttention {
+    return mocAttention(record);
   }
 
   /** Document review status (current / due soon / overdue / no date) for badge display. */

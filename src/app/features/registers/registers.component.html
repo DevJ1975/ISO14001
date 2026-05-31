@@ -687,6 +687,54 @@
         }
       </div>
     }
+    @case ('changes') {
+      <div class="reg">
+        <div class="reg-head">
+          <h2>Management of Change (MoC)</h2>
+          <button mat-flat-button color="primary" type="button" (click)="store.addChange()"><mat-icon aria-hidden="true">add</mat-icon>Add</button>
+        </div>
+        @for (row of store.changes(); track row.id) {
+          <article class="tile row">
+            <label class="fld"><span>Change</span><input [value]="row.title" placeholder="New equipment, material substitution…" (change)="store.updateChange(row.id, { title: $any($event.target).value })" /></label>
+            <div class="grid3">
+              <label class="fld"><span>Type</span>
+                <select [value]="row.changeType" (change)="store.updateChange(row.id, { changeType: $any($event.target).value })">
+                  <option value="process">Process</option><option value="equipment">Equipment</option><option value="material">Material</option><option value="organisational">Organisational</option><option value="regulatory">Regulatory</option><option value="other">Other</option>
+                </select>
+              </label>
+              <label class="fld"><span>Status</span>
+                <select [value]="row.status" (change)="store.updateChange(row.id, { status: $any($event.target).value })">
+                  <option value="proposed">Proposed</option><option value="assessing">Assessing</option><option value="approved">Approved</option><option value="implemented">Implemented</option><option value="closed">Closed</option><option value="rejected">Rejected</option>
+                </select>
+              </label>
+              <label class="fld"><span>Risk</span>
+                <select [value]="row.riskLevel || ''" (change)="store.updateChange(row.id, { riskLevel: $any($event.target).value || undefined })">
+                  <option value="">—</option><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option>
+                </select>
+              </label>
+            </div>
+            <div class="grid3">
+              <label class="fld"><span>Owner</span><input [value]="row.owner || ''" (change)="store.updateChange(row.id, { owner: $any($event.target).value })" /></label>
+              <label class="fld"><span>Target date</span><input type="date" [value]="row.targetDate || ''" (change)="store.updateChange(row.id, { targetDate: $any($event.target).value })" /></label>
+              <div class="fld"><span>Attention</span>
+                <output class="permit-badge {{ changeBadge(row) }}">
+                  {{ changeBadge(row) === 'aspectsOutstanding' ? 'Aspects not assessed' : changeBadge(row) === 'overdue' ? 'Overdue' : changeBadge(row) === 'settled' ? 'Settled' : 'On track' }}
+                </output>
+              </div>
+            </div>
+            <label class="chk2"><input type="checkbox" [checked]="row.aspectsReviewed || false" (change)="store.updateChange(row.id, { aspectsReviewed: $any($event.target).checked })" /> Environmental aspects/impacts assessed</label>
+            <label class="fld"><span>Controls / notes</span><input [value]="row.controls || ''" (change)="store.updateChange(row.id, { controls: $any($event.target).value })" /></label>
+            <div class="results">
+              @for (r of results; track r.value) {
+                <button type="button" class="rp {{ r.tone }}" [class.on]="row.result === r.value" (click)="store.updateChange(row.id, { result: r.value })">{{ r.label }}</button>
+              }
+            </div>
+          </article>
+        } @empty {
+          <div class="panel empty"><mat-icon aria-hidden="true">published_with_changes</mat-icon><strong>No changes logged</strong><span>Track planned changes and assess their environmental aspects before approval; a change approved or implemented without an aspects review raises an alert (cl. 8.1).</span></div>
+        }
+      </div>
+    }
     @case ('review') {
       <div class="reg">
         <div class="reg-head">

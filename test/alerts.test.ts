@@ -14,6 +14,7 @@ function emptyInput(overrides: Partial<AlertInput> = {}): AlertInput {
     calibration: [],
     training: [],
     suppliers: [],
+    changes: [],
     incidents: [],
     plannedAudits: [],
     complaints: [],
@@ -123,6 +124,23 @@ describe('alerts engine', () => {
     assert.equal(alerts.find((a) => a.id === 'supplier-s2')?.severity, 'warning'); // never evaluated
     assert.equal(alerts.find((a) => a.id === 'supplier-s3'), undefined); // current
     assert.equal(alerts.find((a) => a.id === 'supplier-s4'), undefined); // not environmentally relevant
+  });
+
+  it('flags changes implemented without an aspects review, and overdue open changes', () => {
+    const alerts = buildAlerts(
+      emptyInput({
+        changes: [
+          { id: 'm1', title: 'Solvent swap', status: 'implemented', aspectsReviewed: false },
+          { id: 'm2', title: 'Waste store move', status: 'approved', aspectsReviewed: true, targetDate: '2026-04-30' },
+          { id: 'm3', title: 'New still', status: 'assessing', aspectsReviewed: false, targetDate: '2026-12-31' },
+          { id: 'm4', title: 'EPR rules', status: 'closed', aspectsReviewed: false },
+        ],
+      }),
+    );
+    assert.equal(alerts.find((a) => a.id === 'moc-m1')?.severity, 'critical'); // implemented w/o aspects review
+    assert.equal(alerts.find((a) => a.id === 'moc-m2')?.severity, 'warning'); // open & past target
+    assert.equal(alerts.find((a) => a.id === 'moc-m3'), undefined); // on track (future target, reviewed not required pre-approval)
+    assert.equal(alerts.find((a) => a.id === 'moc-m4'), undefined); // closed/settled
   });
 
   it('builds a date-sorted schedule of upcoming deadlines', () => {

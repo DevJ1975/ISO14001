@@ -487,6 +487,7 @@ Deno.serve(async (req) => {
           calibration: byKind('calibration'),
           training: byKind('training'),
           suppliers: byKind('supplier'),
+          changes: byKind('change-moc'),
           meetings: byKind('meeting'),
           conclusion: single('conclusion'),
           reportMeta: single('reportMeta'),
@@ -659,6 +660,7 @@ Deno.serve(async (req) => {
         calibration: 'calibration',
         training: 'training',
         suppliers: 'supplier',
+        changes: 'change-moc',
       };
       if (method === 'PUT' && registerKinds[rest[0]] && rest[1]) {
         requireRole(actor, ['leadAuditor', 'auditor']);

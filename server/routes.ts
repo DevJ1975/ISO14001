@@ -514,6 +514,21 @@ const supplierUpsertCommandSchema = z.object({
   result: registerResultSchema.default('notStarted'),
 });
 
+const changeUpsertCommandSchema = z.object({
+  id: z.string().min(1),
+  title: z.string().max(300).default(''),
+  description: z.string().max(2000).optional(),
+  changeType: z.enum(['process', 'equipment', 'material', 'organisational', 'regulatory', 'other']).default('process'),
+  status: z.enum(['proposed', 'assessing', 'approved', 'implemented', 'closed', 'rejected']).default('proposed'),
+  aspectsReviewed: z.boolean().optional(),
+  riskLevel: z.enum(['low', 'medium', 'high']).optional(),
+  owner: z.string().max(200).optional(),
+  controls: z.string().max(2000).optional(),
+  targetDate: z.string().max(40).optional(),
+  implementedAt: z.string().max(40).optional(),
+  result: registerResultSchema.default('notStarted'),
+});
+
 const programmeUpsertSchema = z.object({
   cycleYear: z.number().int(),
   criteria: z.string().min(1),
@@ -1024,6 +1039,10 @@ export async function handleApiRequest(
         .collection(mongoCollections.suppliers)
         .find({ tenantId, auditId }, { projection: { _id: 0 } })
         .toArray();
+      const changes = await dependencies.db
+        .collection(mongoCollections.changes)
+        .find({ tenantId, auditId }, { projection: { _id: 0 } })
+        .toArray();
       const reportMeta = await dependencies.db
         .collection(mongoCollections.reportMeta)
         .findOne({ tenantId, auditId }, { projection: { _id: 0 } });
@@ -1061,6 +1080,7 @@ export async function handleApiRequest(
           calibration,
           training,
           suppliers,
+          changes,
           reportMeta,
           changeLog,
         },
@@ -1698,6 +1718,25 @@ export async function handleApiRequest(
         .collection(mongoCollections.suppliers)
         .updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
       sendJson(response, 200, { supplier: record }, corsOrigin);
+      return;
+    }
+
+    const changeMatch = matchPath(
+      new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/changes/([^/]+)$`),
+      url.pathname,
+      ['tenantId', 'auditId', 'id'],
+    );
+    if (request.method === 'PUT' && changeMatch && actor) {
+      const tenantId = changeMatch.params['tenantId']!;
+      const auditId = changeMatch.params['auditId']!;
+      requireTenant(actor, tenantId);
+      requireAnyRole(actor, ['leadAuditor', 'auditor']);
+      const command = await readJson(request, changeUpsertCommandSchema);
+      const record = { ...command, tenantId, auditId, updatedAt: new Date().toISOString() };
+      await dependencies.db
+        .collection(mongoCollections.changes)
+        .updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
+      sendJson(response, 200, { change: record }, corsOrigin);
       return;
     }
 

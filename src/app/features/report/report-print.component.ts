@@ -3,7 +3,7 @@ import { Location } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 
-import { calibrationStatus, documentReviewStatus, permitExpiryStatus, supplierEvaluationStatus, trainingStatus } from '../../core/domain';
+import { calibrationStatus, documentReviewStatus, mocAttention, permitExpiryStatus, supplierEvaluationStatus, trainingStatus } from '../../core/domain';
 import { AuthService } from '../../core/auth/auth.service';
 import {
   auditTypeLabel,
@@ -148,6 +148,17 @@ export class ReportPrintComponent {
           : status === 'notEvaluated'
             ? 'Not evaluated'
             : 'Not relevant';
+  }
+
+  protected changeLabel(record: { status?: 'proposed' | 'assessing' | 'approved' | 'implemented' | 'closed' | 'rejected'; aspectsReviewed?: boolean; targetDate?: string }): string {
+    const attention = mocAttention(record);
+    return attention === 'aspectsOutstanding'
+      ? 'Aspects not assessed'
+      : attention === 'overdue'
+        ? 'Overdue'
+        : attention === 'settled'
+          ? 'Settled'
+          : 'On track';
   }
 
   protected formatDateTime(iso: string | undefined): string {

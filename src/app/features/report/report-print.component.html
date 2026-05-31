@@ -137,7 +137,8 @@
         || store.risksOpportunities().length || store.resources().length
         || store.competence().length || store.awareness().length || store.documentedInfo().length
         || store.performanceMetrics().length || store.permits().length || store.incidents().length
-        || store.calibration().length || store.training().length || store.suppliers().length) {
+        || store.calibration().length || store.training().length || store.suppliers().length
+        || store.changes().length) {
     <section class="block">
       <h2>6. EMS registers</h2>
       @if (store.aspects().length) {
@@ -357,6 +358,18 @@
             @for (s of store.suppliers(); track s.id) {
               <tr><td>{{ s.name }}</td><td class="nowrap">{{ s.category }}</td><td class="nowrap">{{ s.rating }}</td>
                 <td class="nowrap">{{ formatDate(s.nextEvaluationAt) }}</td><td class="nowrap">{{ supplierLabel(s) }}</td><td class="nowrap">{{ resultLabel(s.result) }}</td></tr>
+            }
+          </tbody>
+        </table>
+      }
+      @if (store.changes().length) {
+        <h3>Management of Change (cl. 8.1)</h3>
+        <table class="grid">
+          <thead><tr><th>Change</th><th>Type</th><th>Status</th><th>Aspects assessed</th><th>Attention</th><th>Result</th></tr></thead>
+          <tbody>
+            @for (c of store.changes(); track c.id) {
+              <tr><td>{{ c.title }}</td><td class="nowrap">{{ c.changeType }}</td><td class="nowrap">{{ c.status }}</td>
+                <td class="nowrap">{{ c.aspectsReviewed ? 'Yes' : 'No' }}</td><td class="nowrap">{{ changeLabel(c) }}</td><td class="nowrap">{{ resultLabel(c.result) }}</td></tr>
             }
           </tbody>
         </table>
