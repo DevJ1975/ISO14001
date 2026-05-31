@@ -1,0 +1,53 @@
+<section class="screen">
+  <header class="screen-head">
+    <h1>Notification settings</h1>
+    <p>Choose how and when the platform notifies you about items that need attention. Notifications are built from the live alerts engine (overdue CAPAs &amp; actions, expiring permits, lapsed training, overdue supplier evaluations, calibration due, and more).</p>
+  </header>
+
+  <article class="panel">
+    <h2>Channels</h2>
+    <label class="row">
+      <span><strong>In-app</strong><small>The bell in the top bar and the notification list. Always on.</small></span>
+      <input type="checkbox" checked disabled />
+    </label>
+    <label class="row">
+      <span><strong>Email</strong><small>Send a copy by email.</small></span>
+      <input type="checkbox" [checked]="prefs().channels.email" (change)="setChannel('email', $event)" />
+    </label>
+    <label class="row">
+      <span><strong>Push</strong><small>Browser / device push notifications.</small></span>
+      <input type="checkbox" [checked]="prefs().channels.push" (change)="setChannel('push', $event)" />
+    </label>
+    <p class="note">
+      <mat-icon aria-hidden="true">info</mat-icon>
+      Email and push require server-side delivery infrastructure (a mail provider and Web Push with VAPID keys), which isn't wired in this environment. With them enabled, the app records what <em>would</em> be sent through a pluggable transport — swap in a real provider in production without changing this screen.
+    </p>
+  </article>
+
+  <article class="panel">
+    <h2>Minimum severity</h2>
+    <div class="seg">
+      @for (s of severities; track s.value) {
+        <button type="button" [class.on]="prefs().minSeverity === s.value" (click)="setMinSeverity(s.value)" [title]="s.hint">
+          {{ s.label }}
+        </button>
+      }
+    </div>
+  </article>
+
+  <article class="panel">
+    <h2>Muted categories</h2>
+    @if (categories().length) {
+      <div class="chips">
+        @for (c of categories(); track c) {
+          <button type="button" class="chip" [class.muted]="isMuted(c)" (click)="toggleMuted(c)">
+            <mat-icon aria-hidden="true">{{ isMuted(c) ? 'notifications_off' : 'notifications_active' }}</mat-icon>{{ c }}
+          </button>
+        }
+      </div>
+      <p class="note"><mat-icon aria-hidden="true">info</mat-icon>Muted categories never notify on any channel.</p>
+    } @else {
+      <p class="muted">No notification categories yet.</p>
+    }
+  </article>
+</section>

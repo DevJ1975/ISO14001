@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
@@ -7,6 +7,7 @@ import { AlertsService } from '../alerts/alerts.service';
 import { AuthService } from '../auth/auth.service';
 import { ConditionsService } from '../conditions/conditions.service';
 import { FieldAuditStore } from '../field/field-audit-store';
+import { NotificationsService } from '../notifications/notifications.service';
 import { ThemeService } from '../theme/theme.service';
 
 interface NavItem {
@@ -30,7 +31,25 @@ export class ShellComponent {
   protected readonly store = inject(FieldAuditStore);
   protected readonly auth = inject(AuthService);
   protected readonly alerts = inject(AlertsService);
+  protected readonly notifications = inject(NotificationsService);
   private readonly router = inject(Router);
+
+  /** Notification dropdown open state. */
+  protected readonly notifOpen = signal(false);
+
+  protected toggleNotifications(): void {
+    this.notifOpen.update((open) => !open);
+  }
+
+  protected closeNotifications(): void {
+    this.notifOpen.set(false);
+  }
+
+  protected openNotification(link: string, fragment: string | undefined, id: string): void {
+    this.notifications.markRead(id);
+    this.notifOpen.set(false);
+    void this.router.navigate([link], fragment ? { fragment } : {});
+  }
 
   /** Critical + warning alert count for the Actions nav badge. */
   protected readonly alertBadge = computed(() => {

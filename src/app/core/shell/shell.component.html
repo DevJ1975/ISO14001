@@ -107,6 +107,50 @@
         <mat-icon aria-hidden="true">menu_book</mat-icon>
       </a>
 
+      <div class="notif-wrap">
+        <button
+          class="icon-btn"
+          type="button"
+          (click)="toggleNotifications()"
+          [attr.aria-expanded]="notifOpen()"
+          [attr.aria-label]="notifications.unread() + ' unread notifications'"
+          title="Notifications"
+        >
+          <mat-icon aria-hidden="true">notifications</mat-icon>
+          @if (notifications.unread() > 0) {
+            <span class="notif-dot">{{ notifications.unread() }}</span>
+          }
+        </button>
+        @if (notifOpen()) {
+          <button class="notif-scrim" type="button" aria-label="Close notifications" (click)="closeNotifications()"></button>
+          <div class="notif-panel" role="dialog" aria-label="Notifications">
+            <div class="notif-head">
+              <strong>Notifications</strong>
+              <div class="notif-actions">
+                @if (notifications.unread() > 0) {
+                  <button type="button" class="link" (click)="notifications.markAllRead()">Mark all read</button>
+                }
+                <a routerLink="/settings/notifications" class="link" (click)="closeNotifications()">Settings</a>
+              </div>
+            </div>
+            <div class="notif-list">
+              @for (n of notifications.notifications(); track n.id) {
+                <button type="button" class="notif-item {{ n.severity }}" [class.unread]="!n.read" (click)="openNotification(n.link, n.fragment, n.id)">
+                  <mat-icon aria-hidden="true">{{ n.severity === 'critical' ? 'error' : n.severity === 'warning' ? 'warning' : 'info' }}</mat-icon>
+                  <span class="notif-text">
+                    <strong>{{ n.title }}</strong>
+                    <small>{{ n.category }}{{ n.due ? ' · due ' + n.due : '' }}</small>
+                  </span>
+                  @if (!n.read) { <span class="unread-dot" aria-hidden="true"></span> }
+                </button>
+              } @empty {
+                <div class="notif-empty"><mat-icon aria-hidden="true">task_alt</mat-icon>You're all caught up.</div>
+              }
+            </div>
+          </div>
+        }
+      </div>
+
       <button
         class="icon-btn"
         type="button"
