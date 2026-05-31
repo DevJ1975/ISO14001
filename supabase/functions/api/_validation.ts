@@ -75,6 +75,10 @@ export function cleanRegister(body: Record<string, unknown>, id: string): Record
       out['result'] = REGISTER_RESULTS.includes(value as string) ? value : 'notStarted';
     } else if (typeof value === 'boolean') {
       out[key] = value;
+    } else if (typeof value === 'number') {
+      // Numeric register fields (e.g. performance-metric values) are kept as
+      // finite numbers, not stringified, so the deployed store holds real data.
+      out[key] = Number.isFinite(value) ? value : 0;
     } else {
       out[key] = str(value, 2000, key);
     }

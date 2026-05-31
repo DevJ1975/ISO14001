@@ -300,6 +300,11 @@ const aspectUpsertCommandSchema = z.object({
   activity: z.string().max(300).default(''),
   impact: z.string().max(300).default(''),
   significance: z.enum(['low', 'medium', 'high']).default('medium'),
+  severityScore: z.number().int().min(1).max(5).optional(),
+  likelihoodScore: z.number().int().min(1).max(5).optional(),
+  legalConcern: z.boolean().optional(),
+  stakeholderConcern: z.boolean().optional(),
+  significanceRationale: z.string().max(1000).optional(),
   controls: z.string().max(2000).optional(),
   relatedClauseId: z.string().optional(),
   result: registerResultSchema.default('notStarted'),
@@ -407,6 +412,36 @@ const documentedInfoUpsertCommandSchema = z.object({
   result: registerResultSchema.default('notStarted'),
 });
 
+const performanceMetricUpsertCommandSchema = z.object({
+  id: z.string().min(1),
+  indicator: z.string().max(300).default(''),
+  category: z.enum(['energy', 'water', 'waste', 'emissions', 'materials', 'effluent', 'other']).default('energy'),
+  unit: z.string().max(40).default(''),
+  period: z.string().max(60).default(''),
+  baselineValue: z.number().finite().optional(),
+  targetValue: z.number().finite().optional(),
+  actualValue: z.number().finite().optional(),
+  trend: z.enum(['improving', 'stable', 'worsening', 'notEvaluated']).default('notEvaluated'),
+  monitoringMethod: z.string().max(500).optional(),
+  evaluationNotes: z.string().max(2000).optional(),
+  result: registerResultSchema.default('notStarted'),
+});
+
+const permitUpsertCommandSchema = z.object({
+  id: z.string().min(1),
+  title: z.string().max(300).default(''),
+  permitType: z.enum(['permit', 'licence', 'consent', 'registration', 'exemption']).default('permit'),
+  reference: z.string().max(200).optional(),
+  issuingAuthority: z.string().max(300).optional(),
+  issuedAt: z.string().max(40).optional(),
+  expiresAt: z.string().max(40).optional(),
+  renewalReminderDays: z.number().int().min(0).max(3650).optional(),
+  conditionsSummary: z.string().max(2000).optional(),
+  monitoringRequirements: z.string().max(2000).optional(),
+  complianceStatus: z.enum(['compliant', 'nonCompliant', 'toVerify']).default('toVerify'),
+  result: registerResultSchema.default('notStarted'),
+});
+
 const programmeUpsertSchema = z.object({
   cycleYear: z.number().int(),
   criteria: z.string().min(1),
@@ -430,6 +465,57 @@ const programmeUpsertSchema = z.object({
       }),
     )
     .default([]),
+  certificates: z
+    .array(
+      z.object({
+        id: z.string().min(1),
+        certificateNumber: z.string().max(120).default(''),
+        auditeeName: z.string().max(300).optional(),
+        edition: z.string().max(40).optional(),
+        scopeStatement: z.string().max(2000).default(''),
+        sites: z.array(z.string().max(300)).default([]),
+        issuedAt: z.string().max(40).optional(),
+        expiresAt: z.string().max(40).optional(),
+        status: z.enum(['active', 'suspended', 'withdrawn', 'expired', 'reducedScope']).default('active'),
+        history: z
+          .array(
+            z.object({
+              action: z.string().max(40),
+              at: z.string().max(40),
+              by: z.string().max(200).optional(),
+              reason: z.string().max(1000).optional(),
+            }),
+          )
+          .default([]),
+        updatedAt: z.string().max(40).optional(),
+      }),
+    )
+    .default([]),
+  complaintsAppeals: z
+    .array(
+      z.object({
+        id: z.string().min(1),
+        kind: z.enum(['complaint', 'appeal']).default('complaint'),
+        subject: z.string().max(300).default(''),
+        source: z.string().max(300).optional(),
+        description: z.string().max(2000).default(''),
+        receivedAt: z.string().max(40).optional(),
+        dueDate: z.string().max(40).optional(),
+        status: z.enum(['received', 'underReview', 'resolved', 'closed', 'upheld', 'rejected']).default('received'),
+        handledBy: z.string().max(200).optional(),
+        resolution: z.string().max(2000).optional(),
+        updatedAt: z.string().max(40).optional(),
+      }),
+    )
+    .default([]),
+  planning: z
+    .object({
+      effectivePersonnel: z.number().int().min(0).max(1000000).optional(),
+      complexity: z.enum(['high', 'medium', 'low', 'limited']).optional(),
+      siteCount: z.number().int().min(0).max(100000).optional(),
+      stage: z.enum(['initial', 'surveillance', 'recertification']).optional(),
+    })
+    .optional(),
 });
 
 interface SeedChecklistItem {
@@ -842,13 +928,18 @@ export async function handleApiRequest(
           dependencies.db.collection(mongoCollections.communicationRecords).find({ tenantId, auditId }, { projection: { _id: 0 } }).toArray(),
           dependencies.db.collection(mongoCollections.managementReviews).find({ tenantId, auditId }, { projection: { _id: 0 } }).toArray(),
         ]);
-      const [risksOpportunities, resources, competence, awareness, documentedInfo] = await Promise.all([
+      const [risksOpportunities, resources, competence, awareness, documentedInfo, performanceMetrics] = await Promise.all([
         dependencies.db.collection(mongoCollections.risksOpportunities).find({ tenantId, auditId }, { projection: { _id: 0 } }).toArray(),
         dependencies.db.collection(mongoCollections.resourceRecords).find({ tenantId, auditId }, { projection: { _id: 0 } }).toArray(),
         dependencies.db.collection(mongoCollections.competenceRecords).find({ tenantId, auditId }, { projection: { _id: 0 } }).toArray(),
         dependencies.db.collection(mongoCollections.awarenessRecords).find({ tenantId, auditId }, { projection: { _id: 0 } }).toArray(),
         dependencies.db.collection(mongoCollections.documentedInfo).find({ tenantId, auditId }, { projection: { _id: 0 } }).toArray(),
+        dependencies.db.collection(mongoCollections.performanceMetrics).find({ tenantId, auditId }, { projection: { _id: 0 } }).toArray(),
       ]);
+      const permits = await dependencies.db
+        .collection(mongoCollections.permits)
+        .find({ tenantId, auditId }, { projection: { _id: 0 } })
+        .toArray();
       const reportMeta = await dependencies.db
         .collection(mongoCollections.reportMeta)
         .findOne({ tenantId, auditId }, { projection: { _id: 0 } });
@@ -880,6 +971,8 @@ export async function handleApiRequest(
           competence,
           awareness,
           documentedInfo,
+          performanceMetrics,
+          permits,
           reportMeta,
           changeLog,
         },
@@ -1403,6 +1496,44 @@ export async function handleApiRequest(
         .collection(mongoCollections.documentedInfo)
         .updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
       sendJson(response, 200, { documentedInfo: record }, corsOrigin);
+      return;
+    }
+
+    const performanceMetricMatch = matchPath(
+      new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/performance-metrics/([^/]+)$`),
+      url.pathname,
+      ['tenantId', 'auditId', 'id'],
+    );
+    if (request.method === 'PUT' && performanceMetricMatch && actor) {
+      const tenantId = performanceMetricMatch.params['tenantId']!;
+      const auditId = performanceMetricMatch.params['auditId']!;
+      requireTenant(actor, tenantId);
+      requireAnyRole(actor, ['leadAuditor', 'auditor']);
+      const command = await readJson(request, performanceMetricUpsertCommandSchema);
+      const record = { ...command, tenantId, auditId, updatedAt: new Date().toISOString() };
+      await dependencies.db
+        .collection(mongoCollections.performanceMetrics)
+        .updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
+      sendJson(response, 200, { performanceMetric: record }, corsOrigin);
+      return;
+    }
+
+    const permitMatch = matchPath(
+      new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/permits/([^/]+)$`),
+      url.pathname,
+      ['tenantId', 'auditId', 'id'],
+    );
+    if (request.method === 'PUT' && permitMatch && actor) {
+      const tenantId = permitMatch.params['tenantId']!;
+      const auditId = permitMatch.params['auditId']!;
+      requireTenant(actor, tenantId);
+      requireAnyRole(actor, ['leadAuditor', 'auditor']);
+      const command = await readJson(request, permitUpsertCommandSchema);
+      const record = { ...command, tenantId, auditId, updatedAt: new Date().toISOString() };
+      await dependencies.db
+        .collection(mongoCollections.permits)
+        .updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
+      sendJson(response, 200, { permit: record }, corsOrigin);
       return;
     }
 

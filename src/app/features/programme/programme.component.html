@@ -65,4 +65,112 @@
       }
     </article>
   }
+
+  @if (store.programme(); as p) {
+    <article class="panel">
+      <div class="p-head"><h2>Planning aids — audit time &amp; site sampling</h2></div>
+      <p class="muted">Estimate certification audit days (IAF MD 5) and multi-site sample size (IAF MD 1, √N). Representative figures; set your own audit-time procedure.</p>
+      <div class="aids">
+        <label class="fld"><span>Effective personnel</span><input type="number" min="0" [value]="p.planning.effectivePersonnel ?? ''" (change)="store.setPlanning({ effectivePersonnel: num($any($event.target).value) })" [disabled]="!canEdit()" /></label>
+        <label class="fld"><span>Complexity</span>
+          <select [value]="p.planning.complexity ?? 'high'" (change)="store.setPlanning({ complexity: $any($event.target).value })" [disabled]="!canEdit()">
+            @for (c of complexities; track c) { <option [value]="c">{{ c }}</option> }
+          </select>
+        </label>
+        <label class="fld"><span>Stage</span>
+          <select [value]="p.planning.stage ?? 'initial'" (change)="store.setPlanning({ stage: $any($event.target).value })" [disabled]="!canEdit()">
+            @for (s of stages; track s) { <option [value]="s">{{ s }}</option> }
+          </select>
+        </label>
+        <label class="fld"><span>Number of sites</span><input type="number" min="0" [value]="p.planning.siteCount ?? ''" (change)="store.setPlanning({ siteCount: num($any($event.target).value) })" [disabled]="!canEdit()" /></label>
+      </div>
+      <div class="aid-out">
+        @if (auditTime(); as t) {
+          <div class="kpi"><strong>{{ t.recommendedDays }}</strong><span>recommended audit days (base {{ t.baseDays }})</span></div>
+        } @else {
+          <div class="kpi"><strong>—</strong><span>enter effective personnel</span></div>
+        }
+        @if (siteSample(); as n) {
+          <div class="kpi"><strong>{{ n }}</strong><span>sites to sample · {{ sampleRationale() }}</span></div>
+        }
+      </div>
+    </article>
+
+    <article class="panel">
+      <div class="p-head">
+        <h2>Certificates</h2>
+        @if (canEdit()) {
+          <button mat-stroked-button type="button" (click)="store.addCertificate()"><mat-icon aria-hidden="true">workspace_premium</mat-icon>Add</button>
+        }
+      </div>
+      @for (cert of p.certificates; track cert.id) {
+        <div class="tile certrow">
+          <div class="grid2">
+            <input [value]="cert.certificateNumber" (change)="store.updateCertificate(cert.id, { certificateNumber: $any($event.target).value })" [disabled]="!canEdit()" placeholder="Certificate number" />
+            <input [value]="cert.auditeeName || ''" (change)="store.updateCertificate(cert.id, { auditeeName: $any($event.target).value })" [disabled]="!canEdit()" placeholder="Certified organisation" />
+          </div>
+          <input [value]="cert.scopeStatement" (change)="store.updateCertificate(cert.id, { scopeStatement: $any($event.target).value })" [disabled]="!canEdit()" placeholder="Scope statement" />
+          <div class="grid2">
+            <label class="fld"><span>Issued</span><input type="date" [value]="cert.issuedAt || ''" (change)="store.updateCertificate(cert.id, { issuedAt: $any($event.target).value })" [disabled]="!canEdit()" /></label>
+            <label class="fld"><span>Expires</span><input type="date" [value]="cert.expiresAt || ''" (change)="store.updateCertificate(cert.id, { expiresAt: $any($event.target).value })" [disabled]="!canEdit()" /></label>
+          </div>
+          <div class="certfoot">
+            <span class="badge" [attr.data-tone]="certTone(cert.status)">{{ cert.status }}</span>
+            @if (canEdit() && certTransitions(cert.status).length) {
+              <select (change)="onCertTransition(cert, $any($event.target).value); $any($event.target).value = ''">
+                <option value="">Change status…</option>
+                @for (to of certTransitions(cert.status); track to) { <option [value]="to">{{ to }}</option> }
+              </select>
+            }
+            <span class="muted small">{{ cert.history.length }} event(s)</span>
+            @if (canEdit()) {
+              <button class="icon" type="button" (click)="store.removeCertificate(cert.id)" aria-label="Remove"><mat-icon aria-hidden="true">delete</mat-icon></button>
+            }
+          </div>
+        </div>
+      } @empty {
+        <p class="muted">No certificates recorded.</p>
+      }
+    </article>
+
+    <article class="panel">
+      <div class="p-head">
+        <h2>Complaints &amp; appeals</h2>
+        @if (canEdit()) {
+          <span class="addpair">
+            <button mat-stroked-button type="button" (click)="store.addComplaint('complaint')"><mat-icon aria-hidden="true">feedback</mat-icon>Complaint</button>
+            <button mat-stroked-button type="button" (click)="store.addComplaint('appeal')"><mat-icon aria-hidden="true">gavel</mat-icon>Appeal</button>
+          </span>
+        }
+      </div>
+      @for (item of p.complaintsAppeals; track item.id) {
+        <div class="tile caserow" [class.overdue]="overdue(item)">
+          <div class="grid2">
+            <input [value]="item.subject" (change)="store.updateComplaint(item.id, { subject: $any($event.target).value })" [disabled]="!canEdit()" placeholder="Subject" />
+            <input [value]="item.source || ''" (change)="store.updateComplaint(item.id, { source: $any($event.target).value })" [disabled]="!canEdit()" placeholder="Source / complainant" />
+          </div>
+          <input [value]="item.description" (change)="store.updateComplaint(item.id, { description: $any($event.target).value })" [disabled]="!canEdit()" placeholder="Description" />
+          <div class="grid3">
+            <label class="fld"><span>Kind</span>
+              <select [value]="item.kind" (change)="store.updateComplaint(item.id, { kind: $any($event.target).value })" [disabled]="!canEdit()">
+                @for (k of complaintKinds; track k) { <option [value]="k">{{ k }}</option> }
+              </select>
+            </label>
+            <label class="fld"><span>Status</span>
+              <select [value]="item.status" (change)="store.updateComplaint(item.id, { status: $any($event.target).value })" [disabled]="!canEdit()">
+                @for (s of complaintStatuses; track s) { <option [value]="s">{{ s }}</option> }
+              </select>
+            </label>
+            <label class="fld"><span>Due {{ overdue(item) ? '(overdue)' : '' }}</span><input type="date" [value]="item.dueDate || ''" (change)="store.updateComplaint(item.id, { dueDate: $any($event.target).value })" [disabled]="!canEdit()" /></label>
+          </div>
+          <input [value]="item.resolution || ''" (change)="store.updateComplaint(item.id, { resolution: $any($event.target).value })" [disabled]="!canEdit()" placeholder="Resolution / decision" />
+          @if (canEdit()) {
+            <button class="icon" type="button" (click)="store.removeComplaint(item.id)" aria-label="Remove"><mat-icon aria-hidden="true">delete</mat-icon></button>
+          }
+        </div>
+      } @empty {
+        <p class="muted">No complaints or appeals recorded.</p>
+      }
+    </article>
+  }
 </section>

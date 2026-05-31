@@ -68,4 +68,16 @@ describe('supabase edge-function security & validation', () => {
     assert.equal(record['topic'], 'Policy');
     assert.equal(record['id'], 'comm-1');
   });
+
+  it('preserves finite numeric register fields (performance metrics) as numbers', () => {
+    const record = cleanRegister(
+      { indicator: 'Electricity', unit: 'MWh', targetValue: 1200, actualValue: 1185, bogus: Infinity, result: 'conforming' },
+      'metric-1',
+    );
+    assert.equal(record['targetValue'], 1200);
+    assert.equal(record['actualValue'], 1185);
+    assert.equal(typeof record['actualValue'], 'number');
+    assert.equal(record['bogus'], 0); // non-finite numbers are clamped, not stringified
+    assert.equal(record['result'], 'conforming');
+  });
 });

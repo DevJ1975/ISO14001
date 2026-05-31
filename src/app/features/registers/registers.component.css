@@ -174,3 +174,227 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Contextual "what to look for" field-guide hint */
+.hint {
+  padding: 0;
+  overflow: hidden;
+}
+
+.hint-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 14px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.hint-head mat-icon {
+  color: var(--primary);
+  flex: 0 0 auto;
+}
+
+.hint-head .chev {
+  margin-left: auto;
+  color: var(--muted);
+}
+
+.hint-body {
+  padding: 0 14px 14px;
+}
+
+.hint-body > p {
+  margin: 0 0 12px;
+  color: var(--text);
+  line-height: 1.55;
+}
+
+.hint-cols {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.hint-cols h4 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+}
+
+.hint-cols h4 mat-icon {
+  font-size: 16px;
+  width: 16px;
+  height: 16px;
+  color: var(--primary);
+}
+
+.hint-cols ul {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--text);
+}
+
+.hint-cols li {
+  margin-bottom: 5px;
+  line-height: 1.5;
+}
+
+.hint-more {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  color: var(--primary);
+  font-weight: 600;
+  font-size: 14px;
+  text-decoration: none;
+}
+
+.hint-more mat-icon {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+}
+
+/* Performance metrics: three-up numeric row + variance readout */
+.grid3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.variance {
+  display: flex;
+  align-items: center;
+  min-height: 40px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+@media (max-width: 560px) {
+  .grid3 {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* Aspect significance scoring (cl. 6.1.2) */
+.scoring {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 12px 12px;
+  margin: 0;
+}
+
+.scoring legend {
+  padding: 0 6px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+}
+
+.scoring .checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin: 8px 0;
+}
+
+.scoring .checks label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.suggest {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 10px;
+  border-radius: 8px;
+  font-weight: 700;
+  text-transform: capitalize;
+  background: var(--surface-guard);
+  color: var(--text);
+}
+
+.suggest.low {
+  background: var(--tone-positive-bg, var(--surface-guard));
+  color: var(--tone-positive-fg, var(--text));
+}
+
+.suggest.medium {
+  background: var(--tone-progress-bg);
+  color: var(--tone-progress-fg);
+}
+
+.suggest.high {
+  background: var(--tone-critical-bg);
+  color: var(--tone-critical-fg);
+}
+
+/* Permits register: expiry alert + renewal badge */
+.alert {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 4px;
+  padding: 10px 14px;
+  border: 1px solid var(--tone-critical-bd);
+  border-radius: 12px;
+  background: var(--tone-critical-bg);
+  color: var(--tone-critical-fg);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.alert mat-icon {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+}
+
+.permit-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 10px;
+  border-radius: 8px;
+  font-weight: 700;
+  background: var(--surface-guard);
+  color: var(--text);
+}
+
+.permit-badge.valid {
+  background: var(--tone-positive-bg, var(--surface-guard));
+  color: var(--tone-positive-fg, var(--text));
+}
+
+.permit-badge.expiringSoon {
+  background: var(--tone-progress-bg);
+  color: var(--tone-progress-fg);
+}
+
+.permit-badge.expired {
+  background: var(--tone-critical-bg);
+  color: var(--tone-critical-fg);
+}

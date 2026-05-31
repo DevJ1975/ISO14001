@@ -481,6 +481,8 @@ Deno.serve(async (req) => {
           competence: byKind('competence'),
           awareness: byKind('awareness'),
           documentedInfo: byKind('documentedInfo'),
+          performanceMetrics: byKind('performanceMetric'),
+          permits: byKind('permit'),
           meetings: byKind('meeting'),
           conclusion: single('conclusion'),
           reportMeta: single('reportMeta'),
@@ -647,6 +649,8 @@ Deno.serve(async (req) => {
         competence: 'competence',
         awareness: 'awareness',
         'documented-info': 'documentedInfo',
+        'performance-metrics': 'performanceMetric',
+        permits: 'permit',
       };
       if (method === 'PUT' && registerKinds[rest[0]] && rest[1]) {
         requireRole(actor, ['leadAuditor', 'auditor']);

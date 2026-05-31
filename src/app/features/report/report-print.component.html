@@ -135,17 +135,20 @@
         || store.interestedParties().length || store.objectives().length
         || store.communications().length || store.managementReviews().length
         || store.risksOpportunities().length || store.resources().length
-        || store.competence().length || store.awareness().length || store.documentedInfo().length) {
+        || store.competence().length || store.awareness().length || store.documentedInfo().length
+        || store.performanceMetrics().length || store.permits().length) {
     <section class="block">
       <h2>6. EMS registers</h2>
       @if (store.aspects().length) {
         <h3>Significant environmental aspects</h3>
         <table class="grid">
-          <thead><tr><th>Aspect</th><th>Activity</th><th>Impact</th><th>Significance</th><th>Result</th></tr></thead>
+          <thead><tr><th>Aspect</th><th>Activity</th><th>Impact</th><th>Significance</th><th>Score</th><th>Result</th></tr></thead>
           <tbody>
             @for (a of store.aspects(); track a.id) {
               <tr><td>{{ a.aspect }}</td><td>{{ a.activity }}</td><td>{{ a.impact }}</td>
-                <td class="nowrap">{{ a.significance }}</td><td class="nowrap">{{ resultLabel(a.result) }}</td></tr>
+                <td class="nowrap">{{ a.significance }}</td>
+                <td class="nowrap">{{ a.severityScore && a.likelihoodScore ? (a.severityScore * a.likelihoodScore) : '—' }}</td>
+                <td class="nowrap">{{ resultLabel(a.result) }}</td></tr>
             }
           </tbody>
         </table>
@@ -278,6 +281,32 @@
             @for (d of store.documentedInfo(); track d.id) {
               <tr><td>{{ d.document }}</td><td class="nowrap">{{ d.docType || '—' }}</td><td class="nowrap">{{ d.controlStatus }}</td>
                 <td>{{ d.retention || '—' }}</td><td class="nowrap">{{ resultLabel(d.result) }}</td></tr>
+            }
+          </tbody>
+        </table>
+      }
+      @if (store.performanceMetrics().length) {
+        <h3>Monitoring, measurement &amp; evaluation (cl. 9.1)</h3>
+        <table class="grid">
+          <thead><tr><th>Indicator</th><th>Unit</th><th>Period</th><th>Target</th><th>Actual</th><th>Trend</th><th>Result</th></tr></thead>
+          <tbody>
+            @for (m of store.performanceMetrics(); track m.id) {
+              <tr><td>{{ m.indicator }}</td><td class="nowrap">{{ m.unit || '—' }}</td><td class="nowrap">{{ m.period || '—' }}</td>
+                <td class="nowrap">{{ m.targetValue ?? '—' }}</td><td class="nowrap">{{ m.actualValue ?? '—' }}</td>
+                <td class="nowrap">{{ m.trend }}</td><td class="nowrap">{{ resultLabel(m.result) }}</td></tr>
+            }
+          </tbody>
+        </table>
+      }
+      @if (store.permits().length) {
+        <h3>Permits, licences &amp; consents (cl. 6.1.3)</h3>
+        <table class="grid">
+          <thead><tr><th>Title</th><th>Type</th><th>Reference</th><th>Expires</th><th>Renewal</th><th>Compliance</th><th>Result</th></tr></thead>
+          <tbody>
+            @for (p of store.permits(); track p.id) {
+              <tr><td>{{ p.title }}</td><td class="nowrap">{{ p.permitType }}</td><td class="nowrap">{{ p.reference || '—' }}</td>
+                <td class="nowrap">{{ formatDate(p.expiresAt) }}</td><td class="nowrap">{{ permitStatusLabel(p) }}</td>
+                <td class="nowrap">{{ p.complianceStatus }}</td><td class="nowrap">{{ resultLabel(p.result) }}</td></tr>
             }
           </tbody>
         </table>

@@ -12,6 +12,38 @@
     }
   </div>
 
+  @if (guide(); as g) {
+    <div class="hint panel">
+      <button type="button" class="hint-head" (click)="toggleHints()" [attr.aria-expanded]="hintsOpen()">
+        <mat-icon aria-hidden="true">{{ hintsOpen() ? 'expand_less' : 'lightbulb' }}</mat-icon>
+        <span><strong>What to look for</strong> — cl. {{ g.clauseId }} {{ g.title }}</span>
+        <mat-icon class="chev" aria-hidden="true">{{ hintsOpen() ? 'expand_less' : 'expand_more' }}</mat-icon>
+      </button>
+      @if (hintsOpen()) {
+        <div class="hint-body">
+          <p>{{ g.purpose }}</p>
+          <div class="hint-cols">
+            <div>
+              <h4><mat-icon aria-hidden="true">search</mat-icon>What to look for</h4>
+              <ul>@for (i of g.whatToLookFor; track $index) { <li>{{ i }}</li> }</ul>
+            </div>
+            <div>
+              <h4><mat-icon aria-hidden="true">help</mat-icon>Questions to ask</h4>
+              <ul>@for (i of g.questionsToAsk; track $index) { <li>{{ i }}</li> }</ul>
+            </div>
+            <div>
+              <h4><mat-icon aria-hidden="true">report_problem</mat-icon>Typical nonconformities</h4>
+              <ul>@for (i of g.typicalNonconformities; track $index) { <li>{{ i }}</li> }</ul>
+            </div>
+          </div>
+          <a class="hint-more" routerLink="/guide" [fragment]="'clause-' + g.clauseId">
+            <mat-icon aria-hidden="true">menu_book</mat-icon>Open the full field guide
+          </a>
+        </div>
+      }
+    </div>
+  }
+
   @switch (tab()) {
     @case ('aspects') {
       <div class="reg">
@@ -26,8 +58,31 @@
               <label class="fld"><span>Activity / process</span><input [value]="row.activity" (change)="store.updateAspect(row.id, { activity: $any($event.target).value })" /></label>
             </div>
             <label class="fld"><span>Environmental impact</span><input [value]="row.impact" (change)="store.updateAspect(row.id, { impact: $any($event.target).value })" /></label>
+            <fieldset class="scoring">
+              <legend>Significance evaluation (cl. 6.1.2)</legend>
+              <div class="grid3">
+                <label class="fld"><span>Severity (1–5)</span>
+                  <select [value]="row.severityScore ?? ''" (change)="store.updateAspect(row.id, { severityScore: num($any($event.target).value) })">
+                    <option value="">—</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>
+                  </select>
+                </label>
+                <label class="fld"><span>Likelihood (1–5)</span>
+                  <select [value]="row.likelihoodScore ?? ''" (change)="store.updateAspect(row.id, { likelihoodScore: num($any($event.target).value) })">
+                    <option value="">—</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>
+                  </select>
+                </label>
+                <div class="fld"><span>Suggested band</span>
+                  <output class="suggest {{ aspectSignificance(row).band }}">{{ aspectSignificance(row).band }} · {{ aspectSignificance(row).score }}</output>
+                </div>
+              </div>
+              <div class="checks">
+                <label><input type="checkbox" [checked]="row.legalConcern || false" (change)="store.updateAspect(row.id, { legalConcern: $any($event.target).checked })" /> Legal concern</label>
+                <label><input type="checkbox" [checked]="row.stakeholderConcern || false" (change)="store.updateAspect(row.id, { stakeholderConcern: $any($event.target).checked })" /> Stakeholder concern</label>
+              </div>
+              <label class="fld"><span>Significance rationale</span><input [value]="row.significanceRationale || ''" (change)="store.updateAspect(row.id, { significanceRationale: $any($event.target).value })" /></label>
+            </fieldset>
             <div class="grid2">
-              <label class="fld"><span>Significance</span>
+              <label class="fld"><span>Significance (recorded)</span>
                 <select [value]="row.significance" (change)="store.updateAspect(row.id, { significance: $any($event.target).value })">
                   <option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option>
                 </select>
@@ -341,6 +396,102 @@
           </article>
         } @empty {
           <div class="panel empty"><mat-icon aria-hidden="true">description</mat-icon><strong>No documented information yet</strong><span>Record controlled documents and retention (cl. 7.5).</span></div>
+        }
+      </div>
+    }
+    @case ('performance') {
+      <div class="reg">
+        <div class="reg-head">
+          <h2>Performance — monitoring &amp; measurement</h2>
+          <button mat-flat-button color="primary" type="button" (click)="store.addPerformanceMetric()"><mat-icon aria-hidden="true">add</mat-icon>Add</button>
+        </div>
+        @for (row of store.performanceMetrics(); track row.id) {
+          <article class="tile row">
+            <div class="grid2">
+              <label class="fld"><span>Indicator</span><input [value]="row.indicator" (change)="store.updatePerformanceMetric(row.id, { indicator: $any($event.target).value })" /></label>
+              <label class="fld"><span>Category</span>
+                <select [value]="row.category" (change)="store.updatePerformanceMetric(row.id, { category: $any($event.target).value })">
+                  <option value="energy">Energy</option><option value="water">Water</option><option value="waste">Waste</option><option value="emissions">Emissions</option><option value="materials">Materials</option><option value="effluent">Effluent</option><option value="other">Other</option>
+                </select>
+              </label>
+            </div>
+            <div class="grid2">
+              <label class="fld"><span>Unit</span><input [value]="row.unit" placeholder="kWh, m³, t, tCO₂e…" (change)="store.updatePerformanceMetric(row.id, { unit: $any($event.target).value })" /></label>
+              <label class="fld"><span>Period</span><input [value]="row.period" placeholder="2025 / 2025-Q1" (change)="store.updatePerformanceMetric(row.id, { period: $any($event.target).value })" /></label>
+            </div>
+            <div class="grid3">
+              <label class="fld"><span>Baseline</span><input type="number" step="any" [value]="row.baselineValue ?? ''" (change)="store.updatePerformanceMetric(row.id, { baselineValue: num($any($event.target).value) })" /></label>
+              <label class="fld"><span>Target</span><input type="number" step="any" [value]="row.targetValue ?? ''" (change)="store.updatePerformanceMetric(row.id, { targetValue: num($any($event.target).value) })" /></label>
+              <label class="fld"><span>Actual</span><input type="number" step="any" [value]="row.actualValue ?? ''" (change)="store.updatePerformanceMetric(row.id, { actualValue: num($any($event.target).value) })" /></label>
+            </div>
+            <div class="grid2">
+              <label class="fld"><span>Trend</span>
+                <select [value]="row.trend" (change)="store.updatePerformanceMetric(row.id, { trend: $any($event.target).value })">
+                  <option value="improving">Improving</option><option value="stable">Stable</option><option value="worsening">Worsening</option><option value="notEvaluated">Not evaluated</option>
+                </select>
+              </label>
+              <div class="fld"><span>Variance vs target</span><output class="variance">{{ variance(row) }}</output></div>
+            </div>
+            <label class="fld"><span>Monitoring method</span><input [value]="row.monitoringMethod || ''" (change)="store.updatePerformanceMetric(row.id, { monitoringMethod: $any($event.target).value })" /></label>
+            <label class="fld"><span>Analysis &amp; evaluation</span><input [value]="row.evaluationNotes || ''" (change)="store.updatePerformanceMetric(row.id, { evaluationNotes: $any($event.target).value })" /></label>
+            <div class="results">
+              @for (r of results; track r.value) {
+                <button type="button" class="rp {{ r.tone }}" [class.on]="row.result === r.value" (click)="store.updatePerformanceMetric(row.id, { result: r.value })">{{ r.label }}</button>
+              }
+            </div>
+          </article>
+        } @empty {
+          <div class="panel empty"><mat-icon aria-hidden="true">monitoring</mat-icon><strong>No performance indicators yet</strong><span>Record monitored environmental performance with target vs actual and trend (cl. 9.1).</span></div>
+        }
+      </div>
+    }
+    @case ('permits') {
+      <div class="reg">
+        <div class="reg-head">
+          <h2>Permits, licences &amp; consents</h2>
+          <button mat-flat-button color="primary" type="button" (click)="store.addPermit()"><mat-icon aria-hidden="true">add</mat-icon>Add</button>
+        </div>
+        @if (expiringPermits() > 0) {
+          <p class="alert"><mat-icon aria-hidden="true">warning</mat-icon>{{ expiringPermits() }} permit(s) expiring soon or expired — check renewal.</p>
+        }
+        @for (row of store.permits(); track row.id) {
+          <article class="tile row">
+            <div class="grid2">
+              <label class="fld"><span>Title</span><input [value]="row.title" (change)="store.updatePermit(row.id, { title: $any($event.target).value })" /></label>
+              <label class="fld"><span>Type</span>
+                <select [value]="row.permitType" (change)="store.updatePermit(row.id, { permitType: $any($event.target).value })">
+                  <option value="permit">Permit</option><option value="licence">Licence</option><option value="consent">Consent</option><option value="registration">Registration</option><option value="exemption">Exemption</option>
+                </select>
+              </label>
+            </div>
+            <div class="grid2">
+              <label class="fld"><span>Reference</span><input [value]="row.reference || ''" (change)="store.updatePermit(row.id, { reference: $any($event.target).value })" /></label>
+              <label class="fld"><span>Issuing authority</span><input [value]="row.issuingAuthority || ''" (change)="store.updatePermit(row.id, { issuingAuthority: $any($event.target).value })" /></label>
+            </div>
+            <div class="grid3">
+              <label class="fld"><span>Issued</span><input type="date" [value]="row.issuedAt || ''" (change)="store.updatePermit(row.id, { issuedAt: $any($event.target).value })" /></label>
+              <label class="fld"><span>Expires</span><input type="date" [value]="row.expiresAt || ''" (change)="store.updatePermit(row.id, { expiresAt: $any($event.target).value })" /></label>
+              <div class="fld"><span>Renewal status</span>
+                <output class="permit-badge {{ permitStatus(row) }}">
+                  {{ permitStatus(row) === 'expired' ? 'Expired' : permitStatus(row) === 'expiringSoon' ? 'Expiring soon' : permitStatus(row) === 'valid' ? 'Valid' : 'No date' }}
+                </output>
+              </div>
+            </div>
+            <label class="fld"><span>Conditions (summary)</span><input [value]="row.conditionsSummary || ''" (change)="store.updatePermit(row.id, { conditionsSummary: $any($event.target).value })" /></label>
+            <label class="fld"><span>Monitoring requirements</span><input [value]="row.monitoringRequirements || ''" (change)="store.updatePermit(row.id, { monitoringRequirements: $any($event.target).value })" /></label>
+            <label class="fld"><span>Compliance status</span>
+              <select [value]="row.complianceStatus" (change)="store.updatePermit(row.id, { complianceStatus: $any($event.target).value })">
+                <option value="compliant">Compliant</option><option value="nonCompliant">Non-compliant</option><option value="toVerify">To verify</option>
+              </select>
+            </label>
+            <div class="results">
+              @for (r of results; track r.value) {
+                <button type="button" class="rp {{ r.tone }}" [class.on]="row.result === r.value" (click)="store.updatePermit(row.id, { result: r.value })">{{ r.label }}</button>
+              }
+            </div>
+          </article>
+        } @empty {
+          <div class="panel empty"><mat-icon aria-hidden="true">event_available</mat-icon><strong>No permits yet</strong><span>Record permits, licences and consents with conditions and renewal dates (cl. 6.1.3).</span></div>
         }
       </div>
     }

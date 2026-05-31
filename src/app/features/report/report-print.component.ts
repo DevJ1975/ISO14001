@@ -3,6 +3,7 @@ import { Location } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 
+import { permitExpiryStatus } from '../../core/domain';
 import { AuthService } from '../../core/auth/auth.service';
 import {
   auditTypeLabel,
@@ -10,6 +11,7 @@ import {
   type AuditType,
   type FieldCapa,
   type FieldFinding,
+  type Permit,
   type Recommendation,
 } from '../../core/field/field-audit-store';
 
@@ -93,6 +95,17 @@ export class ReportPrintComponent {
     if (!iso) return '—';
     const date = new Date(iso);
     return Number.isNaN(date.getTime()) ? iso : date.toLocaleDateString([], { dateStyle: 'medium' });
+  }
+
+  protected permitStatusLabel(permit: Permit): string {
+    const status = permitExpiryStatus(permit);
+    return status === 'expired'
+      ? 'Expired'
+      : status === 'expiringSoon'
+        ? 'Expiring soon'
+        : status === 'valid'
+          ? 'Valid'
+          : '—';
   }
 
   protected formatDateTime(iso: string | undefined): string {
