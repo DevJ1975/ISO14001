@@ -275,6 +275,7 @@ const conclusionCommandSchema = z.object({
 
 const signoffCommandSchema = z.object({
   attestation: z.string().min(20).max(1000),
+  contentHash: z.string().regex(/^[0-9a-f]{64}$/, 'contentHash must be a 64-char hex SHA-256').optional(),
 });
 
 const reportMetaCommandSchema = z.object({
@@ -1387,6 +1388,8 @@ export async function handleApiRequest(
         signedAt: now,
         pdfStorageRef: `/reports/${reportId}.pdf`,
         attestation: command.attestation,
+        contentHash: command.contentHash ?? null,
+        hashAlgorithm: command.contentHash ? 'SHA-256' : null,
       };
       await dependencies.db
         .collection(mongoCollections.reports)

@@ -200,7 +200,7 @@ export class FieldApiService {
     return firstValueFrom(this.http.put(`${this.base()}/report-meta`, body));
   }
 
-  signReport(body: { attestation: string }): Promise<{ signedAt?: string }> {
+  signReport(body: { attestation: string; contentHash?: string }): Promise<{ signedAt?: string }> {
     return firstValueFrom(this.http.post<{ signedAt?: string }>(`${this.base()}/reports/signoff`, body));
   }
 

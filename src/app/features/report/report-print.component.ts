@@ -3,7 +3,7 @@ import { Location } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 
-import { calibrationStatus, carbonRollup, documentReviewStatus, emissionTco2e, formatTco2e, mocAttention, permitExpiryStatus, supplierEvaluationStatus, trainingStatus } from '../../core/domain';
+import { calibrationStatus, carbonRollup, documentReviewStatus, emissionTco2e, formatTco2e, mocAttention, permitExpiryStatus, shortFingerprint, supplierEvaluationStatus, trainingStatus } from '../../core/domain';
 import { AuthService } from '../../core/auth/auth.service';
 import {
   auditTypeLabel,
@@ -167,6 +167,12 @@ export class ReportPrintComponent {
 
   protected rowTco2e(entry: { activityData?: number; emissionFactor?: number; tco2eOverride?: number }): string {
     return formatTco2e(emissionTco2e(entry));
+  }
+
+  /** Short integrity fingerprint of the report e-signature for the issued PDF. */
+  protected signatureFingerprint(): string {
+    const sig = this.store.reportSignature();
+    return sig ? shortFingerprint(sig.contentHash) : '';
   }
 
   protected formatDateTime(iso: string | undefined): string {

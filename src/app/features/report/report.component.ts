@@ -3,6 +3,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { RouterLink } from '@angular/router';
 
+import { shortFingerprint, verifyReportSignature } from '../../core/domain';
 import { AuthService } from '../../core/auth/auth.service';
 import { AuditType, FieldAuditStore, Recommendation } from '../../core/field/field-audit-store';
 
@@ -96,10 +97,32 @@ export class ReportComponent {
       this.signError.set('The attestation must be at least 20 characters.');
       return;
     }
-    const ok = await this.store.signOff(attestation.trim());
+    const user = this.auth.user();
+    const signer = {
+      uid: user?.uid ?? 'guest',
+      name: user?.displayName || 'Lead auditor',
+      role: user?.role ?? 'leadAuditor',
+    };
+    const ok = await this.store.signOff(attestation.trim(), signer);
     if (!ok) {
       this.signError.set('Sign-off failed. Check your connection and lead-auditor permission.');
     }
+  }
+
+  protected readonly signature = this.store.reportSignature;
+  protected readonly fingerprint = computed(() => {
+    const sig = this.signature();
+    return sig ? shortFingerprint(sig.contentHash) : null;
+  });
+
+  /** Verify the signature against the current report content (detects post-sign edits). */
+  protected readonly verifyState = signal<'idle' | 'valid' | 'tampered' | 'checking'>('idle');
+  protected async verify(): Promise<void> {
+    const sig = this.signature();
+    if (!sig) return;
+    this.verifyState.set('checking');
+    const ok = await verifyReportSignature(sig, this.store.signableReport());
+    this.verifyState.set(ok ? 'valid' : 'tampered');
   }
 
   protected formatTime(iso: string): string {

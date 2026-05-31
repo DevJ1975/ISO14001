@@ -636,7 +636,9 @@ Deno.serve(async (req) => {
         requireRole(actor, ['leadAuditor']);
         const body = await readJson(req);
         const now = new Date().toISOString();
-        const report = { id: `report-${auditId}`, status: 'signed', signedBy: actor.uid, signedAt: now, attestation: body.attestation };
+        // Only accept a well-formed SHA-256 hex digest as the integrity fingerprint.
+        const contentHash = typeof body.contentHash === 'string' && /^[0-9a-f]{64}$/.test(body.contentHash) ? body.contentHash : null;
+        const report = { id: `report-${auditId}`, status: 'signed', signedBy: actor.uid, signedAt: now, attestation: body.attestation, contentHash, hashAlgorithm: contentHash ? 'SHA-256' : null };
         await upsertRecord(tenantId, auditId, 'report', report.id, report);
         await logChange(tenantId, auditId, actor.uid, 'sign-off', 'report', report.id);
         return json(200, { signedAt: now, report }, req);

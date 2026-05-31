@@ -359,18 +359,38 @@ describe('field-audit API routes', () => {
     assert.equal(denied.statusCode, 401);
 
     const signed = makeRes();
+    const contentHash = 'a'.repeat(64);
     await handleApiRequest(
       makeReq({
         method: 'POST',
         url: '/api/tenants/t/audits/a/reports/signoff',
         headers: leadHeaders('t'),
-        body: { attestation: 'I attest this audit was conducted per ISO 19011.' },
+        body: { attestation: 'I attest this audit was conducted per ISO 19011.', contentHash },
       }),
       signed,
       { db, config },
     );
     assert.equal(signed.statusCode, 200);
-    assert.equal(store.get('reports')!.find((d) => d['auditId'] === 'a')?.['status'], 'signed');
+    const report = store.get('reports')!.find((d) => d['auditId'] === 'a');
+    assert.equal(report?.['status'], 'signed');
+    assert.equal(report?.['contentHash'], contentHash);
+    assert.equal(report?.['hashAlgorithm'], 'SHA-256');
+  });
+
+  it('rejects a malformed content hash at sign-off', async () => {
+    const { db } = createFakeDb();
+    const res = makeRes();
+    await handleApiRequest(
+      makeReq({
+        method: 'POST',
+        url: '/api/tenants/t/audits/a/reports/signoff',
+        headers: leadHeaders('t'),
+        body: { attestation: 'I attest this audit was conducted per ISO 19011.', contentHash: 'not-a-valid-hash' },
+      }),
+      res,
+      { db, config },
+    );
+    assert.equal(res.statusCode, 400);
   });
 
   it('upserts an EMS register entry and returns it in field-state', async () => {
