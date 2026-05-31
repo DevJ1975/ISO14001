@@ -12,6 +12,7 @@ function emptyInput(overrides: Partial<AlertInput> = {}): AlertInput {
     findings: [],
     permits: [],
     calibration: [],
+    training: [],
     incidents: [],
     plannedAudits: [],
     complaints: [],
@@ -87,6 +88,23 @@ describe('alerts engine', () => {
     assert.equal(alerts.find((a) => a.id === 'calib-k1')?.severity, 'critical');
     assert.equal(alerts.find((a) => a.id === 'calib-k2')?.severity, 'warning');
     assert.equal(alerts.find((a) => a.id === 'calib-k3'), undefined); // out of service is excluded
+  });
+
+  it('flags expired and expiring mandatory training only', () => {
+    const alerts = buildAlerts(
+      emptyInput({
+        training: [
+          { id: 't1', person: 'A', course: 'Spill response', completedAt: '2025-01-01', expiresAt: '2026-02-01', mandatory: true },
+          { id: 't2', person: 'B', course: 'FLT', completedAt: '2025-06-10', expiresAt: '2026-06-10', mandatory: true },
+          { id: 't3', person: 'C', course: 'Optional CPD', completedAt: '2025-01-01', expiresAt: '2026-02-01', mandatory: false },
+          { id: 't4', person: 'D', course: 'Induction', completedAt: '2026-01-01' },
+        ],
+      }),
+    );
+    assert.equal(alerts.find((a) => a.id === 'training-t1')?.severity, 'critical');
+    assert.equal(alerts.find((a) => a.id === 'training-t2')?.severity, 'warning');
+    assert.equal(alerts.find((a) => a.id === 'training-t3'), undefined); // non-mandatory excluded
+    assert.equal(alerts.find((a) => a.id === 'training-t4'), undefined); // current (no expiry) excluded
   });
 
   it('builds a date-sorted schedule of upcoming deadlines', () => {

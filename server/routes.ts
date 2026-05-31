@@ -471,6 +471,18 @@ const calibrationUpsertCommandSchema = z.object({
   result: registerResultSchema.default('notStarted'),
 });
 
+const trainingUpsertCommandSchema = z.object({
+  id: z.string().min(1),
+  person: z.string().max(200).default(''),
+  role: z.string().max(200).optional(),
+  course: z.string().max(300).default(''),
+  completedAt: z.string().max(40).optional(),
+  expiresAt: z.string().max(40).optional(),
+  frequencyMonths: z.number().int().min(0).max(120).optional(),
+  mandatory: z.boolean().optional(),
+  result: registerResultSchema.default('notStarted'),
+});
+
 const programmeUpsertSchema = z.object({
   cycleYear: z.number().int(),
   criteria: z.string().min(1),
@@ -973,6 +985,10 @@ export async function handleApiRequest(
         .collection(mongoCollections.calibration)
         .find({ tenantId, auditId }, { projection: { _id: 0 } })
         .toArray();
+      const training = await dependencies.db
+        .collection(mongoCollections.training)
+        .find({ tenantId, auditId }, { projection: { _id: 0 } })
+        .toArray();
       const reportMeta = await dependencies.db
         .collection(mongoCollections.reportMeta)
         .findOne({ tenantId, auditId }, { projection: { _id: 0 } });
@@ -1008,6 +1024,7 @@ export async function handleApiRequest(
           permits,
           incidents,
           calibration,
+          training,
           reportMeta,
           changeLog,
         },
@@ -1607,6 +1624,25 @@ export async function handleApiRequest(
         .collection(mongoCollections.calibration)
         .updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
       sendJson(response, 200, { calibration: record }, corsOrigin);
+      return;
+    }
+
+    const trainingMatch = matchPath(
+      new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/training/([^/]+)$`),
+      url.pathname,
+      ['tenantId', 'auditId', 'id'],
+    );
+    if (request.method === 'PUT' && trainingMatch && actor) {
+      const tenantId = trainingMatch.params['tenantId']!;
+      const auditId = trainingMatch.params['auditId']!;
+      requireTenant(actor, tenantId);
+      requireAnyRole(actor, ['leadAuditor', 'auditor']);
+      const command = await readJson(request, trainingUpsertCommandSchema);
+      const record = { ...command, tenantId, auditId, updatedAt: new Date().toISOString() };
+      await dependencies.db
+        .collection(mongoCollections.training)
+        .updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
+      sendJson(response, 200, { training: record }, corsOrigin);
       return;
     }
 

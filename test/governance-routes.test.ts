@@ -100,6 +100,7 @@ describe('EMS governance API routes', () => {
     { path: 'permits', collection: 'permits', body: { id: 'permit-1', title: 'Environmental permit', permitType: 'permit', reference: 'EPR/AB1234CD', expiresAt: '2027-09-30', renewalReminderDays: 90, complianceStatus: 'compliant', result: 'conforming' }, check: 'title' },
     { path: 'incidents', collection: 'incidents', body: { id: 'inc-1', title: 'Oil spill', incidentType: 'spill', severity: 'high', status: 'investigating', reportableToRegulator: false, result: 'needsFollowUp' }, check: 'title' },
     { path: 'calibration', collection: 'calibration', body: { id: 'cal-1', equipment: 'pH meter', identifier: 'PH-11', parameter: 'pH', nextDueAt: '2026-12-01', frequencyMonths: 6, result: 'conforming' }, check: 'equipment' },
+    { path: 'training', collection: 'training', body: { id: 'trn-1', person: 'M. Silva', role: 'Operator', course: 'Spill response', completedAt: '2025-07-01', expiresAt: '2026-07-01', frequencyMonths: 12, mandatory: true, result: 'needsFollowUp' }, check: 'person' },
   ];
 
   for (const { path, collection, body, check } of cases) {

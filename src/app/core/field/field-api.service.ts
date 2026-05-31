@@ -33,6 +33,7 @@ import type {
   Permit,
   ResourceRecord,
   RiskOpportunity,
+  TrainingRecord,
 } from './field-audit-store';
 
 export interface Member {
@@ -68,6 +69,7 @@ export interface FieldStatePayload {
   permits?: Array<Omit<Permit, 'sync'>>;
   incidents?: Array<Omit<EnvironmentalIncident, 'sync'>>;
   calibration?: Array<Omit<CalibrationRecord, 'sync'>>;
+  training?: Array<Omit<TrainingRecord, 'sync'>>;
   reportMeta?: Omit<ReportMeta, 'sync'> | null;
   changeLog?: ChangeLogEntry[];
 }
@@ -258,6 +260,10 @@ export class FieldApiService {
 
   upsertCalibration(body: Omit<CalibrationRecord, 'sync'>): Promise<unknown> {
     return firstValueFrom(this.http.put(`${this.base()}/calibration/${encodeURIComponent(body.id)}`, body));
+  }
+
+  upsertTraining(body: Omit<TrainingRecord, 'sync'>): Promise<unknown> {
+    return firstValueFrom(this.http.put(`${this.base()}/training/${encodeURIComponent(body.id)}`, body));
   }
 
   private tenantBase(): string {

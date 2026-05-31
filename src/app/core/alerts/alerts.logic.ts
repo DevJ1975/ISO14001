@@ -5,6 +5,7 @@ import {
   isComplaintOverdue,
   isIncidentOpen,
   permitExpiryStatus,
+  trainingStatus,
 } from '../domain';
 
 export type AlertSeverity = 'critical' | 'warning' | 'info';
@@ -34,6 +35,7 @@ export interface AlertInput {
   findings: { id: string; type: string; clauseId: string; status: string }[];
   permits: { id: string; title: string; expiresAt?: string; renewalReminderDays?: number }[];
   calibration: { id: string; equipment: string; nextDueAt?: string; outOfService?: boolean }[];
+  training: { id: string; person: string; course: string; completedAt?: string; expiresAt?: string; mandatory?: boolean }[];
   incidents: { id: string; title: string; severity: string; status: string }[];
   plannedAudits: { id: string; type: string; dueDate: string; status: string }[];
   complaints: { id: string; kind: string; subject: string; dueDate?: string; status: string }[];
@@ -103,6 +105,22 @@ export function buildAlerts(input: AlertInput): AlertItem[] {
         due: calib.nextDueAt,
         link: '/registers',
         fragment: 'calibration',
+      });
+    }
+  }
+
+  for (const t of input.training) {
+    const status = trainingStatus(t, new Date(input.now));
+    // Only mandatory training raises an alert; lapsed mandatory training is a classic NC.
+    if (t.mandatory && (status === 'expired' || status === 'dueSoon')) {
+      items.push({
+        id: `training-${t.id}`,
+        severity: status === 'expired' ? 'critical' : 'warning',
+        category: 'Training',
+        title: `${t.course || 'Training'} ${status === 'expired' ? 'expired' : 'expiring'}${t.person ? ' · ' + t.person : ''}`,
+        due: t.expiresAt,
+        link: '/registers',
+        fragment: 'training',
       });
     }
   }
