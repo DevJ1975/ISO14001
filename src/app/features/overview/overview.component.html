@@ -1,0 +1,89 @@
+<section class="screen overview">
+  <header class="screen-head">
+    <h1>{{ store.auditee() }}</h1>
+    <p>{{ store.criteria() }} · audit status: <strong>{{ store.auditStatus() }}</strong></p>
+  </header>
+
+  <!-- Progress -->
+  <article class="panel">
+    <div class="prog-head">
+      <h2>Fieldwork progress</h2>
+      <span>{{ kpis().progress.done }} / {{ kpis().progress.total }} clauses · {{ kpis().progress.percent }}%</span>
+    </div>
+    <div class="bar"><span class="fill" [style.width.%]="kpis().progress.percent"></span></div>
+  </article>
+
+  <!-- KPI cards -->
+  <div class="kpis">
+    <a class="kpi crit" routerLink="/findings"><strong>{{ kpis().openNc }}</strong><span>Open NCs</span></a>
+    <a class="kpi" routerLink="/findings"><strong>{{ kpis().major }}</strong><span>Major</span></a>
+    <a class="kpi" routerLink="/findings"><strong>{{ kpis().minor }}</strong><span>Minor</span></a>
+    <a class="kpi" routerLink="/findings"><strong>{{ kpis().ofi }}</strong><span>OFIs</span></a>
+    <a class="kpi" [class.crit]="kpis().capaOverdue > 0" routerLink="/findings"><strong>{{ kpis().capaOverdue }}</strong><span>CAPA overdue</span></a>
+    <a class="kpi" routerLink="/registers" fragment="incidents"><strong>{{ kpis().incidentsOpen }}</strong><span>Open incidents</span></a>
+    <a class="kpi" routerLink="/evidence"><strong>{{ kpis().evidence }}</strong><span>Evidence</span></a>
+  </div>
+
+  <div class="cols">
+    <!-- Findings by clause -->
+    <article class="panel">
+      <h2>Nonconformities by clause</h2>
+      @if (findingsByClause().length) {
+        @for (b of findingsByClause(); track b.label) {
+          <div class="chartrow">
+            <span class="cl">{{ b.label }}</span>
+            <span class="track"><span class="seg {{ b.tone }}" [style.width.%]="b.pct"></span></span>
+            <span class="n">{{ b.count }}</span>
+          </div>
+        }
+      } @else {
+        <p class="muted">No nonconformities raised — clean so far.</p>
+      }
+    </article>
+
+    <!-- CAPA breakdown -->
+    <article class="panel">
+      <h2>Corrective actions</h2>
+      @for (b of capaBreakdown(); track b.label) {
+        <div class="chartrow">
+          <span class="cl">{{ b.label }}</span>
+          <span class="track"><span class="seg {{ b.tone }}" [style.width.%]="b.pct"></span></span>
+          <span class="n">{{ b.count }}</span>
+        </div>
+      }
+    </article>
+  </div>
+
+  <!-- Performance trend strip -->
+  @if (performance().length) {
+    <article class="panel">
+      <h2>Environmental performance (cl. 9.1)</h2>
+      @for (p of performance(); track p.indicator) {
+        <div class="perfrow">
+          <span class="pi">{{ p.indicator }}</span>
+          <span class="track">
+            @if (p.pct !== null) { <span class="seg" [class.critical]="p.over" [class.positive]="!p.over" [style.width.%]="p.pct"></span> }
+          </span>
+          <span class="pv">{{ p.actual ?? '—' }} / {{ p.target ?? '—' }} {{ p.unit }}</span>
+          <span class="trend {{ p.trend }}">{{ p.trend }}</span>
+        </div>
+      }
+    </article>
+  }
+
+  <!-- Needs attention -->
+  <article class="panel">
+    <div class="prog-head">
+      <h2>Needs attention</h2>
+      <a routerLink="/actions" class="seeall">{{ alertCounts().total }} item(s) →</a>
+    </div>
+    @for (a of topAlerts(); track a.id) {
+      <a class="alert {{ a.severity }}" [routerLink]="a.link" [fragment]="a.fragment">
+        <mat-icon aria-hidden="true">{{ alertIcon(a.severity) }}</mat-icon>
+        <span class="atext"><strong>{{ a.title }}</strong><small>{{ a.category }}{{ a.due ? ' · due ' + a.due : '' }}</small></span>
+      </a>
+    } @empty {
+      <p class="muted"><mat-icon aria-hidden="true">task_alt</mat-icon> Nothing outstanding — you're on top of it.</p>
+    }
+  </article>
+</section>

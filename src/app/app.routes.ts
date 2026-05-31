@@ -22,8 +22,18 @@ export const routes: Routes = [
     children: [
       {
         path: '',
-        loadComponent: () => import('./features/dashboard/dashboard.component').then((m) => m.DashboardComponent),
+        loadComponent: () => import('./features/overview/overview.component').then((m) => m.OverviewComponent),
         title: 'Overview',
+      },
+      {
+        path: 'actions',
+        loadComponent: () => import('./features/actions/actions.component').then((m) => m.ActionsComponent),
+        title: 'Actions & alerts',
+      },
+      {
+        path: 'showcase',
+        loadComponent: () => import('./features/dashboard/dashboard.component').then((m) => m.DashboardComponent),
+        title: 'Capability showcase',
       },
       {
         path: 'audits',
