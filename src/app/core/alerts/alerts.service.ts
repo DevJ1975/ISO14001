@@ -25,6 +25,7 @@ export class AlertsService {
       findings: this.field.findings().map((f) => ({ id: f.id, type: f.type, clauseId: f.clauseId, status: f.status })),
       permits: this.field.permits().map((p) => ({ id: p.id, title: p.title, expiresAt: p.expiresAt, renewalReminderDays: p.renewalReminderDays })),
       calibration: this.field.calibration().map((c) => ({ id: c.id, equipment: c.equipment, nextDueAt: c.nextDueAt, outOfService: c.outOfService })),
+      training: this.field.training().map((t) => ({ id: t.id, person: t.person, course: t.course, completedAt: t.completedAt, expiresAt: t.expiresAt, mandatory: t.mandatory })),
       incidents: this.field.incidents().map((i) => ({ id: i.id, title: i.title, severity: i.severity, status: i.status })),
       plannedAudits: (programme?.plannedAudits ?? []).map((a) => ({ id: a.id, type: a.type, dueDate: a.dueDate, status: a.status })),
       complaints: (programme?.complaintsAppeals ?? []).map((c) => ({ id: c.id, kind: c.kind, subject: c.subject, dueDate: typeof c.dueDate === 'string' ? c.dueDate : undefined, status: c.status })),

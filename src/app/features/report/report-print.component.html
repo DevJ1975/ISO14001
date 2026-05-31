@@ -137,7 +137,7 @@
         || store.risksOpportunities().length || store.resources().length
         || store.competence().length || store.awareness().length || store.documentedInfo().length
         || store.performanceMetrics().length || store.permits().length || store.incidents().length
-        || store.calibration().length) {
+        || store.calibration().length || store.training().length) {
     <section class="block">
       <h2>6. EMS registers</h2>
       @if (store.aspects().length) {
@@ -332,6 +332,18 @@
             @for (c of store.calibration(); track c.id) {
               <tr><td>{{ c.equipment }}</td><td class="nowrap">{{ c.identifier || '—' }}</td><td class="nowrap">{{ c.parameter || '—' }}</td>
                 <td class="nowrap">{{ formatDate(c.nextDueAt) }}</td><td class="nowrap">{{ calibrationLabel(c) }}</td><td class="nowrap">{{ resultLabel(c.result) }}</td></tr>
+            }
+          </tbody>
+        </table>
+      }
+      @if (store.training().length) {
+        <h3>Training matrix (cl. 7.2)</h3>
+        <table class="grid">
+          <thead><tr><th>Person</th><th>Role</th><th>Course</th><th>Expires</th><th>Status</th><th>Result</th></tr></thead>
+          <tbody>
+            @for (t of store.training(); track t.id) {
+              <tr><td>{{ t.person }}</td><td class="nowrap">{{ t.role || '—' }}</td><td>{{ t.course }}{{ t.mandatory ? ' *' : '' }}</td>
+                <td class="nowrap">{{ formatDate(t.expiresAt) }}</td><td class="nowrap">{{ trainingLabel(t) }}</td><td class="nowrap">{{ resultLabel(t.result) }}</td></tr>
             }
           </tbody>
         </table>

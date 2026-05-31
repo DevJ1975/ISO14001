@@ -577,6 +577,40 @@
         }
       </div>
     }
+    @case ('training') {
+      <div class="reg">
+        <div class="reg-head">
+          <h2>Training matrix</h2>
+          <button mat-flat-button color="primary" type="button" (click)="store.addTraining()"><mat-icon aria-hidden="true">add</mat-icon>Add</button>
+        </div>
+        @for (row of store.training(); track row.id) {
+          <article class="tile row">
+            <div class="grid3">
+              <label class="fld"><span>Person</span><input [value]="row.person" (change)="store.updateTraining(row.id, { person: $any($event.target).value })" /></label>
+              <label class="fld"><span>Role</span><input [value]="row.role || ''" (change)="store.updateTraining(row.id, { role: $any($event.target).value })" /></label>
+              <label class="fld"><span>Course</span><input [value]="row.course" placeholder="Spill response, FLT…" (change)="store.updateTraining(row.id, { course: $any($event.target).value })" /></label>
+            </div>
+            <div class="grid3">
+              <label class="fld"><span>Completed</span><input type="date" [value]="row.completedAt || ''" (change)="store.updateTraining(row.id, { completedAt: $any($event.target).value })" /></label>
+              <label class="fld"><span>Expires</span><input type="date" [value]="row.expiresAt || ''" (change)="store.updateTraining(row.id, { expiresAt: $any($event.target).value })" /></label>
+              <div class="fld"><span>Status</span>
+                <output class="permit-badge {{ trainingBadge(row) }}">
+                  {{ trainingBadge(row) === 'expired' ? 'Expired' : trainingBadge(row) === 'dueSoon' ? 'Due soon' : trainingBadge(row) === 'current' ? 'Current' : 'Not trained' }}
+                </output>
+              </div>
+            </div>
+            <label class="chk2"><input type="checkbox" [checked]="row.mandatory || false" (change)="store.updateTraining(row.id, { mandatory: $any($event.target).checked })" /> Mandatory (alerts on expiry)</label>
+            <div class="results">
+              @for (r of results; track r.value) {
+                <button type="button" class="rp {{ r.tone }}" [class.on]="row.result === r.value" (click)="store.updateTraining(row.id, { result: r.value })">{{ r.label }}</button>
+              }
+            </div>
+          </article>
+        } @empty {
+          <div class="panel empty"><mat-icon aria-hidden="true">workspace_premium</mat-icon><strong>No training yet</strong><span>Record per-person training and renewal dates; mandatory refreshers raise alerts on expiry (cl. 7.2).</span></div>
+        }
+      </div>
+    }
     @case ('review') {
       <div class="reg">
         <div class="reg-head">

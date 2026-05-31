@@ -13,6 +13,8 @@ import {
   metricVariance,
   PermitExpiryStatus,
   permitExpiryStatus,
+  TrainingStatus,
+  trainingStatus,
 } from '../../core/domain';
 import { EnvironmentalAspect, FieldAuditStore, Permit, RegisterResult } from '../../core/field/field-audit-store';
 
@@ -32,6 +34,7 @@ type Tab =
   | 'permits'
   | 'incidents'
   | 'calibration'
+  | 'training'
   | 'review';
 type Tone = 'positive' | 'progress' | 'critical' | 'neutral';
 
@@ -65,6 +68,7 @@ export class RegistersComponent {
     permits: '6.1.3',
     incidents: '10.2',
     calibration: '9.1',
+    training: '7.2',
     review: '9.3',
   };
 
@@ -87,6 +91,7 @@ export class RegistersComponent {
     { value: 'permits', label: 'Permits', icon: 'event_available' },
     { value: 'incidents', label: 'Incidents', icon: 'report' },
     { value: 'calibration', label: 'Calibration', icon: 'straighten' },
+    { value: 'training', label: 'Training', icon: 'workspace_premium' },
     { value: 'review', label: 'Mgmt review', icon: 'fact_check' },
   ];
 
@@ -130,6 +135,11 @@ export class RegistersComponent {
   /** Calibration status (valid / due soon / overdue / out of service) for badge display. */
   protected calibrationBadge(record: { nextDueAt?: string; outOfService?: boolean }): CalibrationStatus {
     return calibrationStatus(record);
+  }
+
+  /** Training status (current / due soon / expired / not trained) for badge display. */
+  protected trainingBadge(record: { completedAt?: string; expiresAt?: string }): TrainingStatus {
+    return trainingStatus(record);
   }
 
   /** Count of permits expiring soon or already expired, for the register alert. */

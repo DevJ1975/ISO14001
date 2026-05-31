@@ -283,6 +283,21 @@ export interface Permit {
   sync: SyncState;
 }
 
+/** Training matrix entry — per-person training with renewal/expiry (ISO 14001 cl. 7.2). */
+export interface TrainingRecord {
+  id: string;
+  person: string;
+  role?: string;
+  course: string;
+  completedAt?: string;
+  expiresAt?: string;
+  frequencyMonths?: number;
+  mandatory?: boolean;
+  result: RegisterResult;
+  updatedAt: string;
+  sync: SyncState;
+}
+
 /** Monitoring & measuring equipment calibration (ISO 14001 cl. 9.1.1). */
 export interface CalibrationRecord {
   id: string;
@@ -427,6 +442,7 @@ interface PersistedState {
   permits: Permit[];
   incidents: EnvironmentalIncident[];
   calibration: CalibrationRecord[];
+  training: TrainingRecord[];
   reportMeta: ReportMeta;
   reportSignedAt: string | null;
 }
@@ -451,6 +467,26 @@ function seedCalibration(): CalibrationRecord[] {
     base({ equipment: 'Stack gas analyser', identifier: 'AN-204', parameter: 'NOx / CO', lastCalibratedAt: '2026-01-15', nextDueAt: '2027-01-15', frequencyMonths: 12, result: 'conforming' }),
     base({ equipment: 'Effluent pH meter', identifier: 'PH-11', parameter: 'pH', lastCalibratedAt: '2025-12-01', nextDueAt: '2026-06-25', frequencyMonths: 6, result: 'needsFollowUp' }),
     base({ equipment: 'Noise level meter', identifier: 'NL-03', parameter: 'dB(A)', lastCalibratedAt: '2025-02-01', nextDueAt: '2026-02-01', frequencyMonths: 12, result: 'nonconforming' }),
+  ];
+}
+
+/** Demonstration training matrix — current, expiring-soon and lapsed statutory training. */
+function seedTraining(): TrainingRecord[] {
+  const now = '2026-06-15T15:00:00.000Z';
+  const base = (extra: Partial<TrainingRecord>): TrainingRecord => ({
+    id: uid('training'),
+    person: '',
+    course: '',
+    result: 'notStarted',
+    updatedAt: now,
+    sync: 'synced',
+    ...extra,
+  });
+  return [
+    base({ person: 'J. Okafor', role: 'EHS lead', course: 'ISO 14001 internal auditor', completedAt: '2025-09-10', expiresAt: '2028-09-10', frequencyMonths: 36, mandatory: true, result: 'conforming' }),
+    base({ person: 'M. Silva', role: 'Press operator', course: 'Spill response', completedAt: '2025-07-01', expiresAt: '2026-07-01', frequencyMonths: 12, mandatory: true, result: 'needsFollowUp' }),
+    base({ person: 'R. Adeyemi', role: 'Forklift driver', course: 'Forklift / FLT licence', completedAt: '2024-02-20', expiresAt: '2026-02-20', frequencyMonths: 24, mandatory: true, result: 'nonconforming' }),
+    base({ person: 'L. Chen', role: 'Lab technician', course: 'Hazardous waste handling', completedAt: '2026-03-15', frequencyMonths: 0, mandatory: false, result: 'conforming' }),
   ];
 }
 
@@ -655,6 +691,7 @@ export class FieldAuditStore {
   readonly permits = signal<Permit[]>(seedPermits());
   readonly incidents = signal<EnvironmentalIncident[]>(seedIncidents());
   readonly calibration = signal<CalibrationRecord[]>(seedCalibration());
+  readonly training = signal<TrainingRecord[]>(seedTraining());
   readonly reportMeta = signal<ReportMeta>(defaultReportMeta());
   /** Read-only audit trail from the backend (not synced upward). */
   readonly changeLog = signal<ChangeLogEntry[]>([]);
@@ -694,6 +731,7 @@ export class FieldAuditStore {
       this.permits().filter((p) => p.sync !== 'synced').length +
       this.incidents().filter((i) => i.sync !== 'synced').length +
       this.calibration().filter((c) => c.sync !== 'synced').length +
+      this.training().filter((t) => t.sync !== 'synced').length +
       (this.conclusion() && this.conclusion()!.sync !== 'synced' ? 1 : 0) +
       (this.reportMeta().sync !== 'synced' ? 1 : 0),
   );
@@ -1231,6 +1269,23 @@ export class FieldAuditStore {
     this.autoFlush();
   }
 
+  addTraining(): void {
+    this.training.update((list) => [
+      { id: uid('training'), person: '', course: '', result: 'notStarted', updatedAt: new Date().toISOString(), sync: 'queued' },
+      ...list,
+    ]);
+    this.persist();
+    this.autoFlush();
+  }
+
+  updateTraining(id: string, patch: Partial<TrainingRecord>): void {
+    this.training.update((list) =>
+      list.map((entry) => (entry.id === id ? { ...entry, ...patch, updatedAt: new Date().toISOString(), sync: 'queued' } : entry)),
+    );
+    this.persist();
+    this.autoFlush();
+  }
+
   /** Lead-auditor sign-off. Persisted to the server when live; recorded locally otherwise. */
   async signOff(attestation: string): Promise<boolean> {
     if (this.source() === 'live' && this.online()) {
@@ -1301,6 +1356,7 @@ export class FieldAuditStore {
     this.permits.set(seedPermits());
     this.incidents.set(seedIncidents());
     this.calibration.set(seedCalibration());
+    this.training.set(seedTraining());
     this.reportMeta.set(defaultReportMeta());
     this.reportSignedAt.set(null);
     await idbDelete('meta', META_KEY);
@@ -1620,6 +1676,17 @@ export class FieldAuditStore {
           this.setSync('calibration', record.id, 'queued');
         }
       }
+      for (const record of this.training().filter((entry) => entry.sync !== 'synced')) {
+        this.setSync('training', record.id, 'syncing');
+        try {
+          const { sync, ...payload } = record;
+          void sync;
+          await this.api.upsertTraining(payload);
+          this.setSync('training', record.id, 'synced');
+        } catch {
+          this.setSync('training', record.id, 'queued');
+        }
+      }
       this.persist();
     } finally {
       this.flushing = false;
@@ -1648,7 +1715,8 @@ export class FieldAuditStore {
       | 'performanceMetrics'
       | 'permits'
       | 'incidents'
-      | 'calibration',
+      | 'calibration'
+      | 'training',
     id: string,
     sync: SyncState,
   ): void {
@@ -1675,6 +1743,7 @@ export class FieldAuditStore {
       permits: this.permits,
       incidents: this.incidents,
       calibration: this.calibration,
+      training: this.training,
     };
     const ref = map[collection] as unknown as {
       update: (fn: (list: SyncRecord[]) => SyncRecord[]) => void;
@@ -1735,6 +1804,7 @@ export class FieldAuditStore {
       permits: this.permits(),
       incidents: this.incidents(),
       calibration: this.calibration(),
+      training: this.training(),
       reportMeta: this.reportMeta(),
       reportSignedAt: this.reportSignedAt(),
     };
@@ -1768,6 +1838,7 @@ export class FieldAuditStore {
       this.permits.set((payload.permits ?? []).map((p) => ({ ...p, sync: 'synced' as const })));
       this.incidents.set((payload.incidents ?? []).map((i) => ({ ...i, sync: 'synced' as const })));
       this.calibration.set((payload.calibration ?? []).map((c) => ({ ...c, sync: 'synced' as const })));
+      this.training.set((payload.training ?? []).map((t) => ({ ...t, sync: 'synced' as const })));
       // Report front-matter: prefer the server copy (shared across the team),
       // falling back to defaults, then overlay scope/dates from the audit record.
       this.reportMeta.set(
@@ -1822,6 +1893,7 @@ export class FieldAuditStore {
     this.permits.set(saved.permits ?? seedPermits());
     this.incidents.set(saved.incidents ?? seedIncidents());
     this.calibration.set(saved.calibration ?? seedCalibration());
+    this.training.set(saved.training ?? seedTraining());
     if (saved.reportMeta) this.reportMeta.set({ ...defaultReportMeta(), ...saved.reportMeta });
     this.reportSignedAt.set(saved.reportSignedAt ?? null);
     const restored = await Promise.all(
