@@ -118,6 +118,11 @@ export interface EnvironmentalAspect {
   activity: string;
   impact: string;
   significance: 'low' | 'medium' | 'high';
+  severityScore?: number;
+  likelihoodScore?: number;
+  legalConcern?: boolean;
+  stakeholderConcern?: boolean;
+  significanceRationale?: string;
   controls?: string;
   relatedClauseId?: string;
   result: RegisterResult;

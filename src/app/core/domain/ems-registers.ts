@@ -16,6 +16,15 @@ export const environmentalAspectSchema = z.object({
   impact: z.string().min(1).max(300),
   lifecycleStage: lifecycleStageSchema.optional(),
   significance: significanceSchema,
+  // Significance-evaluation methodology (cl. 6.1.2 requires criteria, not a bare
+  // label). Optional & flat so existing data still validates and the JSONB store
+  // round-trips them: severity × likelihood scored 1–5, with legal/stakeholder
+  // escalators and the auditor's rationale.
+  severityScore: z.number().int().min(1).max(5).optional(),
+  likelihoodScore: z.number().int().min(1).max(5).optional(),
+  legalConcern: z.boolean().optional(),
+  stakeholderConcern: z.boolean().optional(),
+  significanceRationale: z.string().max(1000).optional(),
   controls: z.string().max(1000).optional(),
   relatedClauseId: z.string().optional(),
   result: checklistItemResultSchema.default('notStarted'),
@@ -23,6 +32,38 @@ export const environmentalAspectSchema = z.object({
   updatedAt: timestampSchema,
 });
 export type EnvironmentalAspect = z.infer<typeof environmentalAspectSchema>;
+
+export interface AspectSignificanceInput {
+  severity?: number;
+  likelihood?: number;
+  legalConcern?: boolean;
+  stakeholderConcern?: boolean;
+}
+
+export interface AspectSignificanceResult {
+  /** severity × likelihood (1–25); 0 until both factors are scored. */
+  score: number;
+  band: z.infer<typeof significanceSchema>;
+}
+
+function clampScore(value: number | undefined): number {
+  if (value == null || !Number.isFinite(value)) return 0;
+  return Math.min(5, Math.max(0, Math.round(value)));
+}
+
+/**
+ * Derive a defensible significance band from scored criteria. Core is severity ×
+ * likelihood (each 1–5 → 1–25): ≥15 high, ≥6 medium, else low. A legal concern
+ * raises the band one level (it can never be low); a stakeholder concern lifts a
+ * low band to medium. The auditor can still override the recorded `significance`.
+ */
+export function evaluateAspectSignificance(input: AspectSignificanceInput): AspectSignificanceResult {
+  const score = clampScore(input.severity) * clampScore(input.likelihood);
+  let band: z.infer<typeof significanceSchema> = score >= 15 ? 'high' : score >= 6 ? 'medium' : 'low';
+  if (input.legalConcern && band !== 'high') band = band === 'low' ? 'medium' : 'high';
+  if (input.stakeholderConcern && band === 'low') band = 'medium';
+  return { score, band };
+}
 
 export const complianceStatusSchema = z.enum(['compliant', 'nonCompliant', 'toVerify']);
 

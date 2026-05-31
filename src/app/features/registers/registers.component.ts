@@ -3,8 +3,8 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { RouterLink } from '@angular/router';
 
-import { ClauseGuide, clauseGuideFor, metricVariance } from '../../core/domain';
-import { FieldAuditStore, RegisterResult } from '../../core/field/field-audit-store';
+import { AspectSignificanceResult, ClauseGuide, clauseGuideFor, evaluateAspectSignificance, metricVariance } from '../../core/domain';
+import { EnvironmentalAspect, FieldAuditStore, RegisterResult } from '../../core/field/field-audit-store';
 
 type Tab =
   | 'aspects'
@@ -91,6 +91,16 @@ export class RegistersComponent {
     if (result === 'nonconforming') return 'critical';
     if (result === 'needsFollowUp') return 'progress';
     return 'neutral';
+  }
+
+  /** Suggested significance band/score from the aspect's scored criteria (cl. 6.1.2). */
+  protected aspectSignificance(aspect: EnvironmentalAspect): AspectSignificanceResult {
+    return evaluateAspectSignificance({
+      severity: aspect.severityScore,
+      likelihood: aspect.likelihoodScore,
+      legalConcern: aspect.legalConcern,
+      stakeholderConcern: aspect.stakeholderConcern,
+    });
   }
 
   /** Parse a numeric input, treating blank as "not recorded" (undefined). */

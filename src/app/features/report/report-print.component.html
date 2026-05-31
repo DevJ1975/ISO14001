@@ -142,11 +142,13 @@
       @if (store.aspects().length) {
         <h3>Significant environmental aspects</h3>
         <table class="grid">
-          <thead><tr><th>Aspect</th><th>Activity</th><th>Impact</th><th>Significance</th><th>Result</th></tr></thead>
+          <thead><tr><th>Aspect</th><th>Activity</th><th>Impact</th><th>Significance</th><th>Score</th><th>Result</th></tr></thead>
           <tbody>
             @for (a of store.aspects(); track a.id) {
               <tr><td>{{ a.aspect }}</td><td>{{ a.activity }}</td><td>{{ a.impact }}</td>
-                <td class="nowrap">{{ a.significance }}</td><td class="nowrap">{{ resultLabel(a.result) }}</td></tr>
+                <td class="nowrap">{{ a.significance }}</td>
+                <td class="nowrap">{{ a.severityScore && a.likelihoodScore ? (a.severityScore * a.likelihoodScore) : '—' }}</td>
+                <td class="nowrap">{{ resultLabel(a.result) }}</td></tr>
             }
           </tbody>
         </table>

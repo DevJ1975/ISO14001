@@ -58,8 +58,31 @@
               <label class="fld"><span>Activity / process</span><input [value]="row.activity" (change)="store.updateAspect(row.id, { activity: $any($event.target).value })" /></label>
             </div>
             <label class="fld"><span>Environmental impact</span><input [value]="row.impact" (change)="store.updateAspect(row.id, { impact: $any($event.target).value })" /></label>
+            <fieldset class="scoring">
+              <legend>Significance evaluation (cl. 6.1.2)</legend>
+              <div class="grid3">
+                <label class="fld"><span>Severity (1–5)</span>
+                  <select [value]="row.severityScore ?? ''" (change)="store.updateAspect(row.id, { severityScore: num($any($event.target).value) })">
+                    <option value="">—</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>
+                  </select>
+                </label>
+                <label class="fld"><span>Likelihood (1–5)</span>
+                  <select [value]="row.likelihoodScore ?? ''" (change)="store.updateAspect(row.id, { likelihoodScore: num($any($event.target).value) })">
+                    <option value="">—</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>
+                  </select>
+                </label>
+                <div class="fld"><span>Suggested band</span>
+                  <output class="suggest {{ aspectSignificance(row).band }}">{{ aspectSignificance(row).band }} · {{ aspectSignificance(row).score }}</output>
+                </div>
+              </div>
+              <div class="checks">
+                <label><input type="checkbox" [checked]="row.legalConcern || false" (change)="store.updateAspect(row.id, { legalConcern: $any($event.target).checked })" /> Legal concern</label>
+                <label><input type="checkbox" [checked]="row.stakeholderConcern || false" (change)="store.updateAspect(row.id, { stakeholderConcern: $any($event.target).checked })" /> Stakeholder concern</label>
+              </div>
+              <label class="fld"><span>Significance rationale</span><input [value]="row.significanceRationale || ''" (change)="store.updateAspect(row.id, { significanceRationale: $any($event.target).value })" /></label>
+            </fieldset>
             <div class="grid2">
-              <label class="fld"><span>Significance</span>
+              <label class="fld"><span>Significance (recorded)</span>
                 <select [value]="row.significance" (change)="store.updateAspect(row.id, { significance: $any($event.target).value })">
                   <option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option>
                 </select>
