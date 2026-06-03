@@ -419,7 +419,16 @@ export interface Incident {
 export interface PerformanceMetric {
   id: string;
   indicator: string;
-  category: 'energy' | 'water' | 'waste' | 'emissions' | 'materials' | 'effluent' | 'other';
+  category:
+    | 'lostTimeInjury'
+    | 'recordableInjury'
+    | 'nearMiss'
+    | 'illHealth'
+    | 'exposure'
+    | 'inspection'
+    | 'toolboxTalk'
+    | 'trainingCompletion'
+    | 'other';
   unit: string;
   period: string;
   baselineValue?: number;
@@ -709,7 +718,7 @@ function seedPerformanceMetrics(): PerformanceMetric[] {
   const base = (extra: Partial<PerformanceMetric>): PerformanceMetric => ({
     id: uid('metric'),
     indicator: '',
-    category: 'energy',
+    category: 'lostTimeInjury',
     unit: '',
     period: '2025',
     trend: 'notEvaluated',
@@ -719,9 +728,9 @@ function seedPerformanceMetrics(): PerformanceMetric[] {
     ...extra,
   });
   return [
-    base({ indicator: 'Lost-time injury frequency rate', category: 'other', unit: 'per 100k hrs', baselineValue: 1.8, targetValue: 1.2, actualValue: 1.1, trend: 'improving', result: 'conforming', monitoringMethod: 'Incident log vs hours worked, monthly reconciliation' }),
-    base({ indicator: 'Near-miss reports', category: 'other', unit: 'count', baselineValue: 40, targetValue: 60, actualValue: 48, trend: 'worsening', result: 'needsFollowUp', evaluationNotes: 'Below reporting target; reinforce reporting culture.' }),
-    base({ indicator: 'Safety inspections completed', category: 'other', unit: '%', baselineValue: 82, targetValue: 95, actualValue: 97, trend: 'improving', result: 'conforming' }),
+    base({ indicator: 'Lost-time injury frequency rate', category: 'lostTimeInjury', unit: 'per 100k hrs', baselineValue: 1.8, targetValue: 1.2, actualValue: 1.1, trend: 'improving', result: 'conforming', monitoringMethod: 'Incident log vs hours worked, monthly reconciliation' }),
+    base({ indicator: 'Near-miss reports', category: 'nearMiss', unit: 'count', baselineValue: 40, targetValue: 60, actualValue: 48, trend: 'worsening', result: 'needsFollowUp', evaluationNotes: 'Below reporting target; reinforce reporting culture.' }),
+    base({ indicator: 'Safety inspections completed', category: 'inspection', unit: '%', baselineValue: 82, targetValue: 95, actualValue: 97, trend: 'improving', result: 'conforming' }),
     base({ indicator: 'Overdue corrective actions', category: 'other', unit: 'count', baselineValue: 6, targetValue: 0, actualValue: 3, trend: 'stable', result: 'needsFollowUp' }),
   ];
 }
@@ -1459,7 +1468,7 @@ export class FieldAuditStore {
 
   addPerformanceMetric(): void {
     this.performanceMetrics.update((list) => [
-      { id: uid('metric'), indicator: '', category: 'energy', unit: '', period: '', trend: 'notEvaluated', result: 'notStarted', updatedAt: new Date().toISOString(), sync: 'queued' },
+      { id: uid('metric'), indicator: '', category: 'nearMiss', unit: '', period: '', trend: 'notEvaluated', result: 'notStarted', updatedAt: new Date().toISOString(), sync: 'queued' },
       ...list,
     ]);
     this.persist();

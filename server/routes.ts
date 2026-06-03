@@ -461,7 +461,7 @@ const documentedInfoUpsertCommandSchema = z.object({
 const performanceMetricUpsertCommandSchema = z.object({
   id: z.string().min(1),
   indicator: z.string().max(300).default(''),
-  category: z.enum(['energy', 'water', 'waste', 'emissions', 'materials', 'effluent', 'other']).default('energy'),
+  category: z.enum(['lostTimeInjury', 'recordableInjury', 'nearMiss', 'illHealth', 'exposure', 'inspection', 'toolboxTalk', 'trainingCompletion', 'other']).default('lostTimeInjury'),
   unit: z.string().max(40).default(''),
   period: z.string().max(60).default(''),
   baselineValue: z.number().finite().optional(),

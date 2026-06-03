@@ -451,7 +451,7 @@
               <label class="fld"><span>Indicator</span><input [value]="row.indicator" (change)="store.updatePerformanceMetric(row.id, { indicator: $any($event.target).value })" /></label>
               <label class="fld"><span>Category</span>
                 <select [value]="row.category" (change)="store.updatePerformanceMetric(row.id, { category: $any($event.target).value })">
-                  <option value="energy">Energy</option><option value="water">Water</option><option value="waste">Waste</option><option value="emissions">Emissions</option><option value="materials">Materials</option><option value="effluent">Effluent</option><option value="other">Other</option>
+                  <option value="lostTimeInjury">Lost-time injury</option><option value="recordableInjury">Recordable injury</option><option value="nearMiss">Near-miss</option><option value="illHealth">Ill-health</option><option value="exposure">Exposure monitoring</option><option value="inspection">Inspections</option><option value="toolboxTalk">Toolbox talks</option><option value="trainingCompletion">Training completion</option><option value="other">Other</option>
                 </select>
               </label>
             </div>
