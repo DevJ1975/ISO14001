@@ -1,5 +1,6 @@
 <section class="screen overview">
   <header class="screen-head">
+    <p class="tv-eyebrow">Client site under audit</p>
     <h1>{{ store.auditee() }}</h1>
     <p>{{ store.criteria() }} · audit status: <strong>{{ store.auditStatus() }}</strong></p>
   </header>
@@ -21,6 +22,9 @@
     <a class="kpi" routerLink="/findings"><strong>{{ kpis().ofi }}</strong><span>OFIs</span></a>
     <a class="kpi" [class.crit]="kpis().capaOverdue > 0" routerLink="/findings"><strong>{{ kpis().capaOverdue }}</strong><span>CAPA overdue</span></a>
     <a class="kpi" routerLink="/registers" fragment="incidents"><strong>{{ kpis().incidentsOpen }}</strong><span>Open incidents</span></a>
+    <a class="kpi" [class.crit]="kpis().hazardsHigh > 0" routerLink="/registers" fragment="aspects"><strong>{{ kpis().hazardsHigh }}</strong><span>High-risk hazards</span></a>
+    <a class="kpi" [class.crit]="kpis().riddor > 0" routerLink="/registers" fragment="incidents"><strong>{{ kpis().riddor }}</strong><span>RIDDOR</span></a>
+    <a class="kpi" routerLink="/registers" fragment="consultation"><strong>{{ kpis().consultations }}</strong><span>Consultations</span></a>
     <a class="kpi" routerLink="/evidence"><strong>{{ kpis().evidence }}</strong><span>Evidence</span></a>
   </div>
 
@@ -50,6 +54,40 @@
           <span class="track"><span class="seg {{ b.tone }}" [style.width.%]="b.pct"></span></span>
           <span class="n">{{ b.count }}</span>
         </div>
+      }
+    </article>
+  </div>
+
+  <div class="cols">
+    <!-- Hazards by risk band -->
+    <article class="panel">
+      <h2>Hazards by risk band (cl. 6.1.2)</h2>
+      @if (kpis().hazards) {
+        @for (b of hazardsByBand(); track b.label) {
+          <div class="chartrow">
+            <span class="cl">{{ b.label }}</span>
+            <span class="track"><span class="seg {{ b.tone }}" [style.width.%]="b.pct"></span></span>
+            <span class="n">{{ b.count }}</span>
+          </div>
+        }
+      } @else {
+        <p class="muted">No hazards recorded yet — start the hazard &amp; risk register.</p>
+      }
+    </article>
+
+    <!-- Evaluation of compliance -->
+    <article class="panel">
+      <h2>Evaluation of compliance (cl. 9.1.2)</h2>
+      @if (store.obligations().length) {
+        @for (b of complianceBreakdown(); track b.label) {
+          <div class="chartrow">
+            <span class="cl">{{ b.label }}</span>
+            <span class="track"><span class="seg {{ b.tone }}" [style.width.%]="b.pct"></span></span>
+            <span class="n">{{ b.count }}</span>
+          </div>
+        }
+      } @else {
+        <p class="muted">No legal &amp; other requirements recorded yet.</p>
       }
     </article>
   </div>
