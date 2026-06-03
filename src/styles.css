@@ -1,27 +1,79 @@
 @import '@angular/material/prebuilt-themes/azure-blue.css';
 
-:root {
-  /* Brand palette — Vue green + slate */
-  --app-bg: #f4f8f6;
-  --primary: #42b883;
-  --primary-strong: #213547;
-  --primary-bright: #4fc08d;
-  --secondary: #35495e;
-  --accent: #34758f;
-  --accent-strong: #2a5f74;
-  --accent-soft: #e3f3ec;
-  --surface: #ffffff;
-  --surface-guard: #f3f8f5;
-  --surface-blue: #f1f6fa;
-  --text: #213547;
-  --muted: #5c7385;
-  --border: #dde7e2;
-  --border-strong: #c7d8cf;
-  --ring: rgba(66, 184, 131, 0.5);
+/* Tailwind — Preflight is disabled in tailwind.config.cjs so its reset does not
+   fight Angular Material or the component CSS. Brand styling is driven by the
+   CSS variables below; Tailwind adds the brand token utilities + .btn/.card/etc. */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-  --shadow-sm: 0 1px 2px rgba(18, 46, 42, 0.06), 0 2px 8px rgba(18, 46, 42, 0.05);
-  --shadow: 0 12px 30px rgba(18, 46, 42, 0.1);
-  --shadow-lg: 0 24px 60px rgba(18, 46, 42, 0.16);
+:root {
+  /* ────────────────────────────────────────────────────────────
+     TRAINOVATE brand tokens
+     ──────────────────────────────────────────────────────────── */
+  --tv-ink: #0a0a0a;
+  --tv-bone: #f4f1ea;
+  --tv-cobalt: #0046e6;
+  --tv-cobalt-700: #0036b5;
+  --tv-cobalt-300: #6a8ff0;
+  --tv-cobalt-100: #e5ebfc;
+  --tv-cobalt-50: #f2f5fe;
+  --tv-signal: #ff3b30;
+  --tv-white: #ffffff;
+
+  --tv-ink-95: rgba(10, 10, 10, 0.95);
+  --tv-ink-80: rgba(10, 10, 10, 0.8);
+  --tv-ink-65: rgba(10, 10, 10, 0.65);
+  --tv-ink-50: rgba(10, 10, 10, 0.5);
+  --tv-ink-35: rgba(10, 10, 10, 0.35);
+  --tv-ink-20: rgba(10, 10, 10, 0.2);
+  --tv-ink-10: rgba(10, 10, 10, 0.1);
+  --tv-ink-05: rgba(10, 10, 10, 0.05);
+
+  --tv-font-sans: 'Inter Tight', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial,
+    sans-serif;
+  --tv-font-mono: 'JetBrains Mono', 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+
+  --tv-radius-sm: 3px;
+  --tv-radius: 6px;
+  --tv-radius-md: 10px;
+  --tv-radius-lg: 16px;
+  --tv-radius-xl: 24px;
+  --tv-radius-pill: 999px;
+
+  --tv-shadow-sm: 0 1px 2px rgba(10, 10, 10, 0.06);
+  --tv-shadow: 0 4px 12px rgba(10, 10, 10, 0.08), 0 1px 2px rgba(10, 10, 10, 0.04);
+  --tv-shadow-md: 0 12px 32px -8px rgba(10, 10, 10, 0.14), 0 4px 8px rgba(10, 10, 10, 0.04);
+  --tv-shadow-lg: 0 24px 48px -16px rgba(10, 10, 10, 0.18), 0 8px 16px rgba(10, 10, 10, 0.06);
+  --tv-shadow-cobalt: 0 8px 32px -8px rgba(0, 70, 230, 0.35);
+
+  --tv-tracking-wide: 0.06em;
+  --tv-tracking-wider: 0.16em;
+
+  /* ────────────────────────────────────────────────────────────
+     App semantic palette — mapped onto the Trainovate tokens so the
+     existing component CSS (which reads these variables) restyles.
+     ──────────────────────────────────────────────────────────── */
+  --app-bg: var(--tv-bone);
+  --primary: var(--tv-cobalt);
+  --primary-strong: var(--tv-ink);
+  --primary-bright: var(--tv-cobalt-300);
+  --secondary: var(--tv-ink);
+  --accent: var(--tv-cobalt);
+  --accent-strong: var(--tv-cobalt-700);
+  --accent-soft: var(--tv-cobalt-100);
+  --surface: var(--tv-white);
+  --surface-guard: #faf8f3;
+  --surface-blue: var(--tv-cobalt-50);
+  --text: var(--tv-ink);
+  --muted: var(--tv-ink-65);
+  --border: var(--tv-ink-10);
+  --border-strong: var(--tv-ink-20);
+  --ring: rgba(0, 70, 230, 0.5);
+
+  --shadow-sm: var(--tv-shadow-sm);
+  --shadow: var(--tv-shadow-md);
+  --shadow-lg: var(--tv-shadow-lg);
 
   /* Semantic status tones (background / foreground / border) */
   --tone-positive-bg: #def2e6;
@@ -30,25 +82,25 @@
   --tone-progress-bg: #fdeecf;
   --tone-progress-fg: #8a5a08;
   --tone-progress-bd: #f2d79a;
-  --tone-critical-bg: #fbe0df;
-  --tone-critical-fg: #b3261e;
-  --tone-critical-bd: #f3bdba;
-  --tone-neutral-bg: #e7eef0;
-  --tone-neutral-fg: #41555a;
-  --tone-neutral-bd: #cdd9d6;
+  --tone-critical-bg: #ffe7e4;
+  --tone-critical-fg: #c5281c;
+  --tone-critical-bd: #ffc7c1;
+  --tone-neutral-bg: #f0eee8;
+  --tone-neutral-fg: rgba(10, 10, 10, 0.6);
+  --tone-neutral-bd: rgba(10, 10, 10, 0.12);
 
-  /* Retheme Angular Material components from azure-blue to Vue green */
-  --mat-sys-primary: #42b883;
+  /* Retheme Angular Material from azure-blue to Trainovate cobalt + ink */
+  --mat-sys-primary: var(--tv-cobalt);
   --mat-sys-on-primary: #ffffff;
-  --mat-sys-primary-container: #d6f0e3;
-  --mat-sys-on-primary-container: #0d3d28;
-  --mat-sys-secondary: #35495e;
+  --mat-sys-primary-container: var(--tv-cobalt-100);
+  --mat-sys-on-primary-container: #001e63;
+  --mat-sys-secondary: var(--tv-ink);
   --mat-sys-on-secondary: #ffffff;
-  --mat-sys-tertiary: #34758f;
+  --mat-sys-tertiary: var(--tv-cobalt-700);
   --mat-sys-on-tertiary: #ffffff;
-  --mat-sys-surface-tint: #42b883;
-  --mat-sys-outline: #c7d8cf;
-  --mat-sys-outline-variant: #dde7e2;
+  --mat-sys-surface-tint: var(--tv-cobalt);
+  --mat-sys-outline: var(--tv-ink-20);
+  --mat-sys-outline-variant: var(--tv-ink-10);
 }
 
 * {
@@ -67,13 +119,12 @@ body {
 
 body {
   background:
-    radial-gradient(1200px 680px at 12% -8%, rgba(66, 184, 131, 0.16), transparent 60%),
-    radial-gradient(900px 600px at 100% 0%, rgba(53, 73, 94, 0.08), transparent 55%),
+    radial-gradient(1200px 680px at 12% -8%, rgba(0, 70, 230, 0.05), transparent 60%),
+    radial-gradient(900px 600px at 100% 0%, rgba(10, 10, 10, 0.04), transparent 55%),
     var(--app-bg);
   background-attachment: fixed;
   color: var(--text);
-  font-family:
-    'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: var(--tv-font-sans);
   font-size: 16px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
@@ -104,7 +155,7 @@ select {
 }
 
 ::selection {
-  background: rgba(66, 184, 131, 0.22);
+  background: rgba(0, 70, 230, 0.18);
 }
 
 /* Slim, on-brand scrollbars */
@@ -200,21 +251,22 @@ select {
    Dark mode (toggled via data-theme="dark" on <html>)
 ---------------------------------------------------------------------------- */
 :root[data-theme='dark'] {
-  --app-bg: #0f1a16;
-  --primary: #4ad295;
-  --primary-strong: #0c1a22;
-  --primary-bright: #62e0a8;
-  --accent: #4aa3c4;
-  --accent-strong: #34758f;
-  --accent-soft: #182a20;
-  --surface: #182a23;
-  --surface-guard: #122019;
-  --surface-blue: #16222c;
-  --text: #e8f0ea;
-  --muted: #98aeac;
-  --border: #284036;
-  --border-strong: #355044;
-  --ring: rgba(98, 224, 168, 0.5);
+  --app-bg: var(--tv-ink);
+  --primary: var(--tv-cobalt-300);
+  --primary-strong: #f4f4f4;
+  --primary-bright: #8fa9f5;
+  --secondary: #cdd5e6;
+  --accent: var(--tv-cobalt-300);
+  --accent-strong: var(--tv-cobalt);
+  --accent-soft: #14224a;
+  --surface: #161616;
+  --surface-guard: #1c1c1c;
+  --surface-blue: #121a33;
+  --text: var(--tv-white);
+  --muted: rgba(255, 255, 255, 0.65);
+  --border: rgba(255, 255, 255, 0.1);
+  --border-strong: rgba(255, 255, 255, 0.2);
+  --ring: rgba(106, 143, 240, 0.55);
 
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
   --shadow: 0 14px 34px rgba(0, 0, 0, 0.5);
@@ -227,35 +279,35 @@ select {
   --tone-progress-fg: #f2cd83;
   --tone-progress-bd: #5a4514;
   --tone-critical-bg: #3a1512;
-  --tone-critical-fg: #f3a8a2;
+  --tone-critical-fg: #ff9d96;
   --tone-critical-bd: #5e231d;
-  --tone-neutral-bg: #1a2826;
-  --tone-neutral-fg: #aebfbb;
-  --tone-neutral-bd: #2c413c;
+  --tone-neutral-bg: #1c1c1c;
+  --tone-neutral-fg: rgba(255, 255, 255, 0.66);
+  --tone-neutral-bd: rgba(255, 255, 255, 0.16);
 
-  --mat-sys-primary: #4ad295;
-  --mat-sys-on-primary: #04241a;
-  --mat-sys-primary-container: #14463a;
-  --mat-sys-on-primary-container: #c6f2dd;
-  --mat-sys-secondary: #b8ccc6;
-  --mat-sys-on-secondary: #213733;
-  --mat-sys-surface: #182a23;
-  --mat-sys-surface-container: #1b3029;
-  --mat-sys-surface-container-high: #20382f;
-  --mat-sys-surface-container-low: #142420;
-  --mat-sys-surface-container-lowest: #0f1a16;
-  --mat-sys-on-surface: #e8f0ea;
-  --mat-sys-on-surface-variant: #b6c8c1;
-  --mat-sys-background: #0f1a16;
-  --mat-sys-on-background: #e8f0ea;
-  --mat-sys-outline: #355044;
-  --mat-sys-outline-variant: #284036;
+  --mat-sys-primary: var(--tv-cobalt-300);
+  --mat-sys-on-primary: #00133f;
+  --mat-sys-primary-container: #14224a;
+  --mat-sys-on-primary-container: #d6e1fb;
+  --mat-sys-secondary: #cdd5e6;
+  --mat-sys-on-secondary: #1b2436;
+  --mat-sys-surface: #161616;
+  --mat-sys-surface-container: #1c1c1c;
+  --mat-sys-surface-container-high: #232323;
+  --mat-sys-surface-container-low: #141414;
+  --mat-sys-surface-container-lowest: #0a0a0a;
+  --mat-sys-on-surface: #f4f4f4;
+  --mat-sys-on-surface-variant: #c7cbd2;
+  --mat-sys-background: #0a0a0a;
+  --mat-sys-on-background: #f4f4f4;
+  --mat-sys-outline: rgba(255, 255, 255, 0.2);
+  --mat-sys-outline-variant: rgba(255, 255, 255, 0.1);
 }
 
 :root[data-theme='dark'] body {
   background:
-    radial-gradient(1100px 620px at 12% -8%, rgba(66, 184, 131, 0.2), transparent 60%),
-    radial-gradient(900px 560px at 100% 0%, rgba(53, 73, 94, 0.16), transparent 55%),
+    radial-gradient(1100px 620px at 12% -8%, rgba(0, 70, 230, 0.18), transparent 60%),
+    radial-gradient(900px 560px at 100% 0%, rgba(106, 143, 240, 0.1), transparent 55%),
     var(--app-bg);
 }
 
@@ -444,4 +496,110 @@ select {
   height: 40px;
   font-size: 40px;
   opacity: 0.55;
+}
+
+/* ----------------------------------------------------------------------------
+   Trainovate design-system primitives (class-only; safe to use app-wide)
+---------------------------------------------------------------------------- */
+.tv-eyebrow {
+  font-family: var(--tv-font-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: var(--tv-tracking-wider);
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.tv-mono {
+  font-family: var(--tv-font-mono);
+  font-feature-settings: 'tnum' 1, 'ss01' 1;
+}
+.tv-numeric {
+  font-variant-numeric: tabular-nums;
+}
+
+.tv-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  height: 44px;
+  padding: 0 1.5rem;
+  font-family: var(--tv-font-sans);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  border: 1px solid transparent;
+  border-radius: var(--tv-radius);
+  cursor: pointer;
+  transition:
+    background 0.22s var(--tv-ease, cubic-bezier(0.4, 0, 0.2, 1)),
+    color 0.22s ease,
+    border-color 0.22s ease,
+    transform 0.12s ease;
+  white-space: nowrap;
+}
+.tv-btn:active {
+  transform: translateY(1px);
+}
+.tv-btn--primary {
+  background: var(--tv-ink);
+  color: var(--tv-white);
+}
+.tv-btn--primary:hover {
+  background: var(--tv-cobalt);
+}
+.tv-btn--cobalt {
+  background: var(--tv-cobalt);
+  color: var(--tv-white);
+}
+.tv-btn--cobalt:hover {
+  background: var(--tv-cobalt-700);
+}
+.tv-btn--secondary {
+  background: transparent;
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+.tv-btn--secondary:hover {
+  background: var(--text);
+  color: var(--app-bg);
+  border-color: var(--text);
+}
+
+.tv-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--tv-radius);
+  padding: 2rem;
+}
+
+.tv-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 2px 8px;
+  height: 22px;
+  font-family: var(--tv-font-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: var(--tv-tracking-wide);
+  text-transform: uppercase;
+  border: 1px solid var(--border);
+  border-radius: var(--tv-radius-sm);
+  color: var(--muted);
+  background: transparent;
+}
+.tv-badge--ink {
+  background: var(--tv-ink);
+  color: var(--tv-white);
+  border-color: var(--tv-ink);
+}
+.tv-badge--cobalt {
+  background: var(--tv-cobalt-100);
+  color: var(--tv-cobalt-700);
+  border-color: transparent;
+}
+.tv-badge--signal {
+  background: var(--tv-signal);
+  color: var(--tv-white);
+  border-color: var(--tv-signal);
 }

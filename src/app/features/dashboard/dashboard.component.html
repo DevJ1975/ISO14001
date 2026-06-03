@@ -148,7 +148,7 @@
               <mat-icon aria-hidden="true">playlist_add_check</mat-icon>
               <div>
                 <h3>{{ checklistTemplate.name }}</h3>
-                <p>{{ checklistTemplate.criteria.replace('ISO_14001_', 'ISO 14001:') }} · {{ checklistTemplate.status }}</p>
+                <p>{{ checklistTemplate.criteria.replace('ISO_45001_', 'ISO 45001:') }} · {{ checklistTemplate.status }}</p>
               </div>
             </div>
             <div class="template-items">
@@ -425,7 +425,7 @@
               <mat-icon aria-hidden="true">compare_arrows</mat-icon>
               <div>
                 <h3>Transition gap candidate</h3>
-                <p>ISO 14001:2015 to ISO 14001:2026</p>
+                <p>ISO 45001:2018 to ISO 45001:2026</p>
               </div>
             </div>
             <div class="answer-card">
@@ -485,7 +485,7 @@
             <div class="report-card">
               <div>
                 <span [attr.data-tone]="statusTone(report().status)">{{ report().status }}</span>
-                <h4>Version {{ report().version }} · {{ report().criteria.replace('ISO_14001_', 'ISO 14001:') }}</h4>
+                <h4>Version {{ report().version }} · {{ report().criteria.replace('ISO_45001_', 'ISO 45001:') }}</h4>
                 <p>{{ report().sections[0]?.body }}</p>
               </div>
               <div class="report-meta">
@@ -824,17 +824,17 @@
           <div class="segmented" aria-label="ISO edition">
             <button
               type="button"
-              [class.selected]="selectedEdition() === 'ISO_14001_2026'"
-              (click)="setEdition('ISO_14001_2026')"
+              [class.selected]="selectedEdition() === 'ISO_45001_2018'"
+              (click)="setEdition('ISO_45001_2018')"
             >
-              2026
+              2018
             </button>
             <button
               type="button"
-              [class.selected]="selectedEdition() === 'ISO_14001_2015'"
-              (click)="setEdition('ISO_14001_2015')"
+              [class.selected]="selectedEdition() === 'ISO_45001_2026'"
+              (click)="setEdition('ISO_45001_2026')"
             >
-              2015
+              2026
             </button>
           </div>
         </div>

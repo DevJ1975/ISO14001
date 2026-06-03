@@ -1,6 +1,12 @@
-# Trainovate ISO 14001 Audit Platform
+# Soteria Signum — ISO 45001 Audit Platform
 
-Clean Phase 0-6 foundation for a production-grade, multi-tenant environmental-audit PWA.
+**Soteria Signum** (by Trainovate) is a production-grade, multi-tenant
+occupational health & safety (ISO 45001:2018) audit PWA — the field tool an
+auditor uses to run OH&S management-system audits. Each tenant is a client site
+the auditor is working on; audits are conducted against ISO 45001:2018 (or the
+2026 edition placeholder), covering hazard identification & risk, worker
+consultation, legal & other requirements, incidents & investigation, and the
+full clause 4–10 register set.
 
 ## Stack
 

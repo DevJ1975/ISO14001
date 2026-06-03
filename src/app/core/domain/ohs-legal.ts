@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { checklistItemResultSchema } from './checklists.js';
-import { complianceStatusSchema } from './ems-registers.js';
+import { complianceStatusSchema } from './ohs-registers.js';
 import { timestampSchema } from './models.js';
 
 /**

@@ -23,7 +23,7 @@ export class AuditsComponent {
   protected readonly creating = signal(false);
   protected readonly showForm = signal(false);
   protected readonly error = signal<string | null>(null);
-  protected readonly criteria = signal('ISO 14001:2026');
+  protected readonly criteria = signal('ISO 45001:2018');
 
   constructor() {
     void this.store.loadAudits();

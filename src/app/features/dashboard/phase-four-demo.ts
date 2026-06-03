@@ -58,7 +58,7 @@ export const demoCorrectiveActions: CorrectiveAction[] = [
     tenantId: demoTenantId,
     auditId: demoAuditId,
     findingRef: 'photo-analysis-1',
-    action: 'Provide current inspection record for secondary containment area reviewed during fieldwork.',
+    action: 'Provide current inspection record for PPE signage and entry controls reviewed during fieldwork.',
     owner: 'maintenance.lead@northstar.example',
     dueDate: '2026-07-01T23:59:00.000Z',
     verificationEvidenceRefs: ['evidence-photo-1'],

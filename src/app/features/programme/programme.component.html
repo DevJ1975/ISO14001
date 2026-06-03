@@ -79,7 +79,7 @@
       @for (c of p.competence; track c.id) {
         <div class="tile crow">
           <input [value]="c.memberName" (change)="store.updateCompetence(c.id, { memberName: $any($event.target).value })" [disabled]="!canEdit()" placeholder="Auditor name" />
-          <input [value]="c.qualifications" (change)="store.updateCompetence(c.id, { qualifications: $any($event.target).value })" [disabled]="!canEdit()" placeholder="Qualifications / ISO 14001 competence" />
+          <input [value]="c.qualifications" (change)="store.updateCompetence(c.id, { qualifications: $any($event.target).value })" [disabled]="!canEdit()" placeholder="Qualifications / ISO 45001 competence" />
           <label class="chk"><input type="checkbox" [checked]="c.impartialityDeclared" (change)="store.updateCompetence(c.id, { impartialityDeclared: $any($event.target).checked })" [disabled]="!canEdit()" /> Impartiality declared</label>
         </div>
       } @empty {

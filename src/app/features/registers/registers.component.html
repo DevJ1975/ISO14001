@@ -1,7 +1,7 @@
 <section class="screen">
   <header class="screen-head">
-    <h1>EMS registers</h1>
-    <p>Full clause-4–10 coverage: aspects, risks &amp; opportunities, compliance, objectives, resources, competence, awareness, communication, documented information, emergency preparedness, interested parties and management review (ISO 14001 cl. 4.2, 6.1.1, 6.1.2, 6.2, 7.1–7.5, 8.2, 9.1.2, 9.3).</p>
+    <h1>OH&amp;S registers</h1>
+    <p>Full clause-4–10 coverage: hazards &amp; OH&amp;S risk, risks &amp; opportunities, legal &amp; other requirements, objectives, worker consultation, resources, competence, awareness, communication, documented information, emergency preparedness, interested parties and management review (ISO 45001 cl. 4.2, 5.4, 6.1.1, 6.1.2, 6.2, 7.1–7.5, 8.2, 9.1.2, 9.3).</p>
   </header>
 
   <div class="seg">
@@ -56,18 +56,18 @@
     @case ('aspects') {
       <div class="reg">
         <div class="reg-head">
-          <h2>Significant environmental aspects</h2>
+          <h2>Hazard identification &amp; OH&amp;S risk register</h2>
           <button mat-flat-button color="primary" type="button" (click)="store.addAspect()"><mat-icon aria-hidden="true">add</mat-icon>Add</button>
         </div>
         @for (row of store.aspects(); track row.id) {
           <article class="tile row">
             <div class="grid2">
-              <label class="fld"><span>Aspect</span><input [value]="row.aspect" (change)="store.updateAspect(row.id, { aspect: $any($event.target).value })" /></label>
-              <label class="fld"><span>Activity / process</span><input [value]="row.activity" (change)="store.updateAspect(row.id, { activity: $any($event.target).value })" /></label>
+              <label class="fld"><span>Hazard</span><input [value]="row.aspect" (change)="store.updateAspect(row.id, { aspect: $any($event.target).value })" /></label>
+              <label class="fld"><span>Activity / task</span><input [value]="row.activity" (change)="store.updateAspect(row.id, { activity: $any($event.target).value })" /></label>
             </div>
-            <label class="fld"><span>Environmental impact</span><input [value]="row.impact" (change)="store.updateAspect(row.id, { impact: $any($event.target).value })" /></label>
+            <label class="fld"><span>Potential harm (injury / ill-health)</span><input [value]="row.impact" (change)="store.updateAspect(row.id, { impact: $any($event.target).value })" /></label>
             <fieldset class="scoring">
-              <legend>Significance evaluation (cl. 6.1.2)</legend>
+              <legend>Risk rating — severity × likelihood (cl. 6.1.2)</legend>
               <div class="grid3">
                 <label class="fld"><span>Severity (1–5)</span>
                   <select [value]="row.severityScore ?? ''" (change)="store.updateAspect(row.id, { severityScore: num($any($event.target).value) })">
@@ -84,18 +84,23 @@
                 </div>
               </div>
               <div class="checks">
-                <label><input type="checkbox" [checked]="row.legalConcern || false" (change)="store.updateAspect(row.id, { legalConcern: $any($event.target).checked })" /> Legal concern</label>
-                <label><input type="checkbox" [checked]="row.stakeholderConcern || false" (change)="store.updateAspect(row.id, { stakeholderConcern: $any($event.target).checked })" /> Stakeholder concern</label>
+                <label><input type="checkbox" [checked]="row.legalConcern || false" (change)="store.updateAspect(row.id, { legalConcern: $any($event.target).checked })" /> Legal duty</label>
+                <label><input type="checkbox" [checked]="row.stakeholderConcern || false" (change)="store.updateAspect(row.id, { stakeholderConcern: $any($event.target).checked })" /> Worker concern</label>
               </div>
-              <label class="fld"><span>Significance rationale</span><input [value]="row.significanceRationale || ''" (change)="store.updateAspect(row.id, { significanceRationale: $any($event.target).value })" /></label>
+              <label class="fld"><span>Risk-rating rationale</span><input [value]="row.significanceRationale || ''" (change)="store.updateAspect(row.id, { significanceRationale: $any($event.target).value })" /></label>
             </fieldset>
-            <div class="grid2">
-              <label class="fld"><span>Significance (recorded)</span>
+            <div class="grid3">
+              <label class="fld"><span>Risk band (recorded)</span>
                 <select [value]="row.significance" (change)="store.updateAspect(row.id, { significance: $any($event.target).value })">
                   <option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option>
                 </select>
               </label>
-              <label class="fld"><span>Controls</span><input [value]="row.controls || ''" (change)="store.updateAspect(row.id, { controls: $any($event.target).value })" /></label>
+              <label class="fld"><span>Control (hierarchy)</span>
+                <select [value]="row.controlType ?? ''" (change)="store.updateAspect(row.id, { controlType: $any($event.target).value })">
+                  <option value="">—</option><option value="elimination">Elimination</option><option value="substitution">Substitution</option><option value="engineering">Engineering</option><option value="administrative">Administrative</option><option value="ppe">PPE</option>
+                </select>
+              </label>
+              <label class="fld"><span>Existing controls</span><input [value]="row.controls || ''" (change)="store.updateAspect(row.id, { controls: $any($event.target).value })" /></label>
             </div>
             <div class="results">
               @for (r of results; track r.value) {
@@ -104,7 +109,7 @@
             </div>
           </article>
         } @empty {
-          <div class="panel empty"><mat-icon aria-hidden="true">eco</mat-icon><strong>No aspects yet</strong><span>Add the significant environmental aspects you sampled.</span></div>
+          <div class="panel empty"><mat-icon aria-hidden="true">health_and_safety</mat-icon><strong>No hazards yet</strong><span>Add the hazards you identified and rate their OH&amp;S risk (cl. 6.1.2).</span></div>
         }
       </div>
     }
@@ -198,7 +203,7 @@
     @case ('objectives') {
       <div class="reg">
         <div class="reg-head">
-          <h2>Environmental objectives &amp; targets</h2>
+          <h2>OH&amp;S objectives &amp; targets</h2>
           <button mat-flat-button color="primary" type="button" (click)="store.addObjective()"><mat-icon aria-hidden="true">add</mat-icon>Add</button>
         </div>
         @for (row of store.objectives(); track row.id) {
@@ -223,7 +228,7 @@
             </div>
           </article>
         } @empty {
-          <div class="panel empty"><mat-icon aria-hidden="true">flag_circle</mat-icon><strong>No objectives yet</strong><span>Add environmental objectives, targets and progress (cl. 6.2).</span></div>
+          <div class="panel empty"><mat-icon aria-hidden="true">flag_circle</mat-icon><strong>No objectives yet</strong><span>Add OH&amp;S objectives, targets and progress (cl. 6.2).</span></div>
         }
       </div>
     }
@@ -321,7 +326,7 @@
             </div>
           </article>
         } @empty {
-          <div class="panel empty"><mat-icon aria-hidden="true">inventory_2</mat-icon><strong>No resources yet</strong><span>Record resources provided for the EMS (cl. 7.1).</span></div>
+          <div class="panel empty"><mat-icon aria-hidden="true">inventory_2</mat-icon><strong>No resources yet</strong><span>Record resources provided for the OH&amp;S management system (cl. 7.1).</span></div>
         }
       </div>
     }
@@ -476,7 +481,7 @@
             </div>
           </article>
         } @empty {
-          <div class="panel empty"><mat-icon aria-hidden="true">monitoring</mat-icon><strong>No performance indicators yet</strong><span>Record monitored environmental performance with target vs actual and trend (cl. 9.1).</span></div>
+          <div class="panel empty"><mat-icon aria-hidden="true">monitoring</mat-icon><strong>No performance indicators yet</strong><span>Record OH&amp;S leading &amp; lagging indicators with target vs actual and trend (cl. 9.1).</span></div>
         }
       </div>
     }
@@ -533,7 +538,7 @@
     @case ('incidents') {
       <div class="reg">
         <div class="reg-head">
-          <h2>Environmental incidents &amp; near-misses</h2>
+          <h2>Incident, near-miss &amp; investigation register</h2>
           <button mat-flat-button color="primary" type="button" (click)="store.addIncident()"><mat-icon aria-hidden="true">add</mat-icon>Add</button>
         </div>
         @for (row of store.incidents(); track row.id) {
@@ -543,7 +548,7 @@
               <label class="fld"><span>Occurred</span><input type="date" [value]="row.occurredAt || ''" (change)="store.updateIncident(row.id, { occurredAt: $any($event.target).value })" /></label>
               <label class="fld"><span>Type</span>
                 <select [value]="row.incidentType" (change)="store.updateIncident(row.id, { incidentType: $any($event.target).value })">
-                  <option value="spill">Spill</option><option value="release">Release</option><option value="exceedance">Limit exceedance</option><option value="wasteBreach">Waste breach</option><option value="complaint">Complaint</option><option value="nearMiss">Near-miss</option><option value="other">Other</option>
+                  <option value="injury">Injury</option><option value="illHealth">Ill-health</option><option value="nearMiss">Near-miss</option><option value="dangerousOccurrence">Dangerous occurrence</option><option value="propertyDamage">Property damage</option><option value="fatality">Fatality</option><option value="other">Other</option>
                 </select>
               </label>
               <label class="fld"><span>Severity</span>
@@ -552,7 +557,14 @@
                 </select>
               </label>
             </div>
-            <label class="fld"><span>Location</span><input [value]="row.location || ''" (change)="store.updateIncident(row.id, { location: $any($event.target).value })" /></label>
+            <div class="grid2">
+              <label class="fld"><span>Injury classification</span>
+                <select [value]="row.injuryClassification ?? ''" (change)="store.updateIncident(row.id, { injuryClassification: $any($event.target).value })">
+                  <option value="none">None</option><option value="firstAid">First aid</option><option value="medicalTreatment">Medical treatment</option><option value="lostTime">Lost time</option><option value="riddor">RIDDOR reportable</option>
+                </select>
+              </label>
+              <label class="fld"><span>Location</span><input [value]="row.location || ''" (change)="store.updateIncident(row.id, { location: $any($event.target).value })" /></label>
+            </div>
             <label class="fld"><span>What happened</span><input [value]="row.description || ''" (change)="store.updateIncident(row.id, { description: $any($event.target).value })" /></label>
             <label class="fld"><span>Immediate action / containment</span><input [value]="row.immediateAction || ''" (change)="store.updateIncident(row.id, { immediateAction: $any($event.target).value })" /></label>
             <label class="fld"><span>Root cause</span><input [value]="row.rootCause || ''" (change)="store.updateIncident(row.id, { rootCause: $any($event.target).value })" /></label>
@@ -562,7 +574,7 @@
                   <option value="open">Open</option><option value="investigating">Investigating</option><option value="actioned">Actioned</option><option value="closed">Closed</option>
                 </select>
               </label>
-              <label class="chk2"><input type="checkbox" [checked]="row.reportableToRegulator || false" (change)="store.updateIncident(row.id, { reportableToRegulator: $any($event.target).checked })" /> Reportable to regulator</label>
+              <label class="chk2"><input type="checkbox" [checked]="row.reportableToRegulator || false" (change)="store.updateIncident(row.id, { reportableToRegulator: $any($event.target).checked })" /> RIDDOR reportable</label>
             </div>
             <div class="results">
               @for (r of results; track r.value) {
@@ -571,7 +583,7 @@
             </div>
           </article>
         } @empty {
-          <div class="panel empty"><mat-icon aria-hidden="true">report</mat-icon><strong>No incidents logged</strong><span>Record environmental incidents, spills and near-misses, their containment and root cause (cl. 10.2).</span></div>
+          <div class="panel empty"><mat-icon aria-hidden="true">personal_injury</mat-icon><strong>No incidents logged</strong><span>Record injuries, ill-health, near-misses and dangerous occurrences, their immediate action, investigation and root cause (cl. 10.2).</span></div>
         }
       </div>
     }
@@ -649,19 +661,19 @@
     @case ('suppliers') {
       <div class="reg">
         <div class="reg-head">
-          <h2>Supplier &amp; contractor evaluation</h2>
+          <h2>Procurement, contractors &amp; outsourcing</h2>
           <button mat-flat-button color="primary" type="button" (click)="store.addSupplier()"><mat-icon aria-hidden="true">add</mat-icon>Add</button>
         </div>
         @for (row of store.suppliers(); track row.id) {
           <article class="tile row">
             <div class="grid2">
               <label class="fld"><span>Name</span><input [value]="row.name" (change)="store.updateSupplier(row.id, { name: $any($event.target).value })" /></label>
-              <label class="fld"><span>Service / product</span><input [value]="row.serviceType || ''" placeholder="Waste collection, chemicals…" (change)="store.updateSupplier(row.id, { serviceType: $any($event.target).value })" /></label>
+              <label class="fld"><span>Service / product</span><input [value]="row.serviceType || ''" placeholder="Labour supply, scaffolding, maintenance…" (change)="store.updateSupplier(row.id, { serviceType: $any($event.target).value })" /></label>
             </div>
             <div class="grid2">
               <label class="fld"><span>Category</span>
                 <select [value]="row.category" (change)="store.updateSupplier(row.id, { category: $any($event.target).value })">
-                  <option value="supplier">Supplier</option><option value="contractor">Contractor</option><option value="wasteCarrier">Waste carrier</option><option value="recycler">Recycler</option><option value="other">Other</option>
+                  <option value="supplier">Supplier</option><option value="contractor">Contractor</option><option value="labourProvider">Labour provider</option><option value="outsourcedProcess">Outsourced process</option><option value="other">Other</option>
                 </select>
               </label>
               <label class="fld"><span>Rating</span>
@@ -680,8 +692,8 @@
               </div>
             </div>
             <div class="chk-row">
-              <label class="chk2"><input type="checkbox" [checked]="row.environmentallyRelevant || false" (change)="store.updateSupplier(row.id, { environmentallyRelevant: $any($event.target).checked })" /> Environmentally relevant (alerts on evaluation)</label>
-              <label class="chk2"><input type="checkbox" [checked]="row.controlsCommunicated || false" (change)="store.updateSupplier(row.id, { controlsCommunicated: $any($event.target).checked })" /> EMS controls communicated</label>
+              <label class="chk2"><input type="checkbox" [checked]="row.environmentallyRelevant || false" (change)="store.updateSupplier(row.id, { environmentallyRelevant: $any($event.target).checked })" /> Safety-relevant (alerts on evaluation)</label>
+              <label class="chk2"><input type="checkbox" [checked]="row.controlsCommunicated || false" (change)="store.updateSupplier(row.id, { controlsCommunicated: $any($event.target).checked })" /> OH&amp;S controls communicated</label>
             </div>
             <label class="fld"><span>Notes</span><input [value]="row.notes || ''" (change)="store.updateSupplier(row.id, { notes: $any($event.target).value })" /></label>
             <div class="results">
@@ -691,7 +703,7 @@
             </div>
           </article>
         } @empty {
-          <div class="panel empty"><mat-icon aria-hidden="true">local_shipping</mat-icon><strong>No suppliers yet</strong><span>Evaluate suppliers &amp; contractors that can affect the EMS; relevant parties with no current evaluation raise alerts (cl. 8.1).</span></div>
+          <div class="panel empty"><mat-icon aria-hidden="true">engineering</mat-icon><strong>No contractors yet</strong><span>Evaluate suppliers, contractors &amp; outsourced processes that can affect OH&amp;S; relevant parties with no current evaluation raise alerts (cl. 8.1.4).</span></div>
         }
       </div>
     }
@@ -726,11 +738,11 @@
               <label class="fld"><span>Target date</span><input type="date" [value]="row.targetDate || ''" (change)="store.updateChange(row.id, { targetDate: $any($event.target).value })" /></label>
               <div class="fld"><span>Attention</span>
                 <output class="permit-badge {{ changeBadge(row) }}">
-                  {{ changeBadge(row) === 'aspectsOutstanding' ? 'Aspects not assessed' : changeBadge(row) === 'overdue' ? 'Overdue' : changeBadge(row) === 'settled' ? 'Settled' : 'On track' }}
+                  {{ changeBadge(row) === 'aspectsOutstanding' ? 'Hazards not assessed' : changeBadge(row) === 'overdue' ? 'Overdue' : changeBadge(row) === 'settled' ? 'Settled' : 'On track' }}
                 </output>
               </div>
             </div>
-            <label class="chk2"><input type="checkbox" [checked]="row.aspectsReviewed || false" (change)="store.updateChange(row.id, { aspectsReviewed: $any($event.target).checked })" /> Environmental aspects/impacts assessed</label>
+            <label class="chk2"><input type="checkbox" [checked]="row.aspectsReviewed || false" (change)="store.updateChange(row.id, { aspectsReviewed: $any($event.target).checked })" /> Hazards/risks reassessed</label>
             <label class="fld"><span>Controls / notes</span><input [value]="row.controls || ''" (change)="store.updateChange(row.id, { controls: $any($event.target).value })" /></label>
             <div class="results">
               @for (r of results; track r.value) {
@@ -739,59 +751,43 @@
             </div>
           </article>
         } @empty {
-          <div class="panel empty"><mat-icon aria-hidden="true">published_with_changes</mat-icon><strong>No changes logged</strong><span>Track planned changes and assess their environmental aspects before approval; a change approved or implemented without an aspects review raises an alert (cl. 8.1).</span></div>
+          <div class="panel empty"><mat-icon aria-hidden="true">published_with_changes</mat-icon><strong>No changes logged</strong><span>Track planned changes and reassess hazards &amp; OH&amp;S risks before approval; a change approved or implemented without a hazard review raises an alert (cl. 8.1.3).</span></div>
         }
       </div>
     }
-    @case ('carbon') {
+    @case ('consultation') {
       <div class="reg">
         <div class="reg-head">
-          <h2>Carbon inventory (GHG Scope 1/2/3)</h2>
-          <button mat-flat-button color="primary" type="button" (click)="store.addCarbon()"><mat-icon aria-hidden="true">add</mat-icon>Add</button>
+          <h2>Worker consultation &amp; participation</h2>
+          <button mat-flat-button color="primary" type="button" (click)="store.addWorkerConsultation()"><mat-icon aria-hidden="true">add</mat-icon>Add</button>
         </div>
-        @if (carbon().entryCount) {
-          <div class="ghg-summary">
-            <div class="ghg-total"><strong>{{ fmtTco2e(carbon().total) }}</strong><span>t CO₂e total</span></div>
-            <div class="ghg-scopes">
-              <div class="ghg-scope s1"><span class="lbl">Scope 1</span><span class="val">{{ fmtTco2e(carbon().scope1) }} t</span><span class="pct">{{ carbon().pct.scope1 }}%</span></div>
-              <div class="ghg-scope s2"><span class="lbl">Scope 2</span><span class="val">{{ fmtTco2e(carbon().scope2) }} t</span><span class="pct">{{ carbon().pct.scope2 }}%</span></div>
-              <div class="ghg-scope s3"><span class="lbl">Scope 3</span><span class="val">{{ fmtTco2e(carbon().scope3) }} t</span><span class="pct">{{ carbon().pct.scope3 }}%</span></div>
-            </div>
-            <div class="ghg-bar" role="img" aria-label="Scope share of total emissions">
-              <span class="seg-s1" [style.width.%]="carbon().pct.scope1"></span>
-              <span class="seg-s2" [style.width.%]="carbon().pct.scope2"></span>
-              <span class="seg-s3" [style.width.%]="carbon().pct.scope3"></span>
-            </div>
-          </div>
-        }
-        @for (row of store.carbon(); track row.id) {
+        @for (row of store.workerConsultations(); track row.id) {
           <article class="tile row">
-            <div class="grid2">
-              <label class="fld"><span>Source</span><input [value]="row.source" placeholder="Natural gas, electricity, fleet…" (change)="store.updateCarbon(row.id, { source: $any($event.target).value })" /></label>
-              <label class="fld"><span>Scope</span>
-                <select [value]="row.scope" (change)="store.updateCarbon(row.id, { scope: $any(num($any($event.target).value)) })">
-                  <option [value]="1">Scope 1 — direct</option><option [value]="2">Scope 2 — energy</option><option [value]="3">Scope 3 — value chain</option>
+            <label class="fld"><span>Topic</span><input [value]="row.topic" (change)="store.updateWorkerConsultation(row.id, { topic: $any($event.target).value })" /></label>
+            <div class="grid3">
+              <label class="fld"><span>Category</span>
+                <select [value]="row.category" (change)="store.updateWorkerConsultation(row.id, { category: $any($event.target).value })">
+                  <option value="policy">Policy</option><option value="hazardIdentification">Hazard ID</option><option value="riskAssessment">Risk assessment</option><option value="controls">Controls</option><option value="incidentInvestigation">Incident investigation</option><option value="training">Training</option><option value="ppe">PPE</option><option value="emergencyArrangements">Emergency arrangements</option><option value="changes">Changes</option><option value="other">Other</option>
                 </select>
               </label>
+              <label class="fld"><span>Mechanism</span>
+                <select [value]="row.mechanism" (change)="store.updateWorkerConsultation(row.id, { mechanism: $any($event.target).value })">
+                  <option value="safetyCommittee">Safety committee</option><option value="toolboxTalk">Toolbox talk</option><option value="survey">Survey</option><option value="rep">Worker rep</option><option value="directConsultation">Direct consultation</option><option value="other">Other</option>
+                </select>
+              </label>
+              <label class="fld"><span>Date</span><input type="date" [value]="row.date || ''" (change)="store.updateWorkerConsultation(row.id, { date: $any($event.target).value })" /></label>
             </div>
-            <div class="grid2">
-              <label class="fld"><span>Category</span><input [value]="row.category || ''" (change)="store.updateCarbon(row.id, { category: $any($event.target).value })" /></label>
-              <label class="fld"><span>Period</span><input [value]="row.period || ''" placeholder="FY2025" (change)="store.updateCarbon(row.id, { period: $any($event.target).value })" /></label>
-            </div>
-            <div class="grid3">
-              <label class="fld"><span>Activity data</span><input type="number" min="0" [value]="row.activityData ?? ''" (change)="store.updateCarbon(row.id, { activityData: num($any($event.target).value) })" /></label>
-              <label class="fld"><span>Unit</span><input [value]="row.activityUnit || ''" placeholder="MWh, litres…" (change)="store.updateCarbon(row.id, { activityUnit: $any($event.target).value })" /></label>
-              <label class="fld"><span>Factor (kgCO₂e/unit)</span><input type="number" min="0" [value]="row.emissionFactor ?? ''" (change)="store.updateCarbon(row.id, { emissionFactor: num($any($event.target).value) })" /></label>
-            </div>
-            <div class="ghg-row-out"><mat-icon aria-hidden="true">co2</mat-icon><strong>{{ rowTco2e(row) }}</strong> t CO₂e</div>
+            <label class="fld"><span>Worker group</span><input [value]="row.workerGroup || ''" placeholder="e.g. warehouse operatives, night shift" (change)="store.updateWorkerConsultation(row.id, { workerGroup: $any($event.target).value })" /></label>
+            <label class="fld"><span>Participation evidence</span><input [value]="row.participationEvidence || ''" (change)="store.updateWorkerConsultation(row.id, { participationEvidence: $any($event.target).value })" /></label>
+            <label class="fld"><span>Outcome</span><input [value]="row.outcome || ''" (change)="store.updateWorkerConsultation(row.id, { outcome: $any($event.target).value })" /></label>
             <div class="results">
               @for (r of results; track r.value) {
-                <button type="button" class="rp {{ r.tone }}" [class.on]="row.result === r.value" (click)="store.updateCarbon(row.id, { result: r.value })">{{ r.label }}</button>
+                <button type="button" class="rp {{ r.tone }}" [class.on]="row.result === r.value" (click)="store.updateWorkerConsultation(row.id, { result: r.value })">{{ r.label }}</button>
               }
             </div>
           </article>
         } @empty {
-          <div class="panel empty"><mat-icon aria-hidden="true">co2</mat-icon><strong>No emissions logged</strong><span>Build a Scope 1/2/3 GHG inventory; tCO₂e is computed from activity data × emission factor (cl. 9.1).</span></div>
+          <div class="panel empty"><mat-icon aria-hidden="true">groups</mat-icon><strong>No consultation records yet</strong><span>Record how workers are consulted and participate in the OH&amp;S management system (cl. 5.4).</span></div>
         }
       </div>
     }

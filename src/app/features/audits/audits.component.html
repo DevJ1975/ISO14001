@@ -19,11 +19,11 @@
       <label class="fld"><span>Auditee / organization</span>
         <input #auditee placeholder="e.g. Northstar Components — Denver Assembly Plant" /></label>
       <label class="fld"><span>Scope</span>
-        <textarea #scope rows="2" placeholder="EMS scope, sites/areas, boundaries…"></textarea></label>
+        <textarea #scope rows="2" placeholder="OH&amp;S scope, sites/areas, boundaries…"></textarea></label>
       <label class="fld"><span>Criteria</span>
         <select [value]="criteria()" (change)="criteria.set($any($event.target).value)">
-          <option value="ISO 14001:2026">ISO 14001:2026</option>
-          <option value="ISO 14001:2015">ISO 14001:2015</option>
+          <option value="ISO 45001:2018">ISO 45001:2018</option>
+          <option value="ISO 45001:2026">ISO 45001:2026</option>
         </select></label>
       @if (error(); as err) { <p class="err"><mat-icon aria-hidden="true">error</mat-icon>{{ err }}</p> }
       <button mat-flat-button color="primary" type="button" [disabled]="creating()" (click)="create(auditee.value, scope.value)">

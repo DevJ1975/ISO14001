@@ -66,7 +66,7 @@
       </label>
       <label class="fld"><span>Audit objectives</span>
         <textarea #ob rows="2" [value]="meta().objectives" (change)="saveMeta({ objectives: ob.value })"
-          placeholder="e.g. Determine conformity of the EMS with ISO 14001 and its effectiveness"></textarea>
+          placeholder="e.g. Determine conformity of the OH&amp;S management system with ISO 45001 and its effectiveness"></textarea>
       </label>
       <label class="fld"><span>Sites &amp; sampling</span>
         <input [value]="meta().sites" (change)="saveMeta({ sites: $any($event.target).value })"
@@ -81,7 +81,7 @@
       </label>
       <label class="fld"><span>Auditor competence</span>
         <input [value]="meta().auditorCompetence" (change)="saveMeta({ auditorCompetence: $any($event.target).value })"
-          placeholder="e.g. IRCA ISO 14001 Lead Auditor, 12 years EMS auditing" />
+          placeholder="e.g. IRCA ISO 45001 Lead Auditor, 12 years OH&amp;S auditing" />
       </label>
       <label class="fld"><span>Distribution list</span>
         <input [value]="meta().distribution" (change)="saveMeta({ distribution: $any($event.target).value })"
@@ -101,7 +101,7 @@
         <textarea #oc rows="2" [value]="conclusion()?.overallConformity || ''" (change)="saveOverall(oc.value)"
           placeholder="Overall conformity with the audit criteria…"></textarea>
       </label>
-      <label class="fld"><span>EMS effectiveness opinion</span>
+      <label class="fld"><span>OH&amp;SMS effectiveness opinion</span>
         <textarea #eo rows="2" [value]="conclusion()?.emsEffectivenessOpinion || ''" (change)="saveOpinion(eo.value)"></textarea>
       </label>
       <label class="fld"><span>Degree to which criteria were met</span>

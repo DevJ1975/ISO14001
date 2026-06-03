@@ -60,7 +60,7 @@
             @if (finding.type === 'minorNc' || finding.type === 'majorNc') {
               <div class="capa-block">
                 <div class="capa-head">
-                  <strong>Corrective action (ISO 14001 cl. 10.2)</strong>
+                  <strong>Corrective action (ISO 45001 cl. 10.2)</strong>
                   @if (selectedCapa(); as capa) {
                     <span [attr.data-tone]="capaTone(capa.status)">{{ capa.status }}</span>
                     @if (overdue(capa)) { <span data-tone="critical">overdue</span> }

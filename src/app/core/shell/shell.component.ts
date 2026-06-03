@@ -82,7 +82,7 @@ export class ShellComponent {
     { path: '/fieldwork', label: 'Fieldwork', icon: 'checklist', exact: false },
     { path: '/evidence', label: 'Evidence', icon: 'photo_camera', exact: false },
     { path: '/findings', label: 'Findings', icon: 'flag', exact: false },
-    { path: '/registers', label: 'EMS', icon: 'eco', exact: false },
+    { path: '/registers', label: 'Registers', icon: 'health_and_safety', exact: false },
     { path: '/report', label: 'Report', icon: 'description', exact: false },
     { path: '/programme', label: 'Programme', icon: 'calendar_month', exact: false },
     { path: '/portal', label: 'Auditee', icon: 'handshake', exact: false },

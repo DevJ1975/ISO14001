@@ -119,7 +119,7 @@ const wikiManuals = [
 export class DashboardComponent {
   private readonly mongoBackend = inject(MONGODB_API_BACKEND);
 
-  protected readonly selectedEdition = signal<'ISO_14001_2026' | 'ISO_14001_2015'>('ISO_14001_2026');
+  protected readonly selectedEdition = signal<'ISO_45001_2018' | 'ISO_45001_2026'>('ISO_45001_2018');
   protected readonly capturedPhotoName = signal<string | null>(null);
   protected readonly apiBackend = this.mongoBackend;
   protected readonly phaseCards = phaseCards;
@@ -232,7 +232,7 @@ export class DashboardComponent {
     ];
   });
 
-  protected setEdition(edition: 'ISO_14001_2026' | 'ISO_14001_2015'): void {
+  protected setEdition(edition: 'ISO_45001_2018' | 'ISO_45001_2026'): void {
     this.selectedEdition.set(edition);
   }
 

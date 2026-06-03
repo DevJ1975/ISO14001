@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 import { tenantRoleSchema } from './roles.js';
 
-export const isoEditionSchema = z.enum(['ISO_14001_2015', 'ISO_14001_2026']);
+export const isoEditionSchema = z.enum(['ISO_45001_2018', 'ISO_45001_2026']);
 export type IsoEdition = z.infer<typeof isoEditionSchema>;
 
 export const timestampSchema = z.union([z.date(), z.string().datetime()]);
@@ -54,7 +54,7 @@ export const memberSchema = z.object({
 export type Member = z.infer<typeof memberSchema>;
 
 export const clauseRefSchema = z.object({
-  standard: z.literal('ISO_14001'),
+  standard: z.literal('ISO_45001'),
   edition: isoEditionSchema,
   clauseId: z.string().regex(/^[4-9](\.[0-9]+)*|10(\.[0-9]+)*$/),
   title: z.string().min(1),

@@ -206,7 +206,7 @@ export const aiCopilotFlowRequestSchema = z.object({
     'photoIdentification',
   ]),
   input: z.string().min(1),
-  criteria: isoEditionSchema.default('ISO_14001_2026'),
+  criteria: isoEditionSchema.default('ISO_45001_2026'),
 });
 
 export type AiCopilotFlowRequest = z.infer<typeof aiCopilotFlowRequestSchema>;

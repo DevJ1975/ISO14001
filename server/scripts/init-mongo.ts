@@ -96,7 +96,7 @@ async function seedDemoAudit(db: Db): Promise<void> {
 
   await seedDocs(db, mongoCollections.competenceRecords, ['tenantId', 'auditId', 'id'], [
     { ...base, id: 'comp-1', role: 'Coating line operators', requiredCompetence: 'Safe solvent handling; spill response', trainingEvidence: 'Annual training records on file.', status: 'competent', result: 'conforming', evidenceIds: [], updatedAt: now },
-    { ...base, id: 'comp-2', role: 'Internal EMS auditors', requiredCompetence: 'ISO 14001 internal auditing', trainingEvidence: 'One auditor pending refresher.', status: 'inTraining', result: 'needsFollowUp', evidenceIds: [], updatedAt: now },
+    { ...base, id: 'comp-2', role: 'Internal EMS auditors', requiredCompetence: 'ISO 45001 internal auditing', trainingEvidence: 'One auditor pending refresher.', status: 'inTraining', result: 'needsFollowUp', evidenceIds: [], updatedAt: now },
   ]);
 
   await seedDocs(db, mongoCollections.awarenessRecords, ['tenantId', 'auditId', 'id'], [
@@ -114,22 +114,22 @@ async function seedDemoAudit(db: Db): Promise<void> {
   ]);
 
   await seedDocs(db, mongoCollections.auditConclusions, ['tenantId', 'auditId'], [
-    { ...base, overallConformity: 'The EMS broadly conforms with the ISO 14001:2026 criteria, with one major and one minor nonconformity to close.', emsEffectivenessOpinion: 'The EMS is largely effective; the evaluation-of-compliance process must be reinstated.', criteriaMetStatement: 'Criteria met except clause 9.1.2 (evaluation of compliance).', divergingOpinions: '', recommendation: 'conditional', updatedAt: now },
+    { ...base, overallConformity: 'The EMS broadly conforms with the ISO 45001:2026 criteria, with one major and one minor nonconformity to close.', emsEffectivenessOpinion: 'The EMS is largely effective; the evaluation-of-compliance process must be reinstated.', criteriaMetStatement: 'Criteria met except clause 9.1.2 (evaluation of compliance).', divergingOpinions: '', recommendation: 'conditional', updatedAt: now },
   ]);
 
   await seedDocs(db, mongoCollections.auditProgrammes, ['tenantId'], [
     {
       tenantId: DEMO_TENANT_ID,
       cycleYear: new Date().getFullYear(),
-      criteria: 'ISO_14001_2026',
+      criteria: 'ISO_45001_2018',
       plannedAudits: [
         { id: 'plan-stage2', type: 'certificationStage2', dueDate: dateOnly(-30), status: 'completed' },
         { id: 'plan-surv-1', type: 'surveillance', dueDate: dateOnly(330), status: 'planned' },
         { id: 'plan-recert', type: 'recertification', dueDate: dateOnly(1065), status: 'planned' },
       ],
       competence: [
-        { id: 'comp-maya', memberName: 'Maya Chen', qualifications: 'IRCA Lead Auditor; ISO 14001 EMS', impartialityDeclared: true },
-        { id: 'comp-ava', memberName: 'Ava Brooks', qualifications: 'ISO 14001 Auditor', impartialityDeclared: true },
+        { id: 'comp-maya', memberName: 'Maya Chen', qualifications: 'IRCA Lead Auditor; ISO 45001 EMS', impartialityDeclared: true },
+        { id: 'comp-ava', memberName: 'Ava Brooks', qualifications: 'ISO 45001 Auditor', impartialityDeclared: true },
       ],
       updatedAt: now,
     },

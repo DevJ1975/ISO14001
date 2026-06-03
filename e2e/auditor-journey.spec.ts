@@ -4,10 +4,10 @@ import AxeBuilder from '@axe-core/playwright';
 /**
  * Browser E2E for the auditor journey. Works against the offline demo store, so
  * it does not require a backend — it exercises the real Angular app end to end:
- * sign-in (offline), navigation, the EMS registers (incl. the clause-4–10
+ * sign-in (offline), navigation, the OH&S registers (incl. the clause-4–10
  * governance registers), and the report screen, plus an axe accessibility scan.
  */
-test.describe('ISO 14001 auditor app', () => {
+test.describe('ISO 45001 auditor app', () => {
   test('signs in (offline) and reaches the workspace', async ({ page }) => {
     await page.goto('/login');
     await page.getByRole('button', { name: /offline demo mode/i }).click();
@@ -15,7 +15,7 @@ test.describe('ISO 14001 auditor app', () => {
     await expect(page.getByRole('navigation', { name: /primary/i })).toBeVisible();
   });
 
-  test('shows all EMS registers including the governance tabs', async ({ page }) => {
+  test('shows all OH&S registers including the governance tabs', async ({ page }) => {
     await page.goto('/login');
     await page.getByRole('button', { name: /offline demo mode/i }).click();
     await page.goto('/registers');

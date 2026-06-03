@@ -4,7 +4,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { RouterLink } from '@angular/router';
 
 import { AlertsService } from '../../core/alerts/alerts.service';
-import { carbonRollup, formatTco2e, metricVariance } from '../../core/domain';
+import { metricVariance } from '../../core/domain';
 import { FieldAuditStore } from '../../core/field/field-audit-store';
 
 interface Bar {
@@ -98,7 +98,7 @@ export class OverviewComponent {
     return severity === 'critical' ? 'error' : severity === 'warning' ? 'warning' : 'info';
   }
 
-  /** 5×5 aspect significance heat-map (likelihood rows 5→1, severity cols 1→5). */
+  /** 5×5 hazard risk heat-map (likelihood rows 5→1, severity cols 1→5). */
   protected readonly heatmap = computed(() => {
     const scored = this.store.aspects().filter((a) => a.severityScore && a.likelihoodScore);
     const rows = [5, 4, 3, 2, 1].map((lik) => ({
@@ -111,8 +111,4 @@ export class OverviewComponent {
     }));
     return { rows, total: scored.length };
   });
-
-  /** Carbon footprint rollup (GHG Scope 1/2/3) for the dashboard summary card. */
-  protected readonly carbon = computed(() => carbonRollup(this.store.carbon()));
-  protected readonly fmtTco2e = formatTco2e;
 }

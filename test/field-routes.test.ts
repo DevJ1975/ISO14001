@@ -427,7 +427,7 @@ describe('field-audit API routes', () => {
         method: 'PUT',
         url: '/api/tenants/t/programme',
         headers: authHeaders('t'),
-        body: { cycleYear: 2026, criteria: 'ISO_14001_2026', plannedAudits: [], competence: [] },
+        body: { cycleYear: 2026, criteria: 'ISO_45001_2018', plannedAudits: [], competence: [] },
       }),
       denied,
       { db, config },
@@ -442,7 +442,7 @@ describe('field-audit API routes', () => {
         headers: leadHeaders('t'),
         body: {
           cycleYear: 2026,
-          criteria: 'ISO_14001_2026',
+          criteria: 'ISO_45001_2018',
           plannedAudits: [{ id: 'plan-1', type: 'surveillance', dueDate: '2027-01-01', status: 'planned' }],
           competence: [],
         },

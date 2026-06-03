@@ -1,14 +1,14 @@
-import { emissionTco2e, formatTco2e } from '../../core/domain';
 import { CsvColumn } from '../../core/export/csv';
 import type {
   CalibrationRecord,
-  CarbonEntry,
   DocumentedInfoRecord,
-  EnvironmentalIncident,
+  Hazard,
+  Incident,
   ManagementOfChangeRecord,
   Permit,
   SupplierRecord,
   TrainingRecord,
+  WorkerConsultation,
 } from '../../core/field/field-audit-store';
 
 /**
@@ -43,7 +43,7 @@ export const supplierColumns: CsvColumn<SupplierRecord>[] = [
   { header: 'Name', value: (r) => r.name },
   { header: 'Service', value: (r) => r.serviceType },
   { header: 'Category', value: (r) => r.category },
-  { header: 'Environmentally relevant', value: (r) => (r.environmentallyRelevant ? 'yes' : 'no') },
+  { header: 'Safety-relevant', value: (r) => (r.environmentallyRelevant ? 'yes' : 'no') },
   { header: 'Controls communicated', value: (r) => (r.controlsCommunicated ? 'yes' : 'no') },
   { header: 'Rating', value: (r) => r.rating },
   { header: 'Last evaluated', value: (r) => r.lastEvaluatedAt },
@@ -56,7 +56,7 @@ export const changeColumns: CsvColumn<ManagementOfChangeRecord>[] = [
   { header: 'Change', value: (r) => r.title },
   { header: 'Type', value: (r) => r.changeType },
   { header: 'Status', value: (r) => r.status },
-  { header: 'Aspects assessed', value: (r) => (r.aspectsReviewed ? 'yes' : 'no') },
+  { header: 'Hazards assessed', value: (r) => (r.aspectsReviewed ? 'yes' : 'no') },
   { header: 'Risk', value: (r) => r.riskLevel },
   { header: 'Owner', value: (r) => r.owner },
   { header: 'Target date', value: (r) => r.targetDate },
@@ -65,26 +65,35 @@ export const changeColumns: CsvColumn<ManagementOfChangeRecord>[] = [
   { header: 'Result', value: (r) => r.result },
 ];
 
-export const carbonColumns: CsvColumn<CarbonEntry>[] = [
-  { header: 'Source', value: (r) => r.source },
-  { header: 'Scope', value: (r) => r.scope },
-  { header: 'Category', value: (r) => r.category },
-  { header: 'Period', value: (r) => r.period },
-  { header: 'Activity data', value: (r) => r.activityData },
-  { header: 'Unit', value: (r) => r.activityUnit },
-  { header: 'Emission factor (kgCO2e/unit)', value: (r) => r.emissionFactor },
-  { header: 'tCO2e', value: (r) => formatTco2e(emissionTco2e(r)) },
+export const hazardColumns: CsvColumn<Hazard>[] = [
+  { header: 'Hazard', value: (r) => r.aspect },
+  { header: 'Activity', value: (r) => r.activity },
+  { header: 'Harm', value: (r) => r.impact },
+  { header: 'Risk', value: (r) => r.significance },
+  { header: 'Control type', value: (r) => r.controlType },
+  { header: 'Controls', value: (r) => r.controls },
   { header: 'Result', value: (r) => r.result },
 ];
 
-export const incidentColumns: CsvColumn<EnvironmentalIncident>[] = [
+export const incidentColumns: CsvColumn<Incident>[] = [
   { header: 'Title', value: (r) => r.title },
   { header: 'Occurred', value: (r) => r.occurredAt },
   { header: 'Location', value: (r) => r.location },
   { header: 'Type', value: (r) => r.incidentType },
   { header: 'Severity', value: (r) => r.severity },
+  { header: 'Injury class', value: (r) => r.injuryClassification },
   { header: 'Status', value: (r) => r.status },
-  { header: 'Reportable', value: (r) => (r.reportableToRegulator ? 'yes' : 'no') },
+  { header: 'RIDDOR reportable', value: (r) => (r.reportableToRegulator ? 'yes' : 'no') },
+  { header: 'Result', value: (r) => r.result },
+];
+
+export const consultationColumns: CsvColumn<WorkerConsultation>[] = [
+  { header: 'Topic', value: (r) => r.topic },
+  { header: 'Category', value: (r) => r.category },
+  { header: 'Mechanism', value: (r) => r.mechanism },
+  { header: 'Worker group', value: (r) => r.workerGroup },
+  { header: 'Outcome', value: (r) => r.outcome },
+  { header: 'Date', value: (r) => r.date },
   { header: 'Result', value: (r) => r.result },
 ];
 

@@ -11,7 +11,7 @@
 <article class="doc">
   <header class="doc-head">
     <div>
-      <p class="eyebrow">ISO 14001 Environmental Management System</p>
+      <p class="eyebrow">ISO 45001 Occupational Health &amp; Safety Management System</p>
       <h1>Audit Report</h1>
     </div>
     <div class="badge" [attr.data-signed]="!!store.reportSignedAt()">
@@ -55,7 +55,7 @@
     @if (store.conclusion(); as c) {
       <dl class="fields">
         <dt>Overall conformity</dt><dd>{{ c.overallConformity || '—' }}</dd>
-        <dt>EMS effectiveness opinion</dt><dd>{{ c.emsEffectivenessOpinion || '—' }}</dd>
+        <dt>OH&amp;S management system effectiveness opinion</dt><dd>{{ c.emsEffectivenessOpinion || '—' }}</dd>
         <dt>Degree criteria were met</dt><dd>{{ c.criteriaMetStatement || '—' }}</dd>
         <dt>Unresolved diverging opinions</dt><dd>{{ c.divergingOpinions || 'None' }}</dd>
         <dt>Recommendation</dt><dd class="strong">{{ recommendationLabel(c.recommendation) }}</dd>
@@ -130,21 +130,22 @@
     </table>
   </section>
 
-  <!-- 6. EMS registers -->
+  <!-- 6. OH&S registers -->
   @if (store.aspects().length || store.obligations().length || store.emergencyRecords().length
         || store.interestedParties().length || store.objectives().length
         || store.communications().length || store.managementReviews().length
+        || store.workerConsultations().length
         || store.risksOpportunities().length || store.resources().length
         || store.competence().length || store.awareness().length || store.documentedInfo().length
         || store.performanceMetrics().length || store.permits().length || store.incidents().length
         || store.calibration().length || store.training().length || store.suppliers().length
-        || store.changes().length || store.carbon().length) {
+        || store.changes().length) {
     <section class="block">
-      <h2>6. EMS registers</h2>
+      <h2>6. OH&amp;S registers</h2>
       @if (store.aspects().length) {
-        <h3>Significant environmental aspects</h3>
+        <h3>Significant hazards &amp; risks</h3>
         <table class="grid">
-          <thead><tr><th>Aspect</th><th>Activity</th><th>Impact</th><th>Significance</th><th>Score</th><th>Result</th></tr></thead>
+          <thead><tr><th>Hazard</th><th>Activity</th><th>Harm</th><th>Risk</th><th>Score</th><th>Result</th></tr></thead>
           <tbody>
             @for (a of store.aspects(); track a.id) {
               <tr><td>{{ a.aspect }}</td><td>{{ a.activity }}</td><td>{{ a.impact }}</td>
@@ -192,7 +193,7 @@
         </table>
       }
       @if (store.objectives().length) {
-        <h3>Environmental objectives &amp; targets (cl. 6.2)</h3>
+        <h3>OH&amp;S objectives &amp; targets (cl. 6.2)</h3>
         <table class="grid">
           <thead><tr><th>Objective</th><th>Target</th><th>Owner</th><th>Progress</th><th>Result</th></tr></thead>
           <tbody>
@@ -223,6 +224,18 @@
             @for (m of store.managementReviews(); track m.id) {
               <tr><td class="nowrap">{{ formatDate(m.reviewDate) }}</td><td>{{ m.inputs || '—' }}</td>
                 <td>{{ m.decisions || '—' }}</td><td>{{ m.actions || '—' }}</td><td class="nowrap">{{ resultLabel(m.result) }}</td></tr>
+            }
+          </tbody>
+        </table>
+      }
+      @if (store.workerConsultations().length) {
+        <h3>Worker consultation &amp; participation (cl. 5.4)</h3>
+        <table class="grid">
+          <thead><tr><th>Topic</th><th>Category</th><th>Mechanism</th><th>Worker group</th><th>Outcome</th><th>Result</th></tr></thead>
+          <tbody>
+            @for (c of store.workerConsultations(); track c.id) {
+              <tr><td>{{ c.topic }}</td><td class="nowrap">{{ c.category }}</td><td class="nowrap">{{ c.mechanism }}</td>
+                <td>{{ c.workerGroup || '—' }}</td><td>{{ c.outcome || '—' }}</td><td class="nowrap">{{ resultLabel(c.result) }}</td></tr>
             }
           </tbody>
         </table>
@@ -315,7 +328,7 @@
         </table>
       }
       @if (store.incidents().length) {
-        <h3>Environmental incidents &amp; near-misses (cl. 10.2)</h3>
+        <h3>OH&amp;S incidents &amp; near-misses (cl. 10.2)</h3>
         <table class="grid">
           <thead><tr><th>Title</th><th>Date</th><th>Type</th><th>Severity</th><th>Status</th><th>Result</th></tr></thead>
           <tbody>
@@ -363,29 +376,13 @@
         </table>
       }
       @if (store.changes().length) {
-        <h3>Management of Change (cl. 8.1)</h3>
+        <h3>Management of Change (cl. 8.1.3)</h3>
         <table class="grid">
-          <thead><tr><th>Change</th><th>Type</th><th>Status</th><th>Aspects assessed</th><th>Attention</th><th>Result</th></tr></thead>
+          <thead><tr><th>Change</th><th>Type</th><th>Status</th><th>Hazards assessed</th><th>Attention</th><th>Result</th></tr></thead>
           <tbody>
             @for (c of store.changes(); track c.id) {
               <tr><td>{{ c.title }}</td><td class="nowrap">{{ c.changeType }}</td><td class="nowrap">{{ c.status }}</td>
                 <td class="nowrap">{{ c.aspectsReviewed ? 'Yes' : 'No' }}</td><td class="nowrap">{{ changeLabel(c) }}</td><td class="nowrap">{{ resultLabel(c.result) }}</td></tr>
-            }
-          </tbody>
-        </table>
-      }
-      @if (store.carbon().length) {
-        <h3>Carbon inventory — GHG Scope 1/2/3 (cl. 9.1)</h3>
-        <p class="ghg-line">Total <strong>{{ fmtTco2e(carbon().total) }} t CO₂e</strong> ·
-          Scope 1 {{ fmtTco2e(carbon().scope1) }} t ({{ carbon().pct.scope1 }}%) ·
-          Scope 2 {{ fmtTco2e(carbon().scope2) }} t ({{ carbon().pct.scope2 }}%) ·
-          Scope 3 {{ fmtTco2e(carbon().scope3) }} t ({{ carbon().pct.scope3 }}%)</p>
-        <table class="grid">
-          <thead><tr><th>Source</th><th>Scope</th><th>Category</th><th>Activity</th><th>tCO₂e</th><th>Result</th></tr></thead>
-          <tbody>
-            @for (e of store.carbon(); track e.id) {
-              <tr><td>{{ e.source }}</td><td class="nowrap">Scope {{ e.scope }}</td><td class="nowrap">{{ e.category || '—' }}</td>
-                <td class="nowrap">{{ e.activityData ?? '—' }} {{ e.activityUnit || '' }}</td><td class="nowrap">{{ rowTco2e(e) }}</td><td class="nowrap">{{ resultLabel(e.result) }}</td></tr>
             }
           </tbody>
         </table>
@@ -469,6 +466,6 @@
   </section>
 
   <footer class="doc-foot">
-    Generated by the Trainovate ISO 14001 audit platform · {{ formatDateTime(generatedAt) }}
+    Generated by the Trainovate ISO 45001 audit platform · {{ formatDateTime(generatedAt) }}
   </footer>
 </article>

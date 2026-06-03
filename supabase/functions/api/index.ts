@@ -1,4 +1,4 @@
-// Supabase Edge Function: ISO 14001 audit API.
+// Supabase Edge Function: ISO 45001 audit API.
 // Mirrors the original Node/Mongo `/api` contract over Postgres JSONB tables.
 // Custom auth (HS256 app JWT + PBKDF2 passwords via Web Crypto); deployed with
 // verify_jwt=false so the app's own bearer token passes through unmodified.
@@ -218,12 +218,12 @@ async function upsertRecord(tenantId, auditId, kind, recordId, doc) {
     );
 }
 
-// A fresh audit starts with the three top-level ISO 14001 clause checklist rows.
+// A fresh audit starts with the three top-level ISO 45001 clause checklist rows.
 function starterChecklist() {
   const now = new Date().toISOString();
   return [
     { id: 'item-4', clauseId: '4', clauseTitle: 'Context of the organization', question: 'Verify internal/external EMS context and interested parties.', ownerName: '', result: 'notStarted', evidenceIds: [], updatedAt: now },
-    { id: 'item-6', clauseId: '6', clauseTitle: 'Planning', question: 'Sample environmental aspects, compliance obligations, risks and objectives.', ownerName: '', result: 'notStarted', evidenceIds: [], updatedAt: now },
+    { id: 'item-6', clauseId: '6', clauseTitle: 'Planning', question: 'Sample hazards, OH&S risks, legal & other requirements and objectives.', ownerName: '', result: 'notStarted', evidenceIds: [], updatedAt: now },
     { id: 'item-8', clauseId: '8', clauseTitle: 'Operation', question: 'Observe operational controls and emergency preparedness.', ownerName: '', result: 'notStarted', evidenceIds: [], updatedAt: now },
   ];
 }
@@ -429,7 +429,7 @@ Deno.serve(async (req) => {
           id,
           auditee: String(body.auditee ?? '').slice(0, 300),
           scope: String(body.scope ?? '').slice(0, 2000),
-          criteria: body.criteria === 'ISO 14001:2015' ? 'ISO 14001:2015' : 'ISO 14001:2026',
+          criteria: body.criteria === 'ISO 45001:2026' ? 'ISO 45001:2026' : 'ISO 45001:2018',
           status: 'planned',
           startsAt: body.startsAt ?? null,
           endsAt: body.endsAt ?? null,
@@ -488,7 +488,7 @@ Deno.serve(async (req) => {
           training: byKind('training'),
           suppliers: byKind('supplier'),
           changes: byKind('change-moc'),
-          carbon: byKind('carbon'),
+          workerConsultations: byKind('consultation'),
           meetings: byKind('meeting'),
           conclusion: single('conclusion'),
           reportMeta: single('reportMeta'),
@@ -664,7 +664,7 @@ Deno.serve(async (req) => {
         training: 'training',
         suppliers: 'supplier',
         changes: 'change-moc',
-        carbon: 'carbon',
+        'worker-consultations': 'consultation',
       };
       if (method === 'PUT' && registerKinds[rest[0]] && rest[1]) {
         requireRole(actor, ['leadAuditor', 'auditor']);

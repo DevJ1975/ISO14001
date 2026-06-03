@@ -309,6 +309,7 @@ const aspectUpsertCommandSchema = z.object({
   legalConcern: z.boolean().optional(),
   stakeholderConcern: z.boolean().optional(),
   significanceRationale: z.string().max(1000).optional(),
+  controlType: z.enum(['elimination', 'substitution', 'engineering', 'administrative', 'ppe']).optional(),
   controls: z.string().max(2000).optional(),
   relatedClauseId: z.string().optional(),
   result: registerResultSchema.default('notStarted'),
@@ -369,6 +370,31 @@ const managementReviewUpsertCommandSchema = z.object({
   inputs: z.string().max(4000).optional(),
   decisions: z.string().max(4000).optional(),
   actions: z.string().max(4000).optional(),
+  result: registerResultSchema.default('notStarted'),
+});
+
+const workerConsultationUpsertCommandSchema = z.object({
+  id: z.string().min(1),
+  topic: z.string().max(300).default(''),
+  category: z
+    .enum([
+      'policy',
+      'hazardIdentification',
+      'riskAssessment',
+      'controls',
+      'incidentInvestigation',
+      'training',
+      'ppe',
+      'emergencyArrangements',
+      'changes',
+      'other',
+    ])
+    .default('other'),
+  mechanism: z.enum(['safetyCommittee', 'toolboxTalk', 'survey', 'rep', 'directConsultation', 'other']).default('safetyCommittee'),
+  workerGroup: z.string().max(300).optional(),
+  participationEvidence: z.string().max(2000).optional(),
+  outcome: z.string().max(2000).optional(),
+  date: z.string().optional(),
   result: registerResultSchema.default('notStarted'),
 });
 
@@ -467,12 +493,15 @@ const incidentUpsertCommandSchema = z.object({
   title: z.string().max(300).default(''),
   occurredAt: z.string().max(40).optional(),
   location: z.string().max(300).optional(),
-  incidentType: z.enum(['spill', 'release', 'exceedance', 'wasteBreach', 'complaint', 'nearMiss', 'other']).default('spill'),
+  incidentType: z
+    .enum(['injury', 'illHealth', 'nearMiss', 'dangerousOccurrence', 'propertyDamage', 'fatality', 'other'])
+    .default('injury'),
   severity: z.enum(['low', 'medium', 'high']).default('low'),
   description: z.string().max(2000).optional(),
   immediateAction: z.string().max(2000).optional(),
   rootCause: z.string().max(2000).optional(),
   correctiveActionRef: z.string().max(200).optional(),
+  injuryClassification: z.enum(['none', 'firstAid', 'medicalTreatment', 'lostTime', 'riddor']).optional(),
   reportableToRegulator: z.boolean().optional(),
   status: z.enum(['open', 'investigating', 'actioned', 'closed']).default('open'),
   result: registerResultSchema.default('notStarted'),
@@ -507,7 +536,7 @@ const supplierUpsertCommandSchema = z.object({
   id: z.string().min(1),
   name: z.string().max(300).default(''),
   serviceType: z.string().max(200).optional(),
-  category: z.enum(['supplier', 'contractor', 'wasteCarrier', 'recycler', 'other']).default('supplier'),
+  category: z.enum(['supplier', 'contractor', 'labourProvider', 'outsourcedProcess', 'other']).default('supplier'),
   environmentallyRelevant: z.boolean().optional(),
   controlsCommunicated: z.boolean().optional(),
   rating: z.enum(['notRated', 'approved', 'conditional', 'rejected']).default('notRated'),
@@ -530,19 +559,6 @@ const changeUpsertCommandSchema = z.object({
   controls: z.string().max(2000).optional(),
   targetDate: z.string().max(40).optional(),
   implementedAt: z.string().max(40).optional(),
-  result: registerResultSchema.default('notStarted'),
-});
-
-const carbonUpsertCommandSchema = z.object({
-  id: z.string().min(1),
-  source: z.string().max(300).default(''),
-  scope: z.union([z.literal(1), z.literal(2), z.literal(3)]).default(1),
-  category: z.string().max(200).optional(),
-  period: z.string().max(60).optional(),
-  activityData: z.number().min(0).max(1e12).optional(),
-  activityUnit: z.string().max(40).optional(),
-  emissionFactor: z.number().min(0).max(1e9).optional(),
-  tco2eOverride: z.number().min(0).max(1e12).optional(),
   result: registerResultSchema.default('notStarted'),
 });
 
@@ -1060,8 +1076,8 @@ export async function handleApiRequest(
         .collection(mongoCollections.changes)
         .find({ tenantId, auditId }, { projection: { _id: 0 } })
         .toArray();
-      const carbon = await dependencies.db
-        .collection(mongoCollections.carbon)
+      const workerConsultations = await dependencies.db
+        .collection(mongoCollections.workerConsultations)
         .find({ tenantId, auditId }, { projection: { _id: 0 } })
         .toArray();
       const reportMeta = await dependencies.db
@@ -1102,7 +1118,7 @@ export async function handleApiRequest(
           training,
           suppliers,
           changes,
-          carbon,
+          workerConsultations,
           reportMeta,
           changeLog,
         },
@@ -1764,22 +1780,22 @@ export async function handleApiRequest(
       return;
     }
 
-    const carbonMatch = matchPath(
-      new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/carbon/([^/]+)$`),
+    const consultationMatch = matchPath(
+      new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/worker-consultations/([^/]+)$`),
       url.pathname,
       ['tenantId', 'auditId', 'id'],
     );
-    if (request.method === 'PUT' && carbonMatch && actor) {
-      const tenantId = carbonMatch.params['tenantId']!;
-      const auditId = carbonMatch.params['auditId']!;
+    if (request.method === 'PUT' && consultationMatch && actor) {
+      const tenantId = consultationMatch.params['tenantId']!;
+      const auditId = consultationMatch.params['auditId']!;
       requireTenant(actor, tenantId);
       requireAnyRole(actor, ['leadAuditor', 'auditor']);
-      const command = await readJson(request, carbonUpsertCommandSchema);
+      const command = await readJson(request, workerConsultationUpsertCommandSchema);
       const record = { ...command, tenantId, auditId, updatedAt: new Date().toISOString() };
       await dependencies.db
-        .collection(mongoCollections.carbon)
+        .collection(mongoCollections.workerConsultations)
         .updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
-      sendJson(response, 200, { carbon: record }, corsOrigin);
+      sendJson(response, 200, { workerConsultation: record }, corsOrigin);
       return;
     }
 

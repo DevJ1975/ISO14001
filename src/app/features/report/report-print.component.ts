@@ -3,7 +3,7 @@ import { Location } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 
-import { calibrationStatus, carbonRollup, documentReviewStatus, emissionTco2e, formatTco2e, mocAttention, permitExpiryStatus, shortFingerprint, supplierEvaluationStatus, trainingStatus } from '../../core/domain';
+import { calibrationStatus, documentReviewStatus, mocAttention, permitExpiryStatus, shortFingerprint, supplierEvaluationStatus, trainingStatus } from '../../core/domain';
 import { AuthService } from '../../core/auth/auth.service';
 import {
   auditTypeLabel,
@@ -43,7 +43,7 @@ const RECOMMENDATION_LABELS: Record<Recommendation, string> = {
 };
 
 /**
- * Print-optimized ISO 14001 audit report. Rendered on its own route; the app
+ * Print-optimized ISO 45001 audit report. Rendered on its own route; the app
  * shell is hidden via `@media print` so the browser's native "Save as PDF"
  * produces a clean, paginated document — no PDF library required.
  */
@@ -159,14 +159,6 @@ export class ReportPrintComponent {
         : attention === 'settled'
           ? 'Settled'
           : 'On track';
-  }
-
-  /** Per-scope carbon rollup (tCO2e) for the report's GHG summary line. */
-  protected readonly carbon = computed(() => carbonRollup(this.store.carbon()));
-  protected readonly fmtTco2e = formatTco2e;
-
-  protected rowTco2e(entry: { activityData?: number; emissionFactor?: number; tco2eOverride?: number }): string {
-    return formatTco2e(emissionTco2e(entry));
   }
 
   /** Short integrity fingerprint of the report e-signature for the issued PDF. */

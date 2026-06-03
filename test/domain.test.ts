@@ -30,8 +30,8 @@ describe('domain contracts', () => {
       id: 'audit-1',
       tenantId: 'tenant-a',
       auditeeId: 'client-1',
-      criteria: 'ISO_14001_2026',
-      scope: 'Main production site EMS transition audit',
+      criteria: 'ISO_45001_2026',
+      scope: 'Main production site OH&S transition audit',
       objectives: ['Verify transition readiness'],
       assignedMembers: ['uid-lead'],
       leadAuditor: 'uid-lead',
@@ -56,8 +56,8 @@ describe('domain contracts', () => {
       auditId: 'audit-1',
       type: 'minorNc',
       clauseRef: {
-        standard: 'ISO_14001',
-        edition: 'ISO_14001_2026',
+        standard: 'ISO_45001',
+        edition: 'ISO_45001_2026',
         clauseId: '6',
         title: 'Planning',
       },
@@ -149,8 +149,8 @@ describe('domain contracts', () => {
           clauseSuggestions: [
             {
               clauseRef: {
-                standard: 'ISO_14001',
-                edition: 'ISO_14001_2026',
+                standard: 'ISO_45001',
+                edition: 'ISO_45001_2026',
                 clauseId: '8',
                 title: 'Operation',
               },

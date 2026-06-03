@@ -4,18 +4,15 @@ import { MatIconModule } from '@angular/material/icon';
 import { RouterLink } from '@angular/router';
 
 import {
-  AspectSignificanceResult,
+  RiskRatingResult,
   ClauseGuide,
   CalibrationStatus,
   calibrationStatus,
   clauseGuideFor,
   DocumentReviewStatus,
   documentReviewStatus,
-  evaluateAspectSignificance,
+  evaluateRiskRating,
   metricVariance,
-  carbonRollup,
-  emissionTco2e,
-  formatTco2e,
   MocAttention,
   mocAttention,
   PermitExpiryStatus,
@@ -26,12 +23,13 @@ import {
   trainingStatus,
 } from '../../core/domain';
 import { CsvExportService } from '../../core/export/csv-export.service';
-import { EnvironmentalAspect, FieldAuditStore, Permit, RegisterResult } from '../../core/field/field-audit-store';
+import { Hazard, FieldAuditStore, Permit, RegisterResult } from '../../core/field/field-audit-store';
 import {
   calibrationColumns,
-  carbonColumns,
   changeColumns,
+  consultationColumns,
   documentColumns,
+  hazardColumns,
   incidentColumns,
   permitColumns,
   supplierColumns,
@@ -43,6 +41,7 @@ type Tab =
   | 'risks'
   | 'compliance'
   | 'objectives'
+  | 'consultation'
   | 'resources'
   | 'competence'
   | 'awareness'
@@ -57,7 +56,6 @@ type Tab =
   | 'training'
   | 'suppliers'
   | 'changes'
-  | 'carbon'
   | 'review';
 type Tone = 'positive' | 'progress' | 'critical' | 'neutral';
 
@@ -75,12 +73,13 @@ export class RegistersComponent {
   protected readonly tab = signal<Tab>('aspects');
   protected readonly hintsOpen = signal(false);
 
-  /** Each register maps to the ISO 14001 clause it evaluates, for contextual field-guide help. */
+  /** Each register maps to the ISO 45001 clause it evaluates, for contextual field-guide help. */
   private readonly tabClause: Record<Tab, string> = {
     aspects: '6.1.2',
     risks: '6.1',
     compliance: '6.1.3',
     objectives: '6.2',
+    consultation: '5.4',
     resources: '7.1',
     competence: '7.2',
     awareness: '7.3',
@@ -93,9 +92,8 @@ export class RegistersComponent {
     incidents: '10.2',
     calibration: '9.1',
     training: '7.2',
-    suppliers: '8.1',
-    changes: '8.1',
-    carbon: '9.1',
+    suppliers: '8.1.4',
+    changes: '8.1.3',
     review: '9.3',
   };
 
@@ -103,25 +101,25 @@ export class RegistersComponent {
   protected readonly guide = computed<ClauseGuide | undefined>(() => clauseGuideFor(this.tabClause[this.tab()]));
 
   protected readonly tabs: { value: Tab; label: string; icon: string }[] = [
-    { value: 'aspects', label: 'Aspects', icon: 'eco' },
+    { value: 'aspects', label: 'Hazards & risk', icon: 'health_and_safety' },
     { value: 'risks', label: 'Risks/opps', icon: 'balance' },
-    { value: 'compliance', label: 'Compliance', icon: 'gavel' },
+    { value: 'compliance', label: 'Legal & other', icon: 'gavel' },
     { value: 'objectives', label: 'Objectives', icon: 'flag_circle' },
+    { value: 'consultation', label: 'Consultation', icon: 'groups' },
     { value: 'resources', label: 'Resources', icon: 'inventory_2' },
     { value: 'competence', label: 'Competence', icon: 'school' },
     { value: 'awareness', label: 'Awareness', icon: 'campaign' },
     { value: 'communication', label: 'Comms', icon: 'forum' },
     { value: 'documents', label: 'Documents', icon: 'description' },
     { value: 'emergency', label: 'Emergency', icon: 'emergency' },
-    { value: 'parties', label: 'Parties', icon: 'groups' },
+    { value: 'parties', label: 'Parties', icon: 'diversity_3' },
     { value: 'performance', label: 'Performance', icon: 'monitoring' },
     { value: 'permits', label: 'Permits', icon: 'event_available' },
-    { value: 'incidents', label: 'Incidents', icon: 'report' },
+    { value: 'incidents', label: 'Incidents', icon: 'personal_injury' },
     { value: 'calibration', label: 'Calibration', icon: 'straighten' },
     { value: 'training', label: 'Training', icon: 'workspace_premium' },
-    { value: 'suppliers', label: 'Suppliers', icon: 'local_shipping' },
+    { value: 'suppliers', label: 'Contractors', icon: 'engineering' },
     { value: 'changes', label: 'Change (MoC)', icon: 'published_with_changes' },
-    { value: 'carbon', label: 'Carbon', icon: 'co2' },
     { value: 'review', label: 'Mgmt review', icon: 'fact_check' },
   ];
 
@@ -142,16 +140,18 @@ export class RegistersComponent {
    */
   private exportSpec(): { label: string; rows: readonly unknown[]; columns: readonly { header: string; value: (row: never) => unknown }[] } | null {
     switch (this.tab()) {
+      case 'aspects':
+        return { label: 'Hazard & risk register', rows: this.store.aspects(), columns: hazardColumns };
+      case 'consultation':
+        return { label: 'Worker consultation register', rows: this.store.workerConsultations(), columns: consultationColumns };
       case 'calibration':
         return { label: 'Calibration register', rows: this.store.calibration(), columns: calibrationColumns };
       case 'training':
         return { label: 'Training matrix', rows: this.store.training(), columns: trainingColumns };
       case 'suppliers':
-        return { label: 'Supplier evaluation', rows: this.store.suppliers(), columns: supplierColumns };
+        return { label: 'Contractor evaluation', rows: this.store.suppliers(), columns: supplierColumns };
       case 'changes':
         return { label: 'Management of change', rows: this.store.changes(), columns: changeColumns };
-      case 'carbon':
-        return { label: 'Carbon inventory', rows: this.store.carbon(), columns: carbonColumns };
       case 'incidents':
         return { label: 'Incident register', rows: this.store.incidents(), columns: incidentColumns };
       case 'permits':
@@ -187,13 +187,13 @@ export class RegistersComponent {
     return 'neutral';
   }
 
-  /** Suggested significance band/score from the aspect's scored criteria (cl. 6.1.2). */
-  protected aspectSignificance(aspect: EnvironmentalAspect): AspectSignificanceResult {
-    return evaluateAspectSignificance({
+  /** Suggested OH&S risk band/score from the hazard's scored criteria (cl. 6.1.2). */
+  protected aspectSignificance(aspect: Hazard): RiskRatingResult {
+    return evaluateRiskRating({
       severity: aspect.severityScore,
       likelihood: aspect.likelihoodScore,
       legalConcern: aspect.legalConcern,
-      stakeholderConcern: aspect.stakeholderConcern,
+      workerConcern: aspect.stakeholderConcern,
     });
   }
 
@@ -229,16 +229,6 @@ export class RegistersComponent {
   }): MocAttention {
     return mocAttention(record);
   }
-
-  /** Per-scope carbon rollup (tCO2e) for the inventory summary. */
-  protected readonly carbon = computed(() => carbonRollup(this.store.carbon()));
-
-  /** Computed tCO2e for a single inventory row (override or activity × factor ÷ 1000). */
-  protected rowTco2e(entry: { activityData?: number; emissionFactor?: number; tco2eOverride?: number }): string {
-    return formatTco2e(emissionTco2e(entry));
-  }
-
-  protected readonly fmtTco2e = formatTco2e;
 
   /** Document review status (current / due soon / overdue / no date) for badge display. */
   protected documentBadge(record: { nextReviewAt?: string }): DocumentReviewStatus {
