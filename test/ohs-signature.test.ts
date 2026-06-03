@@ -11,7 +11,7 @@ import {
 
 const baseReport = (): SignableReport => ({
   auditee: 'Northstar Components',
-  criteria: 'ISO 14001:2026',
+  criteria: 'ISO 45001:2026',
   scope: 'Coated components — Denver',
   auditType: 'stage2',
   overallConformity: 'Largely conforming',

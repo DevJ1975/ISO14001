@@ -33,7 +33,7 @@ async function seedDemoAudit(db: Db): Promise<void> {
   ]);
 
   await seedDocs(db, mongoCollections.checklistItems, ['tenantId', 'auditId', 'id'], [
-    { ...base, id: 'item-4', clauseId: '4', clauseTitle: 'Context of the organization', question: 'What internal and external EMS context changes should the team verify during this audit?', guidance: 'Use auditee-authored context records, interviews, and site observations.', ownerName: 'Maya Chen', result: 'conform', evidenceIds: [], updatedAt: now },
+    { ...base, id: 'item-4', clauseId: '4', clauseTitle: 'Context of the organization', question: 'What internal and external OHSMS context changes should the team verify during this audit?', guidance: 'Use auditee-authored context records, interviews, and site observations.', ownerName: 'Maya Chen', result: 'conform', evidenceIds: [], updatedAt: now },
     { ...base, id: 'item-6', clauseId: '6', clauseTitle: 'Planning', question: 'Which planned controls, objectives, and evidence sources should be sampled for transition readiness?', guidance: 'Keep the prompt tied to auditee records and avoid copying standard text.', ownerName: 'Omar Patel', result: 'minorNc', note: 'Objective tracking evidence partially available; raised as a minor NC.', evidenceIds: ['evidence-seed-note'], updatedAt: now },
     { ...base, id: 'item-8', clauseId: '8', clauseTitle: 'Operation', question: 'Which operational controls should be observed, photographed, or sampled during fieldwork?', guidance: 'Use photo evidence only where site rules allow it.', ownerName: 'Ava Brooks', result: 'conform', evidenceIds: [], updatedAt: now },
   ]);
@@ -43,12 +43,12 @@ async function seedDemoAudit(db: Db): Promise<void> {
   ]);
 
   await seedDocs(db, mongoCollections.findings, ['tenantId', 'auditId', 'id'], [
-    { ...base, id: 'finding-seed-1', clauseId: '6', clauseTitle: 'Planning', type: 'minorNc', description: 'Environmental objective tracking for the 2026 transition is not fully evidenced.', requirementSummary: 'Cl. 6.2 — establish, monitor and retain documented information on environmental objectives.', objectiveEvidence: 'Objectives register shows 2 of 5 objectives without progress records for the current period.', gradingRationale: 'Isolated lapse on a subset of objectives; does not undermine the EMS overall — minor.', systemic: false, evidenceIds: ['evidence-seed-note'], status: 'responded', createdByName: 'Omar Patel', createdAt: now },
-    { ...base, id: 'finding-seed-2', clauseId: '9.1.2', clauseTitle: 'Evaluation of compliance', type: 'majorNc', description: 'No documented evaluation of compliance was performed for the current cycle.', requirementSummary: 'Cl. 9.1.2 — evaluate fulfilment of compliance obligations at planned intervals.', objectiveEvidence: 'Compliance register last evaluated 2024-03; no evaluation records for 2025–2026.', gradingRationale: 'Absence of a required EMS process (evaluation of compliance) — affects EMS capability — major.', systemic: true, evidenceIds: [], status: 'open', createdByName: 'Maya Chen', createdAt: now },
+    { ...base, id: 'finding-seed-1', clauseId: '6', clauseTitle: 'Planning', type: 'minorNc', description: 'Environmental objective tracking for the 2026 transition is not fully evidenced.', requirementSummary: 'Cl. 6.2 — establish, monitor and retain documented information on environmental objectives.', objectiveEvidence: 'Objectives register shows 2 of 5 objectives without progress records for the current period.', gradingRationale: 'Isolated lapse on a subset of objectives; does not undermine the OHSMS overall — minor.', systemic: false, evidenceIds: ['evidence-seed-note'], status: 'responded', createdByName: 'Omar Patel', createdAt: now },
+    { ...base, id: 'finding-seed-2', clauseId: '9.1.2', clauseTitle: 'Evaluation of compliance', type: 'majorNc', description: 'No documented evaluation of compliance was performed for the current cycle.', requirementSummary: 'Cl. 9.1.2 — evaluate fulfilment of compliance obligations at planned intervals.', objectiveEvidence: 'Compliance register last evaluated 2024-03; no evaluation records for 2025–2026.', gradingRationale: 'Absence of a required OHSMS process (evaluation of compliance) — affects OHSMS capability — major.', systemic: true, evidenceIds: [], status: 'open', createdByName: 'Maya Chen', createdAt: now },
   ]);
 
   await seedDocs(db, mongoCollections.capa, ['tenantId', 'auditId', 'id'], [
-    { ...base, id: 'capa-seed-1', findingId: 'finding-seed-1', findingRef: 'finding-seed-1', correction: 'Backfilled progress notes for the two affected objectives.', rootCause: 'Objective owners were not reminded to log quarterly progress.', action: 'Add a quarterly objective-review step to the EMS calendar with automated owner reminders.', owner: 'EHS Manager', dueDate: dateOnly(45), implementationEvidenceIds: [], verificationEvidenceIds: [], status: 'inProgress', createdAt: now },
+    { ...base, id: 'capa-seed-1', findingId: 'finding-seed-1', findingRef: 'finding-seed-1', correction: 'Backfilled progress notes for the two affected objectives.', rootCause: 'Objective owners were not reminded to log quarterly progress.', action: 'Add a quarterly objective-review step to the OHSMS calendar with automated owner reminders.', owner: 'EHS Manager', dueDate: dateOnly(45), implementationEvidenceIds: [], verificationEvidenceIds: [], status: 'inProgress', createdAt: now },
   ]);
 
   await seedDocs(db, mongoCollections.environmentalAspects, ['tenantId', 'auditId', 'id'], [
@@ -67,7 +67,7 @@ async function seedDemoAudit(db: Db): Promise<void> {
 
   await seedDocs(db, mongoCollections.interestedParties, ['tenantId', 'auditId', 'id'], [
     { ...base, id: 'party-1', party: 'Environmental regulator (state agency)', category: 'external', needs: 'Permit compliance and timely incident reporting.', howAddressed: 'Permit tracker + reporting calendar owned by EHS.', result: 'conforming', evidenceIds: [], updatedAt: now },
-    { ...base, id: 'party-2', party: 'Production workforce', category: 'internal', needs: 'Safe handling procedures and EMS awareness.', howAddressed: 'Toolbox talks and annual EMS training.', result: 'conforming', evidenceIds: [], updatedAt: now },
+    { ...base, id: 'party-2', party: 'Production workforce', category: 'internal', needs: 'Safe handling procedures and OHSMS awareness.', howAddressed: 'Toolbox talks and annual OHSMS training.', result: 'conforming', evidenceIds: [], updatedAt: now },
   ]);
 
   await seedDocs(db, mongoCollections.environmentalObjectives, ['tenantId', 'auditId', 'id'], [
@@ -81,7 +81,7 @@ async function seedDemoAudit(db: Db): Promise<void> {
   ]);
 
   await seedDocs(db, mongoCollections.managementReviews, ['tenantId', 'auditId', 'id'], [
-    { ...base, id: 'review-1', reviewDate: dateOnly(-60), attendees: 'Plant Director, EHS Manager, Operations Manager', inputs: 'Internal audit results, compliance evaluation, objectives progress, incidents, interested-party feedback.', decisions: 'Reinstate quarterly evaluation of compliance; fund waste-diversion initiative.', actions: 'EHS to update the EMS calendar; Operations to scope a new waste contractor.', result: 'needsFollowUp', evidenceIds: [], updatedAt: now },
+    { ...base, id: 'review-1', reviewDate: dateOnly(-60), attendees: 'Plant Director, EHS Manager, Operations Manager', inputs: 'Internal audit results, compliance evaluation, objectives progress, incidents, interested-party feedback.', decisions: 'Reinstate quarterly evaluation of compliance; fund waste-diversion initiative.', actions: 'EHS to update the OHSMS calendar; Operations to scope a new waste contractor.', result: 'needsFollowUp', evidenceIds: [], updatedAt: now },
   ]);
 
   await seedDocs(db, mongoCollections.risksOpportunities, ['tenantId', 'auditId', 'id'], [
@@ -96,7 +96,7 @@ async function seedDemoAudit(db: Db): Promise<void> {
 
   await seedDocs(db, mongoCollections.competenceRecords, ['tenantId', 'auditId', 'id'], [
     { ...base, id: 'comp-1', role: 'Coating line operators', requiredCompetence: 'Safe solvent handling; spill response', trainingEvidence: 'Annual training records on file.', status: 'competent', result: 'conforming', evidenceIds: [], updatedAt: now },
-    { ...base, id: 'comp-2', role: 'Internal EMS auditors', requiredCompetence: 'ISO 45001 internal auditing', trainingEvidence: 'One auditor pending refresher.', status: 'inTraining', result: 'needsFollowUp', evidenceIds: [], updatedAt: now },
+    { ...base, id: 'comp-2', role: 'Internal OHSMS auditors', requiredCompetence: 'ISO 45001 internal auditing', trainingEvidence: 'One auditor pending refresher.', status: 'inTraining', result: 'needsFollowUp', evidenceIds: [], updatedAt: now },
   ]);
 
   await seedDocs(db, mongoCollections.awarenessRecords, ['tenantId', 'auditId', 'id'], [
@@ -104,17 +104,17 @@ async function seedDemoAudit(db: Db): Promise<void> {
   ]);
 
   await seedDocs(db, mongoCollections.documentedInfo, ['tenantId', 'auditId', 'id'], [
-    { ...base, id: 'doc-1', document: 'EMS Manual', docType: 'Manual', controlStatus: 'controlled', retention: 'Current + 1 superseded', result: 'conforming', evidenceIds: [], updatedAt: now },
+    { ...base, id: 'doc-1', document: 'OHSMS Manual', docType: 'Manual', controlStatus: 'controlled', retention: 'Current + 1 superseded', result: 'conforming', evidenceIds: [], updatedAt: now },
     { ...base, id: 'doc-2', document: 'Spill response procedure EOP-03', docType: 'Procedure', controlStatus: 'controlled', retention: '3 years', result: 'conforming', evidenceIds: [], updatedAt: now },
   ]);
 
   await seedDocs(db, mongoCollections.auditMeetings, ['tenantId', 'auditId', 'id'], [
-    { ...base, id: 'meeting-opening', kind: 'opening', datetimeAt: now, attendees: ['Maya Chen (Lead)', 'Omar Patel', 'Ava Brooks', 'Elena Ruiz (EHS Manager)'], agendaPoints: ['Confirm scope and criteria', 'Audit methods and sampling', 'Confidentiality and safety', 'Schedule and logistics'], notes: 'Scope confirmed for the Denver Assembly Plant EMS transition audit.', acknowledged: true, updatedAt: now },
+    { ...base, id: 'meeting-opening', kind: 'opening', datetimeAt: now, attendees: ['Maya Chen (Lead)', 'Omar Patel', 'Ava Brooks', 'Elena Ruiz (EHS Manager)'], agendaPoints: ['Confirm scope and criteria', 'Audit methods and sampling', 'Confidentiality and safety', 'Schedule and logistics'], notes: 'Scope confirmed for the Denver Assembly Plant OHSMS transition audit.', acknowledged: true, updatedAt: now },
     { ...base, id: 'meeting-closing', kind: 'closing', datetimeAt: now, attendees: ['Maya Chen (Lead)', 'Elena Ruiz (EHS Manager)'], agendaPoints: ['Present findings', 'Agree corrective-action timelines', 'Next steps and report timing'], notes: 'One major and one minor nonconformity presented; timelines agreed with the auditee.', acknowledged: true, updatedAt: now },
   ]);
 
   await seedDocs(db, mongoCollections.auditConclusions, ['tenantId', 'auditId'], [
-    { ...base, overallConformity: 'The EMS broadly conforms with the ISO 45001:2026 criteria, with one major and one minor nonconformity to close.', emsEffectivenessOpinion: 'The EMS is largely effective; the evaluation-of-compliance process must be reinstated.', criteriaMetStatement: 'Criteria met except clause 9.1.2 (evaluation of compliance).', divergingOpinions: '', recommendation: 'conditional', updatedAt: now },
+    { ...base, overallConformity: 'The OHSMS broadly conforms with the ISO 45001:2026 criteria, with one major and one minor nonconformity to close.', emsEffectivenessOpinion: 'The OHSMS is largely effective; the evaluation-of-compliance process must be reinstated.', criteriaMetStatement: 'Criteria met except clause 9.1.2 (evaluation of compliance).', divergingOpinions: '', recommendation: 'conditional', updatedAt: now },
   ]);
 
   await seedDocs(db, mongoCollections.auditProgrammes, ['tenantId'], [
@@ -128,7 +128,7 @@ async function seedDemoAudit(db: Db): Promise<void> {
         { id: 'plan-recert', type: 'recertification', dueDate: dateOnly(1065), status: 'planned' },
       ],
       competence: [
-        { id: 'comp-maya', memberName: 'Maya Chen', qualifications: 'IRCA Lead Auditor; ISO 45001 EMS', impartialityDeclared: true },
+        { id: 'comp-maya', memberName: 'Maya Chen', qualifications: 'IRCA Lead Auditor; ISO 45001 OHSMS', impartialityDeclared: true },
         { id: 'comp-ava', memberName: 'Ava Brooks', qualifications: 'ISO 45001 Auditor', impartialityDeclared: true },
       ],
       updatedAt: now,

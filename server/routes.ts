@@ -658,7 +658,7 @@ function seedChecklistItems(): SeedChecklistItem[] {
       id: 'item-4',
       clauseId: '4',
       clauseTitle: 'Context of the organization',
-      question: 'What internal and external EMS context changes should the team verify during this audit?',
+      question: 'What internal and external OHSMS context changes should the team verify during this audit?',
       guidance: 'Use auditee-authored context records, interviews, and site observations.',
       ownerName: 'Maya Chen',
       result: 'conform',

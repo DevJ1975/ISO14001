@@ -1,5 +1,5 @@
 /**
- * Document-control helpers for documented information (ISO 14001 cl. 7.5).
+ * Document-control helpers for documented information (ISO 45001 cl. 7.5).
  * The base register records the document and its control status; auditors and
  * competitor EHS/QMS platforms also expect version control, ownership, and a
  * periodic-review cycle — an overdue document review is a common finding.

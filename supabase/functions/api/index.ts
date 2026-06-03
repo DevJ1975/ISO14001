@@ -222,7 +222,7 @@ async function upsertRecord(tenantId, auditId, kind, recordId, doc) {
 function starterChecklist() {
   const now = new Date().toISOString();
   return [
-    { id: 'item-4', clauseId: '4', clauseTitle: 'Context of the organization', question: 'Verify internal/external EMS context and interested parties.', ownerName: '', result: 'notStarted', evidenceIds: [], updatedAt: now },
+    { id: 'item-4', clauseId: '4', clauseTitle: 'Context of the organization', question: 'Verify internal/external OHSMS context and interested parties.', ownerName: '', result: 'notStarted', evidenceIds: [], updatedAt: now },
     { id: 'item-6', clauseId: '6', clauseTitle: 'Planning', question: 'Sample hazards, OH&S risks, legal & other requirements and objectives.', ownerName: '', result: 'notStarted', evidenceIds: [], updatedAt: now },
     { id: 'item-8', clauseId: '8', clauseTitle: 'Operation', question: 'Observe operational controls and emergency preparedness.', ownerName: '', result: 'notStarted', evidenceIds: [], updatedAt: now },
   ];

@@ -10,7 +10,7 @@ import {
   sharedClauseTitles,
 } from '../src/app/core/domain';
 
-test('field guide covers every ISO 14001 clause in the standards model', () => {
+test('field guide covers every ISO 45001 clause in the standards model', () => {
   const standardClauseIds = new Set(sharedClauseTitles[0].clauses.map((clause) => clause.clauseId));
   const guideIds = new Set(guideClauseIds());
   for (const clauseId of standardClauseIds) {

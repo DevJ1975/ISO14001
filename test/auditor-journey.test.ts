@@ -123,7 +123,7 @@ describe('lead-auditor end-to-end journey', () => {
 
     // Save the report front-matter (must travel across devices via the backend).
     assert.equal((await call(db, 'PUT', `${A}/report-meta`, {
-      auditType: 'stage2', scope: 'Denver plant EMS', objectives: 'Conformity + effectiveness',
+      auditType: 'stage2', scope: 'Denver plant OHSMS', objectives: 'Conformity + effectiveness',
       sites: '1 of 1', leadAuditorName: 'Maya Chen', auditorCompetence: 'IRCA Lead Auditor',
       impartialityDeclared: true, distribution: 'EHS; cert file', reportVersion: 2,
     })).statusCode, 200);

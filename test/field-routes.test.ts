@@ -342,7 +342,7 @@ describe('field-audit API routes', () => {
         method: 'PUT',
         url: '/api/tenants/t/audits/a/conclusion',
         headers: leadHeaders('t'),
-        body: { overallConformity: 'EMS broadly conforms with minor gaps.', recommendation: 'conditional' },
+        body: { overallConformity: 'OHSMS broadly conforms with minor gaps.', recommendation: 'conditional' },
       }),
       concl,
       { db, config },
@@ -393,7 +393,7 @@ describe('field-audit API routes', () => {
     assert.equal(res.statusCode, 400);
   });
 
-  it('upserts an EMS register entry and returns it in field-state', async () => {
+  it('upserts an OHSMS register entry and returns it in field-state', async () => {
     const { db, store } = createFakeDb();
     const res = makeRes();
     await handleApiRequest(

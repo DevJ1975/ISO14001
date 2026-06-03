@@ -84,7 +84,7 @@ describe('supabase edge-function security & validation', () => {
   it('preserves bounded arrays (document attachments) with shallow-cleaned scalar fields', () => {
     const record = cleanRegister(
       {
-        document: 'EMS Manual',
+        document: 'OHSMS Manual',
         controlStatus: 'controlled',
         attachments: [{ id: 'att-1', name: 'manual.pdf', size: 2048, uploaded: true, junk: { nested: 'dropped-to-string' } }],
         result: 'conforming',

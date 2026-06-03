@@ -85,7 +85,7 @@ function createFakeDb(): { db: Db; store: Map<string, Record<string, unknown>[]>
   return { db: { collection } as unknown as Db, store };
 }
 
-describe('EMS governance API routes', () => {
+describe('OHSMS governance API routes', () => {
   const cases = [
     { path: 'interested-parties', collection: 'interestedParties', body: { id: 'party-1', party: 'Regulator', category: 'external', result: 'conforming' }, check: 'party' },
     { path: 'objectives', collection: 'environmentalObjectives', body: { id: 'obj-1', objective: 'Cut VOCs', progress: 'onTrack', result: 'needsFollowUp' }, check: 'objective' },
@@ -95,7 +95,7 @@ describe('EMS governance API routes', () => {
     { path: 'resources', collection: 'resourceRecords', body: { id: 'res-1', resource: 'EHS team', category: 'people', adequacy: 'partial', result: 'needsFollowUp' }, check: 'resource' },
     { path: 'competence', collection: 'competenceRecords', body: { id: 'comp-1', role: 'Operators', status: 'competent', result: 'conforming' }, check: 'role' },
     { path: 'awareness', collection: 'awarenessRecords', body: { id: 'aware-1', topic: 'Policy', audience: 'All staff', result: 'conforming' }, check: 'topic' },
-    { path: 'documented-info', collection: 'documentedInfo', body: { id: 'doc-1', document: 'EMS Manual', controlStatus: 'controlled', version: 'v3.0', owner: 'EHS Manager', lastReviewedAt: '2025-10-01', nextReviewAt: '2026-10-01', reviewFrequencyMonths: 12, attachments: [{ id: 'att-1', name: 'manual.pdf', mime: 'application/pdf', size: 1024, blobKey: 'att-1', addedAt: '2026-01-01T00:00:00.000Z' }], result: 'conforming' }, check: 'document' },
+    { path: 'documented-info', collection: 'documentedInfo', body: { id: 'doc-1', document: 'OHSMS Manual', controlStatus: 'controlled', version: 'v3.0', owner: 'EHS Manager', lastReviewedAt: '2025-10-01', nextReviewAt: '2026-10-01', reviewFrequencyMonths: 12, attachments: [{ id: 'att-1', name: 'manual.pdf', mime: 'application/pdf', size: 1024, blobKey: 'att-1', addedAt: '2026-01-01T00:00:00.000Z' }], result: 'conforming' }, check: 'document' },
     { path: 'performance-metrics', collection: 'performanceMetrics', body: { id: 'metric-1', indicator: 'Lost-time injuries', category: 'lostTimeInjury', unit: 'per 100k hrs', targetValue: 1.2, actualValue: 1.1, trend: 'improving', result: 'conforming' }, check: 'indicator' },
     { path: 'permits', collection: 'permits', body: { id: 'permit-1', title: 'Environmental permit', permitType: 'permit', reference: 'EPR/AB1234CD', expiresAt: '2027-09-30', renewalReminderDays: 90, complianceStatus: 'compliant', result: 'conforming' }, check: 'title' },
     { path: 'incidents', collection: 'incidents', body: { id: 'inc-1', title: 'Hand laceration at guillotine', incidentType: 'injury', severity: 'high', status: 'investigating', reportableToRegulator: false, result: 'needsFollowUp' }, check: 'title' },
@@ -149,7 +149,7 @@ describe('EMS governance API routes', () => {
       plannedAudits: [],
       competence: [],
       certificates: [
-        { id: 'cert-1', certificateNumber: 'EMS-0007', scopeStatement: 'Assembly', status: 'active', history: [{ action: 'issued', at: '2026-01-01' }] },
+        { id: 'cert-1', certificateNumber: 'OHSMS-0007', scopeStatement: 'Assembly', status: 'active', history: [{ action: 'issued', at: '2026-01-01' }] },
       ],
       complaintsAppeals: [{ id: 'case-1', kind: 'complaint', subject: 'Noise', status: 'received' }],
       planning: { effectivePersonnel: 50, complexity: 'high', siteCount: 9, stage: 'initial' },

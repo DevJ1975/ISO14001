@@ -13,7 +13,7 @@ export type AuditComplexity = 'high' | 'medium' | 'low' | 'limited';
 export type CertificationStage = 'initial' | 'surveillance' | 'recertification';
 
 export interface AuditTimeInput {
-  /** Effective number of personnel (FTEs doing work covered by the EMS). */
+  /** Effective number of personnel (FTEs doing work covered by the OHSMS). */
   effectivePersonnel: number;
   complexity?: AuditComplexity;
   /** Documented reduction, as a percentage (0–30 per IAF MD 5). */

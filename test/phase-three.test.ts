@@ -21,7 +21,7 @@ import {
 } from '../src/app/features/dashboard/phase-three-demo';
 
 describe('phase 3 ai copilot', () => {
-  it('validates tenant-scoped EMS knowledge-base documents', () => {
+  it('validates tenant-scoped OHSMS knowledge-base documents', () => {
     const docs = demoKnowledgeDocs.map((doc) => emsKnowledgeBaseDocSchema.parse(doc));
 
     assert.equal(docs.length, 2);
@@ -48,7 +48,7 @@ describe('phase 3 ai copilot', () => {
     assert.equal(result.success, false);
   });
 
-  it('keeps EMS answers and AI finding drafts in review status', () => {
+  it('keeps OHSMS answers and AI finding drafts in review status', () => {
     const answer = emsQuestionAnswerSchema.parse(demoEmsAnswer);
     const draft = aiFindingDraftSchema.parse(demoAiFindingDraft);
 
@@ -66,7 +66,7 @@ describe('phase 3 ai copilot', () => {
 
   it('validates line of inquiry, transition gap, and photo review artifacts', () => {
     assert.equal(demoLineOfInquiry[0]?.status, 'needsAuditorReview');
-    assert.equal(transitionGapCandidateSchema.parse(demoTransitionGap).toEdition, 'ISO_14001_2026');
+    assert.equal(transitionGapCandidateSchema.parse(demoTransitionGap).toEdition, 'ISO_45001_2026');
     assert.equal(demoPhotoAiAnalysis.status, 'needsAuditorReview');
   });
 });

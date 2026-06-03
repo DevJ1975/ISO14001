@@ -193,7 +193,7 @@ export class DashboardComponent {
       (this.photoAiAnalysis.status === 'needsAuditorReview' ? 1 : 0);
 
     return [
-      { label: 'EMS docs', value: this.knowledgeDocs.length.toString() },
+      { label: 'OH&S docs', value: this.knowledgeDocs.length.toString() },
       { label: 'Citations', value: this.ragResult.citations.length.toString() },
       { label: 'Review queue', value: reviewItems.toString() },
       { label: 'Accepted drafts', value: this.aiFindingDrafts().filter((draft) => draft.status === 'accepted').length.toString() },

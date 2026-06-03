@@ -77,7 +77,7 @@ describe('certificate lifecycle (ISO/IEC 17021-1 cl. 9.5–9.6)', () => {
 
   it('records an immutable history event on transition', () => {
     const cert = certificateSchema.parse({
-      id: 'cert-1', certificateNumber: 'EMS-14001-0007', scopeStatement: 'Assembly of components',
+      id: 'cert-1', certificateNumber: 'OHSMS-14001-0007', scopeStatement: 'Assembly of components',
       issuedAt: '2024-04-01', expiresAt: '2027-03-31', updatedAt: '2026-05-31T00:00:00.000Z',
     });
     const suspended = transitionCertificate(cert, 'suspended', 'Ava Brooks', '2026-05-31T10:00:00.000Z', 'Major NC overdue');
