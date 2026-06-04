@@ -566,10 +566,194 @@ export const GRADING_GUIDE: GradeGuide[] = [
   },
 ];
 
-const GUIDE_BY_CLAUSE = new Map(CLAUSE_FIELD_GUIDE.map((entry) => [entry.clauseId, entry]));
+/**
+ * Clause-by-clause field guide for ISO 14001:2015 (Environmental Management
+ * System) — original, Trainovate-authored guidance for the environmental
+ * sub-clauses that differ from ISO 45001: environmental aspects (6.1.2),
+ * compliance obligations (6.1.3), objectives (6.2), operational control (8.1),
+ * emergency preparedness (8.2) and evaluation of compliance (9.1.2). Identifiers
+ * and short titles only — NO verbatim ISO requirement text, and no content
+ * contains the word "shall" (copyright guardrail).
+ */
+export const ISO_14001_CLAUSE_FIELD_GUIDE: ClauseGuide[] = [
+  {
+    clauseId: '6.1.2',
+    title: 'Environmental aspects',
+    purpose:
+      'Determine the environmental aspects of activities, products and services that the organization can control or influence, and decide which are significant.',
+    whatToLookFor: [
+      'A maintained aspects-and-impacts register that considers a life-cycle perspective and both normal and abnormal operating conditions.',
+      'Documented significance criteria so significant aspects are decided consistently, not by gut feel.',
+    ],
+    evidenceToRequest: [
+      'Environmental aspects & impacts register with significance ratings',
+      'The significance methodology and criteria',
+      'Evidence the register covers planned, emergency and life-cycle situations',
+    ],
+    questionsToAsk: [
+      'How did you identify your environmental aspects across the life cycle?',
+      'How do you decide which aspects are significant?',
+    ],
+    typicalNonconformities: [
+      'Aspects register generic or out of date for the activities on site',
+      'Significance asserted with no documented criteria',
+    ],
+  },
+  {
+    clauseId: '6.1.3',
+    title: 'Compliance obligations',
+    purpose:
+      'Identify the compliance obligations (legal and other requirements) related to environmental aspects and determine how they apply.',
+    whatToLookFor: [
+      'A compliance-obligations register linked to the relevant aspects, distinguishing legal duties from other adopted requirements.',
+      'How obligations are kept current and translated into operational controls and monitoring.',
+    ],
+    evidenceToRequest: [
+      'Compliance-obligations register with references and applicability',
+      'Permits, consents and licences',
+      'The mechanism that tracks changes to legal requirements',
+    ],
+    questionsToAsk: [
+      'How do you keep your compliance obligations up to date?',
+      'Which obligations apply to this activity and how do you meet them?',
+    ],
+    typicalNonconformities: [
+      'Register missing applicable permits or consents',
+      'Obligations identified but not reflected in controls',
+    ],
+  },
+  {
+    clauseId: '6.2',
+    title: 'Environmental objectives and planning to achieve them',
+    purpose:
+      'Set measurable environmental objectives at relevant functions and levels, consistent with the policy and significant aspects, with plans to achieve them.',
+    whatToLookFor: [
+      'Objectives that are measurable, resourced and owned, with target dates and a way to track progress.',
+      'A clear line from significant aspects and compliance obligations to the objectives chosen.',
+    ],
+    evidenceToRequest: [
+      'Environmental objectives & targets plan',
+      'Progress data against each target',
+      'Resourcing and ownership for each objective',
+    ],
+    questionsToAsk: [
+      'How are your environmental objectives measured and tracked?',
+      'What happens when an objective falls behind?',
+    ],
+    typicalNonconformities: [
+      'Vague, unmeasurable objectives',
+      'No owner, plan or monitoring for objectives',
+    ],
+  },
+  {
+    clauseId: '8.1',
+    title: 'Operational planning and control',
+    purpose:
+      'Establish operational controls for the processes tied to significant aspects and compliance obligations, applying a life-cycle perspective.',
+    whatToLookFor: [
+      'Controls proportionate to the significant aspects, applied at the point of work and adapted to how the work is really done.',
+      'Control of outsourced processes and life-cycle stages (procurement, design, end-of-life) where the organization can influence them.',
+    ],
+    evidenceToRequest: [
+      'Operational control procedures for significant-aspect activities',
+      'Waste, effluent and emissions handling records',
+      'Arrangements for controlling outsourced and contracted work',
+    ],
+    questionsToAsk: [
+      'Show me how this significant-aspect activity is controlled in practice.',
+      'How do you control environmental performance in outsourced processes?',
+    ],
+    typicalNonconformities: [
+      'No control for a significant aspect',
+      'Outsourced or life-cycle stages assumed compliant but not controlled',
+    ],
+  },
+  {
+    clauseId: '8.2',
+    title: 'Emergency preparedness and response',
+    purpose:
+      'Be prepared to prevent or mitigate adverse environmental impacts from potential emergencies, and test and improve the arrangements.',
+    whatToLookFor: [
+      'Identified emergency scenarios with environmental impact (spill, fire, uncontrolled release) and response procedures.',
+      'Evidence of drills, trained responders, spill kits and containment, and lessons fed back in.',
+    ],
+    evidenceToRequest: [
+      'Emergency procedures covering environmental scenarios',
+      'Drill records and post-incident reviews',
+      'Spill-response and containment provision',
+    ],
+    questionsToAsk: [
+      'Which environmental emergencies could occur and when did you last test your response?',
+      'How are interested parties and responders involved?',
+    ],
+    typicalNonconformities: [
+      'Procedures never tested by drill',
+      'Spill or containment equipment unavailable where needed',
+    ],
+  },
+  {
+    clauseId: '9.1.2',
+    title: 'Evaluation of compliance',
+    purpose:
+      'Establish how and how often to evaluate fulfilment of compliance obligations, and maintain knowledge of compliance status.',
+    whatToLookFor: [
+      'A periodic compliance-evaluation record per obligation, with the date, method and finding.',
+      'Action taken where a gap is found, and permit / consent monitoring kept current.',
+    ],
+    evidenceToRequest: [
+      'Compliance-evaluation records by obligation',
+      'Monitoring results against permit / consent limits',
+      'Actions arising from any non-compliance',
+    ],
+    questionsToAsk: [
+      'How and how often do you evaluate compliance with each obligation?',
+      'What did you do when a gap was found?',
+    ],
+    typicalNonconformities: [
+      'Compliance assumed, never evaluated',
+      'Permit-limit exceedance found but no action taken',
+    ],
+  },
+  {
+    clauseId: '9.1',
+    title: 'Monitoring, measurement, analysis and evaluation',
+    purpose:
+      'Determine what environmental information to monitor and measure, with what methods, and evaluate environmental performance against criteria.',
+    whatToLookFor: [
+      'Monitoring tied to significant aspects and obligations (emissions, effluent, waste, energy, water) with trends, not just raw readings.',
+      'Calibrated measuring equipment and analysed results that drive decisions.',
+    ],
+    evidenceToRequest: [
+      'Environmental performance indicators with values and periods',
+      'Calibration of monitoring equipment',
+      'Trend analysis and the criteria performance is judged against',
+    ],
+    questionsToAsk: [
+      'What environmental data do you monitor, how, and what do the trends tell you?',
+      'How do you evaluate performance against your criteria?',
+    ],
+    typicalNonconformities: [
+      'Data collected but never evaluated',
+      'Monitoring not linked to significant aspects',
+    ],
+  },
+];
 
-/** Look up the field guide for a clause (e.g. '9.1') for contextual help. */
-export function clauseGuideFor(clauseId: string): ClauseGuide | undefined {
+const GUIDE_BY_CLAUSE = new Map(CLAUSE_FIELD_GUIDE.map((entry) => [entry.clauseId, entry]));
+const ISO_14001_GUIDE_BY_CLAUSE = new Map(ISO_14001_CLAUSE_FIELD_GUIDE.map((entry) => [entry.clauseId, entry]));
+
+/**
+ * Look up the field guide for a clause (e.g. '9.1') for contextual help. The
+ * optional `edition` selects the environmental guide for ISO 14001 editions;
+ * omitted (the default) it returns the ISO 45001 guidance, preserving every
+ * existing call site. For 14001 it falls back to the shared (45001) guidance for
+ * clauses that have no environmental-specific entry, so contextual help is never
+ * blank.
+ */
+export function clauseGuideFor(clauseId: string, edition?: string): ClauseGuide | undefined {
+  if (edition && edition.startsWith('ISO_14001')) {
+    return ISO_14001_GUIDE_BY_CLAUSE.get(clauseId) ?? GUIDE_BY_CLAUSE.get(clauseId);
+  }
   return GUIDE_BY_CLAUSE.get(clauseId);
 }
 

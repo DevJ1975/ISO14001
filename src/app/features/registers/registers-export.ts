@@ -4,6 +4,9 @@ import type {
   CalibrationRecord,
   ContextItem,
   DocumentedInfoRecord,
+  EnvironmentalAspect,
+  EnvironmentalObjective,
+  EnvironmentalObligation,
   Hazard,
   HiraEntry,
   Incident,
@@ -200,5 +203,38 @@ export const documentColumns: CsvColumn<DocumentedInfoRecord>[] = [
   { header: 'Last reviewed', value: (r) => r.lastReviewedAt },
   { header: 'Next review', value: (r) => r.nextReviewAt },
   { header: 'Attachments', value: (r) => r.attachments?.length ?? 0 },
+  { header: 'Result', value: (r) => r.result },
+];
+
+/** ISO 14001 cl. 6.1.2 — environmental aspects & impacts. */
+export const envAspectColumns: CsvColumn<EnvironmentalAspect>[] = [
+  { header: 'Activity', value: (r) => r.activity },
+  { header: 'Aspect', value: (r) => r.aspect },
+  { header: 'Impact', value: (r) => r.impact },
+  { header: 'Significance', value: (r) => r.significance },
+  { header: 'Life-cycle stage', value: (r) => r.lifecycleStage },
+  { header: 'Related clause', value: (r) => r.relatedClauseId },
+  { header: 'Result', value: (r) => r.result },
+];
+
+/** ISO 14001 cl. 6.1.3 — compliance obligations. */
+export const envObligationColumns: CsvColumn<EnvironmentalObligation>[] = [
+  { header: 'Obligation', value: (r) => r.obligation },
+  { header: 'Type', value: (r) => r.obligationType },
+  { header: 'Reference', value: (r) => r.reference },
+  { header: 'Applicability', value: (r) => r.applicability },
+  { header: 'Evaluation status', value: (r) => r.evaluationStatus },
+  { header: 'Related clause', value: (r) => r.relatedClauseId },
+  { header: 'Result', value: (r) => r.result },
+];
+
+/** ISO 14001 cl. 6.2 — environmental objectives & targets. */
+export const envObjectiveColumns: CsvColumn<EnvironmentalObjective>[] = [
+  { header: 'Objective', value: (r) => r.objective },
+  { header: 'Target', value: (r) => r.target },
+  { header: 'Metric', value: (r) => r.metric },
+  { header: 'Due date', value: (r) => r.dueDate },
+  { header: 'Status', value: (r) => r.status },
+  { header: 'Related clause', value: (r) => r.relatedClauseId },
   { header: 'Result', value: (r) => r.result },
 ];

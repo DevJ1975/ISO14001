@@ -188,6 +188,60 @@ export interface ComplianceObligation {
   sync: SyncState;
 }
 
+/**
+ * Environmental aspect & impact (ISO 14001 cl. 6.1.2). Each row links an
+ * activity to its environmental aspect and impact, rates significance, records
+ * the life-cycle stage and grades the result. Distinct from the OH&S hazard
+ * register so an environmental audit has its own dedicated aspects view.
+ */
+export interface EnvironmentalAspect {
+  id: string;
+  activity: string;
+  aspect: string;
+  impact: string;
+  significance: 'low' | 'medium' | 'high';
+  lifecycleStage: 'rawMaterials' | 'manufacturing' | 'distribution' | 'use' | 'endOfLife' | 'notAssessed';
+  relatedClauseId?: string;
+  result: RegisterResult;
+  updatedAt: string;
+  sync: SyncState;
+}
+
+/**
+ * Environmental compliance obligation (ISO 14001 cl. 6.1.3). A legal or other
+ * requirement related to environmental aspects, with its reference,
+ * applicability and current evaluation status (cl. 9.1.2).
+ */
+export interface EnvironmentalObligation {
+  id: string;
+  obligation: string;
+  obligationType: 'legal' | 'other';
+  reference?: string;
+  applicability?: string;
+  evaluationStatus: 'compliant' | 'nonCompliant' | 'toEvaluate';
+  relatedClauseId?: string;
+  result: RegisterResult;
+  updatedAt: string;
+  sync: SyncState;
+}
+
+/**
+ * Environmental objective & target (ISO 14001 cl. 6.2). A measurable objective
+ * with its target, metric, due date and progress status.
+ */
+export interface EnvironmentalObjective {
+  id: string;
+  objective: string;
+  target?: string;
+  metric?: string;
+  dueDate?: string;
+  status: 'notStarted' | 'onTrack' | 'atRisk' | 'achieved';
+  relatedClauseId?: string;
+  result: RegisterResult;
+  updatedAt: string;
+  sync: SyncState;
+}
+
 export interface EmergencyRecord {
   id: string;
   scenario: string;
@@ -746,6 +800,9 @@ interface PersistedState {
   leadership: LeadershipItem[];
   context: ContextItem[];
   interviews: Interview[];
+  envAspects: EnvironmentalAspect[];
+  envObligations: EnvironmentalObligation[];
+  envObjectives: EnvironmentalObjective[];
   reportMeta: ReportMeta;
   reportSignedAt: string | null;
   reportSignature?: ReportSignature | null;
@@ -949,6 +1006,72 @@ function seedInterviews(): Interview[] {
     base({ intervieweeName: 'P. Mensah', role: 'Worker safety representative', focusArea: 'Worker consultation & participation', relatedClause: '5.4', plannedAt: '2026-06-15T11:00:00.000Z', status: 'done', keyPoints: 'Safety committee meets quarterly; rep noted attendance evidence for the last meeting is outstanding.', result: 'needsFollowUp' }),
     base({ intervieweeName: 'Maintenance team', role: 'Workers (sampled)', focusArea: 'Working at height controls', relatedClause: '8.1.2', plannedAt: '2026-06-16T10:00:00.000Z', status: 'planned', keyPoints: '' }),
     base({ intervieweeName: 'Night-shift lead', role: 'Supervisor', focusArea: 'Emergency arrangements', relatedClause: '8.2', plannedAt: '2026-06-16T19:00:00.000Z', status: 'cancelled', keyPoints: 'Not available during the audit window; cover the area via day-shift sampling instead.', result: 'notApplicable' }),
+  ];
+}
+
+/** Demonstration environmental aspects & impacts (ISO 14001 cl. 6.1.2). */
+function seedEnvironmentalAspects(): EnvironmentalAspect[] {
+  const now = '2026-06-15T15:00:00.000Z';
+  const base = (extra: Partial<EnvironmentalAspect>): EnvironmentalAspect => ({
+    id: uid('envaspect'),
+    activity: '',
+    aspect: '',
+    impact: '',
+    significance: 'medium',
+    lifecycleStage: 'notAssessed',
+    relatedClauseId: '6.1.2',
+    result: 'notStarted',
+    updatedAt: now,
+    sync: 'synced',
+    ...extra,
+  });
+  return [
+    base({ activity: 'Solvent degreasing', aspect: 'VOC emissions to air', impact: 'Air quality degradation and photochemical smog', significance: 'high', lifecycleStage: 'manufacturing', result: 'needsFollowUp' }),
+    base({ activity: 'Process cooling', aspect: 'Water abstraction and effluent discharge', impact: 'Depletion of water resources; receiving-water quality', significance: 'medium', lifecycleStage: 'manufacturing', result: 'conforming' }),
+    base({ activity: 'Packaging and despatch', aspect: 'Generation of packaging waste', impact: 'Landfill burden and resource use', significance: 'medium', lifecycleStage: 'distribution', result: 'conforming' }),
+    base({ activity: 'Product disposal by customers', aspect: 'End-of-life waste', impact: 'Resource loss where take-back is limited', significance: 'low', lifecycleStage: 'endOfLife', result: 'notStarted' }),
+  ];
+}
+
+/** Demonstration environmental compliance obligations (ISO 14001 cl. 6.1.3 / 9.1.2). */
+function seedEnvironmentalObligations(): EnvironmentalObligation[] {
+  const now = '2026-06-15T15:00:00.000Z';
+  const base = (extra: Partial<EnvironmentalObligation>): EnvironmentalObligation => ({
+    id: uid('envobligation'),
+    obligation: '',
+    obligationType: 'legal',
+    evaluationStatus: 'toEvaluate',
+    relatedClauseId: '6.1.3',
+    result: 'notStarted',
+    updatedAt: now,
+    sync: 'synced',
+    ...extra,
+  });
+  return [
+    base({ obligation: 'Environmental permit — air emissions', obligationType: 'legal', reference: 'EP-AIR-2024-118', applicability: 'Solvent and combustion emission points on site', evaluationStatus: 'compliant', result: 'conforming' }),
+    base({ obligation: 'Trade effluent consent', obligationType: 'legal', reference: 'TEC-77-901', applicability: 'Process effluent to the public sewer', evaluationStatus: 'toEvaluate', result: 'needsFollowUp' }),
+    base({ obligation: 'Hazardous waste carrier registration', obligationType: 'legal', reference: 'HWC-AB1234', applicability: 'Off-site transfer of hazardous waste', evaluationStatus: 'nonCompliant', result: 'nonconforming' }),
+    base({ obligation: 'Customer environmental code of conduct', obligationType: 'other', reference: 'CUST-ENV-CoC v2', applicability: 'Supply to key OEM customers', evaluationStatus: 'compliant', result: 'conforming' }),
+  ];
+}
+
+/** Demonstration environmental objectives & targets (ISO 14001 cl. 6.2). */
+function seedEnvironmentalObjectives(): EnvironmentalObjective[] {
+  const now = '2026-06-15T15:00:00.000Z';
+  const base = (extra: Partial<EnvironmentalObjective>): EnvironmentalObjective => ({
+    id: uid('envobjective'),
+    objective: '',
+    status: 'notStarted',
+    relatedClauseId: '6.2',
+    result: 'notStarted',
+    updatedAt: now,
+    sync: 'synced',
+    ...extra,
+  });
+  return [
+    base({ objective: 'Reduce VOC emissions from degreasing', target: '30% reduction vs 2024 baseline', metric: 'kg VOC / year', dueDate: '2026-12-31', status: 'atRisk', result: 'needsFollowUp' }),
+    base({ objective: 'Cut process water consumption', target: '15% reduction per unit', metric: 'm³ / 1,000 units', dueDate: '2026-09-30', status: 'onTrack', result: 'conforming' }),
+    base({ objective: 'Divert packaging waste from landfill', target: '90% recycled or reused', metric: '% diverted', dueDate: '2026-12-31', status: 'onTrack', result: 'conforming' }),
   ];
 }
 
@@ -1381,6 +1504,9 @@ export class FieldAuditStore {
   readonly leadership = signal<LeadershipItem[]>(seedLeadership());
   readonly context = signal<ContextItem[]>(seedContext());
   readonly interviews = signal<Interview[]>(seedInterviews());
+  readonly envAspects = signal<EnvironmentalAspect[]>(seedEnvironmentalAspects());
+  readonly envObligations = signal<EnvironmentalObligation[]>(seedEnvironmentalObligations());
+  readonly envObjectives = signal<EnvironmentalObjective[]>(seedEnvironmentalObjectives());
   readonly reportMeta = signal<ReportMeta>(defaultReportMeta());
   /** Read-only audit trail from the backend (not synced upward). */
   readonly changeLog = signal<ChangeLogEntry[]>([]);
@@ -1455,6 +1581,9 @@ export class FieldAuditStore {
       this.leadership().filter((l) => l.sync !== 'synced').length +
       this.context().filter((c) => c.sync !== 'synced').length +
       this.interviews().filter((i) => i.sync !== 'synced').length +
+      this.envAspects().filter((a) => a.sync !== 'synced').length +
+      this.envObligations().filter((o) => o.sync !== 'synced').length +
+      this.envObjectives().filter((o) => o.sync !== 'synced').length +
       (this.conclusion() && this.conclusion()!.sync !== 'synced' ? 1 : 0) +
       (this.reportMeta().sync !== 'synced' ? 1 : 0),
   );
@@ -2828,6 +2957,72 @@ export class FieldAuditStore {
     this.persist();
   }
 
+  addEnvironmentalAspect(): void {
+    this.envAspects.update((list) => [
+      { id: uid('envaspect'), activity: '', aspect: '', impact: '', significance: 'medium', lifecycleStage: 'notAssessed', relatedClauseId: '6.1.2', result: 'notStarted', updatedAt: new Date().toISOString(), sync: 'queued' },
+      ...list,
+    ]);
+    this.persist();
+    this.autoFlush();
+  }
+
+  updateEnvironmentalAspect(id: string, patch: Partial<EnvironmentalAspect>): void {
+    this.envAspects.update((list) =>
+      list.map((entry) => (entry.id === id ? { ...entry, ...patch, updatedAt: new Date().toISOString(), sync: 'queued' } : entry)),
+    );
+    this.persist();
+    this.autoFlush();
+  }
+
+  removeEnvironmentalAspect(id: string): void {
+    this.envAspects.update((list) => list.filter((entry) => entry.id !== id));
+    this.persist();
+  }
+
+  addEnvironmentalObligation(): void {
+    this.envObligations.update((list) => [
+      { id: uid('envobligation'), obligation: '', obligationType: 'legal', evaluationStatus: 'toEvaluate', relatedClauseId: '6.1.3', result: 'notStarted', updatedAt: new Date().toISOString(), sync: 'queued' },
+      ...list,
+    ]);
+    this.persist();
+    this.autoFlush();
+  }
+
+  updateEnvironmentalObligation(id: string, patch: Partial<EnvironmentalObligation>): void {
+    this.envObligations.update((list) =>
+      list.map((entry) => (entry.id === id ? { ...entry, ...patch, updatedAt: new Date().toISOString(), sync: 'queued' } : entry)),
+    );
+    this.persist();
+    this.autoFlush();
+  }
+
+  removeEnvironmentalObligation(id: string): void {
+    this.envObligations.update((list) => list.filter((entry) => entry.id !== id));
+    this.persist();
+  }
+
+  addEnvironmentalObjective(): void {
+    this.envObjectives.update((list) => [
+      { id: uid('envobjective'), objective: '', status: 'notStarted', relatedClauseId: '6.2', result: 'notStarted', updatedAt: new Date().toISOString(), sync: 'queued' },
+      ...list,
+    ]);
+    this.persist();
+    this.autoFlush();
+  }
+
+  updateEnvironmentalObjective(id: string, patch: Partial<EnvironmentalObjective>): void {
+    this.envObjectives.update((list) =>
+      list.map((entry) => (entry.id === id ? { ...entry, ...patch, updatedAt: new Date().toISOString(), sync: 'queued' } : entry)),
+    );
+    this.persist();
+    this.autoFlush();
+  }
+
+  removeEnvironmentalObjective(id: string): void {
+    this.envObjectives.update((list) => list.filter((entry) => entry.id !== id));
+    this.persist();
+  }
+
   /** The order-stable view of the report that an e-signature attests to. */
   signableReport(): SignableReport {
     const conclusion = this.conclusion();
@@ -2955,6 +3150,9 @@ export class FieldAuditStore {
     this.leadership.set(seedLeadership());
     this.context.set(seedContext());
     this.interviews.set(seedInterviews());
+    this.envAspects.set(seedEnvironmentalAspects());
+    this.envObligations.set(seedEnvironmentalObligations());
+    this.envObjectives.set(seedEnvironmentalObjectives());
     this.reportMeta.set(defaultReportMeta());
     this.reportSignedAt.set(null);
     this.reportSignature.set(null);
@@ -2985,6 +3183,11 @@ export class FieldAuditStore {
     try {
       const audit = await this.api.createAudit(input);
       this.selection.select(audit.id);
+      // Seed the full checklist for the chosen standard up front so a new audit
+      // (e.g. ISO 14001:2015) opens with one row per clause; bootstrap overlays
+      // any server-side state on top.
+      this.criteria.set(input.criteria);
+      this.items.set(seedItems(editionFromCriteria(input.criteria)));
       await this.bootstrap();
       return audit;
     } catch {
@@ -3411,6 +3614,39 @@ export class FieldAuditStore {
           this.setSync('interviews', record.id, 'queued');
         }
       }
+      for (const record of this.envAspects().filter((entry) => entry.sync !== 'synced')) {
+        this.setSync('envAspects', record.id, 'syncing');
+        try {
+          const { sync, ...payload } = record;
+          void sync;
+          await this.api.upsertEnvironmentalAspect(payload);
+          this.setSync('envAspects', record.id, 'synced');
+        } catch {
+          this.setSync('envAspects', record.id, 'queued');
+        }
+      }
+      for (const record of this.envObligations().filter((entry) => entry.sync !== 'synced')) {
+        this.setSync('envObligations', record.id, 'syncing');
+        try {
+          const { sync, ...payload } = record;
+          void sync;
+          await this.api.upsertEnvironmentalObligation(payload);
+          this.setSync('envObligations', record.id, 'synced');
+        } catch {
+          this.setSync('envObligations', record.id, 'queued');
+        }
+      }
+      for (const record of this.envObjectives().filter((entry) => entry.sync !== 'synced')) {
+        this.setSync('envObjectives', record.id, 'syncing');
+        try {
+          const { sync, ...payload } = record;
+          void sync;
+          await this.api.upsertEnvironmentalObjective(payload);
+          this.setSync('envObjectives', record.id, 'synced');
+        } catch {
+          this.setSync('envObjectives', record.id, 'queued');
+        }
+      }
       this.persist();
     } finally {
       this.flushing = false;
@@ -3451,7 +3687,10 @@ export class FieldAuditStore {
       | 'operationalControls'
       | 'leadership'
       | 'context'
-      | 'interviews',
+      | 'interviews'
+      | 'envAspects'
+      | 'envObligations'
+      | 'envObjectives',
     id: string,
     sync: SyncState,
   ): void {
@@ -3490,6 +3729,9 @@ export class FieldAuditStore {
       leadership: this.leadership,
       context: this.context,
       interviews: this.interviews,
+      envAspects: this.envAspects,
+      envObligations: this.envObligations,
+      envObjectives: this.envObjectives,
     };
     const ref = map[collection] as unknown as {
       update: (fn: (list: SyncRecord[]) => SyncRecord[]) => void;
@@ -3562,6 +3804,9 @@ export class FieldAuditStore {
       leadership: this.leadership(),
       context: this.context(),
       interviews: this.interviews(),
+      envAspects: this.envAspects(),
+      envObligations: this.envObligations(),
+      envObjectives: this.envObjectives(),
       reportMeta: this.reportMeta(),
       reportSignedAt: this.reportSignedAt(),
       reportSignature: this.reportSignature(),
@@ -3611,6 +3856,9 @@ export class FieldAuditStore {
       this.leadership.set((payload.leadership ?? []).map((l) => ({ ...l, sync: 'synced' as const })));
       this.context.set((payload.context ?? []).map((c) => ({ ...c, sync: 'synced' as const })));
       this.interviews.set((payload.interviews ?? []).map((i) => ({ ...i, sync: 'synced' as const })));
+      this.envAspects.set((payload.envAspects ?? []).map((a) => ({ ...a, sync: 'synced' as const })));
+      this.envObligations.set((payload.envObligations ?? []).map((o) => ({ ...o, sync: 'synced' as const })));
+      this.envObjectives.set((payload.envObjectives ?? []).map((o) => ({ ...o, sync: 'synced' as const })));
       // Report front-matter: prefer the server copy (shared across the team),
       // falling back to defaults, then overlay scope/dates from the audit record.
       this.reportMeta.set(
@@ -3677,6 +3925,9 @@ export class FieldAuditStore {
     this.leadership.set(saved.leadership ?? seedLeadership());
     this.context.set(saved.context ?? seedContext());
     this.interviews.set(saved.interviews ?? seedInterviews());
+    this.envAspects.set(saved.envAspects ?? seedEnvironmentalAspects());
+    this.envObligations.set(saved.envObligations ?? seedEnvironmentalObligations());
+    this.envObjectives.set(saved.envObjectives ?? seedEnvironmentalObjectives());
     if (saved.reportMeta) this.reportMeta.set({ ...defaultReportMeta(), ...saved.reportMeta });
     this.reportSignedAt.set(saved.reportSignedAt ?? null);
     this.reportSignature.set(saved.reportSignature ?? null);

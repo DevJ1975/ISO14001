@@ -40,11 +40,12 @@ export function standardChecklist(edition: StandardEdition['id']): StandardCheck
     clauseId: clause.clauseId,
     clauseTitle: clause.title,
     question: questionFor(clause.clauseId, clause.title),
-    guidance: guidanceFor(clauseGuideFor(clause.clauseId)),
+    guidance: guidanceFor(clauseGuideFor(clause.clauseId, ed.id)),
   }));
 }
 
 /** Map the human-facing audit criteria label (e.g. "ISO 45001:2018") to a standards edition id. */
 export function editionFromCriteria(criteria: string): StandardEdition['id'] {
+  if (criteria.includes('14001')) return 'ISO_14001_2015';
   return criteria.includes('2026') ? 'ISO_45001_2026' : 'ISO_45001_2018';
 }

@@ -5,6 +5,7 @@ import {
   AUDIT_METHODOLOGY,
   CLAUSE_FIELD_GUIDE,
   GRADING_GUIDE,
+  ISO_14001_CLAUSE_FIELD_GUIDE,
   clauseGuideFor,
   guideClauseIds,
   sharedClauseTitles,
@@ -33,6 +34,33 @@ test('clauseGuideFor resolves a known clause and is undefined for unknown', () =
   assert.equal(guide?.clauseId, '9.1');
   assert.ok(guide!.questionsToAsk.length > 0);
   assert.equal(clauseGuideFor('99.9'), undefined);
+});
+
+test('clauseGuideFor returns environmental guidance for ISO 14001 and leaves 45001 unchanged', () => {
+  // Default (45001) resolves the OH&S hazard-identification guidance for 6.1.2.
+  const ohs = clauseGuideFor('6.1.2');
+  assert.ok(/hazard/i.test(ohs!.title), '45001 6.1.2 should be the hazard-identification clause');
+  // With a 14001 edition, the same clause id resolves the environmental aspects guidance.
+  const env = clauseGuideFor('6.1.2', 'ISO_14001_2015');
+  assert.ok(/aspect/i.test(env!.title), '14001 6.1.2 should be the environmental aspects clause');
+  // Clauses with no 14001-specific entry fall back to the shared guidance (never blank).
+  assert.ok(clauseGuideFor('7.2', 'ISO_14001_2015'));
+});
+
+test('copyright guardrail: ISO 14001 field guide carries no verbatim ISO requirement text', () => {
+  for (const entry of ISO_14001_CLAUSE_FIELD_GUIDE) {
+    const haystacks = [
+      entry.title,
+      entry.purpose,
+      ...entry.whatToLookFor,
+      ...entry.evidenceToRequest,
+      ...entry.questionsToAsk,
+      ...entry.typicalNonconformities,
+    ];
+    for (const text of haystacks) {
+      assert.ok(!/\bshall\b/i.test(text), `14001 guide text appears to quote requirement text: "${text}"`);
+    }
+  }
 });
 
 test('methodology lists ordered stages with practical steps', () => {

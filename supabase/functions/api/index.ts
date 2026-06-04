@@ -495,6 +495,9 @@ Deno.serve(async (req) => {
           leadership: byKind('leadership'),
           context: byKind('context'),
           interviews: byKind('interview'),
+          envAspects: byKind('envAspect'),
+          envObligations: byKind('envObligation'),
+          envObjectives: byKind('envObjective'),
           workerConsultations: byKind('consultation'),
           meetings: byKind('meeting'),
           conclusion: single('conclusion'),
@@ -1019,6 +1022,9 @@ Deno.serve(async (req) => {
         leadership: 'leadership',
         context: 'context',
         interviews: 'interview',
+        'environmental-aspects': 'envAspect',
+        'environmental-obligations': 'envObligation',
+        'environmental-objectives': 'envObjective',
         'worker-consultations': 'consultation',
       };
       if (method === 'PUT' && registerKinds[rest[0]] && rest[1]) {
