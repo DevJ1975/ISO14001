@@ -37,6 +37,7 @@ export * from './production-backend.js';
 export * from './reports-capa.js';
 export * from './report-draft.js';
 export * from './finding-draft.js';
+export * from './client-tailoring.js';
 export * from './roles.js';
 export * from './standard-checklist.js';
 export * from './standards.js';

@@ -4,6 +4,8 @@ import {
   AuditAgenda,
   AuditAgendaInput,
   CapaIntent,
+  ClientTailoring,
+  ClientTailoringInput,
   CapaRootCauseMethod,
   DEFAULT_CAPA_INTENT,
   EvidenceRequest,
@@ -23,6 +25,7 @@ import {
   analysisCandidateToFinding,
   appendComplianceEvaluation,
   composeAuditAgenda,
+  composeClientTailoring,
   composeFindingDraft,
   composeMeetingScripts,
   composeReportDraft,
@@ -1345,6 +1348,10 @@ export class FieldAuditStore {
   readonly meetingScripts = signal<MeetingScripts | null>(null);
   /** Provenance of the last generated agenda + scripts, for the "review before the meeting" banner. */
   readonly agendaDraftInfo = signal<{ source: 'ai' | 'ruleBased'; generatedAt: string } | null>(null);
+  /** AI-assisted tailoring of the checklist emphasis to the client context (rule-based offline, AI when configured). */
+  readonly clientTailoring = signal<ClientTailoring | null>(null);
+  /** Provenance of the last generated client tailoring, for the "review before planning" badge. */
+  readonly clientTailoringInfo = signal<{ source: 'ai' | 'ruleBased'; generatedAt: string } | null>(null);
   /** Per-finding provenance of the last generated finding draft (findingId → source/time), for the "review before issuing" note. */
   readonly findingDraftInfo = signal<Record<string, { source: 'ai' | 'ruleBased'; generatedAt: string }>>({});
   /**
@@ -2024,6 +2031,50 @@ export class FieldAuditStore {
       })),
       evidenceCount: this.evidence().length,
       overdueCapaCount: this.overdueCapas().length,
+    };
+  }
+
+  /**
+   * Tailor the checklist emphasis to the client context (sector, size, hazards,
+   * prior findings) — which clause areas to prioritise, focus prompts and
+   * risk-based notes. Uses the server-side AI provider when live & online;
+   * otherwise the offline rule-based composer. The auditor reviews before planning.
+   */
+  async generateClientTailoring(): Promise<'ai' | 'ruleBased'> {
+    const input = this.buildClientTailoringInput();
+    let tailoring: ClientTailoring;
+    if (this.source() === 'live' && this.online()) {
+      try {
+        tailoring = await this.api.draftClientTailoring(input);
+      } catch {
+        tailoring = composeClientTailoring(input);
+      }
+    } else {
+      tailoring = composeClientTailoring(input);
+    }
+    this.clientTailoring.set(tailoring);
+    this.clientTailoringInfo.set({ source: tailoring.source, generatedAt: tailoring.generatedAt });
+    this.persist();
+    return tailoring.source;
+  }
+
+  private buildClientTailoringInput(): ClientTailoringInput {
+    const sites = this.sites();
+    // Use the auditee scope and site activity labels as the free-text sector hint.
+    const sector = [this.auditee(), ...sites.map((site) => site.activities ?? '')]
+      .filter(Boolean)
+      .join(' ');
+    return {
+      auditee: this.auditee(),
+      sector,
+      headcount: this.workers().length,
+      siteCount: sites.length,
+      hazards: this.aspects().map((aspect) => `${aspect.aspect} ${aspect.activity}`.trim()),
+      priorFindings: this.findings().map((finding) => ({
+        clauseId: finding.clauseId,
+        clauseTitle: finding.clauseTitle,
+        type: finding.type,
+      })),
     };
   }
 

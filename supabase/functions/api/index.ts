@@ -923,6 +923,62 @@ Deno.serve(async (req) => {
         }
       }
 
+      // AI client-context tailoring (server-side). Inert until ANTHROPIC_API_KEY +
+      // ANTHROPIC_MODEL are set as function secrets; the client falls back to its
+      // offline deterministic composer on any non-2xx, so the feature still works
+      // without a key. The prompt forbids verbatim ISO requirement text and the
+      // word "shall" (copyright guardrail).
+      if (method === 'POST' && rest[0] === 'client-tailoring') {
+        requireRole(actor, ['leadAuditor', 'auditor']);
+        const input = await readJson(req);
+        const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
+        const model = Deno.env.get('ANTHROPIC_MODEL');
+        if (!apiKey || !model) return json(501, { error: 'ai_not_configured' }, req);
+        const system =
+          'You are an ISO 45001 lead auditor assistant tailoring the audit checklist emphasis to a specific client. Use ONLY the client context provided (sector, headcount, sites, key hazards/processes, prior findings) and ISO 45001 clause numbers and short titles. Do NOT quote or paraphrase verbatim ISO requirement text; never use the word "shall". Respond with a strict JSON object only, with keys summary, areas, riskNotes. "areas" is an array of { clauseId, clauseTitle, priority, rationale, focusPrompts } where priority is one of high, medium and focusPrompts is an array of short question strings. "riskNotes" is an array of short strings. Order areas with the highest-priority first.';
+        try {
+          const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+            body: JSON.stringify({
+              model,
+              max_tokens: 1600,
+              system,
+              messages: [{ role: 'user', content: `Client context:\n${JSON.stringify(input)}` }],
+            }),
+          });
+          if (!aiRes.ok) return json(502, { error: 'ai_upstream' }, req);
+          const payload = await aiRes.json();
+          const text = (payload?.content ?? []).map((part: { text?: string }) => part?.text ?? '').join('');
+          const found = text.match(/\{[\s\S]*\}/);
+          if (!found) return json(502, { error: 'ai_parse' }, req);
+          const parsed = JSON.parse(found[0]);
+          const strArr = (v: unknown): string[] => (Array.isArray(v) ? v.map((x) => String(x ?? '')) : []);
+          const areas = Array.isArray(parsed.areas)
+            ? parsed.areas.map((area: Record<string, unknown>) => ({
+                clauseId: String(area?.clauseId ?? ''),
+                clauseTitle: String(area?.clauseTitle ?? ''),
+                priority: area?.priority === 'high' ? 'high' : 'medium',
+                rationale: String(area?.rationale ?? ''),
+                focusPrompts: strArr(area?.focusPrompts),
+              }))
+            : [];
+          return json(
+            200,
+            {
+              summary: String(parsed.summary ?? ''),
+              areas,
+              riskNotes: strArr(parsed.riskNotes),
+              source: 'ai',
+              generatedAt: new Date().toISOString(),
+            },
+            req,
+          );
+        } catch {
+          return json(502, { error: 'ai_failed' }, req);
+        }
+      }
+
       if (method === 'POST' && rest[0] === 'reports' && rest[1] === 'signoff') {
         requireRole(actor, ['leadAuditor']);
         const body = await readJson(req);

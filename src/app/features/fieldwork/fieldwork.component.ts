@@ -53,6 +53,26 @@ export class FieldworkComponent {
   protected readonly editing = signal(false);
   protected readonly showAdd = signal(false);
 
+  // AI-assisted tailoring of the checklist emphasis to the client context
+  // (rule-based offline, AI when configured).
+  protected readonly tailoring = this.store.clientTailoring;
+  protected readonly tailoringInfo = this.store.clientTailoringInfo;
+  protected readonly tailoringBusy = signal(false);
+
+  /** Tailor the checklist emphasis to the client context (AI when live, rule-based offline). */
+  protected async tailorToClient(): Promise<void> {
+    this.tailoringBusy.set(true);
+    try {
+      await this.store.generateClientTailoring();
+    } finally {
+      this.tailoringBusy.set(false);
+    }
+  }
+
+  protected formatTime(iso: string): string {
+    return new Date(iso).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+  }
+
   /** Whether every clause on the checklist has an answer. */
   protected readonly completed = computed(() => {
     const progress = this.store.progress();
