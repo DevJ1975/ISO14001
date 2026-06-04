@@ -99,6 +99,16 @@ async function seedDemoAudit(db: Db): Promise<void> {
     { ...base, id: 'comp-2', role: 'Internal OHSMS auditors', requiredCompetence: 'ISO 45001 internal auditing', trainingEvidence: 'One auditor pending refresher.', status: 'inTraining', result: 'needsFollowUp', evidenceIds: [], updatedAt: now },
   ]);
 
+  await seedDocs(db, mongoCollections.workers, ['tenantId', 'auditId', 'id'], [
+    { ...base, id: 'worker-1', name: 'J. Okafor', role: 'H&S lead', employeeRef: 'EMP-1001', competenceSummary: 'ISO 45001 internal auditor; NEBOSH General Certificate.', active: true, updatedAt: now },
+    { ...base, id: 'worker-2', name: 'M. Silva', role: 'First aider', employeeRef: 'EMP-1042', competenceSummary: 'First aid at work (renewal due 2026-07).', active: true, updatedAt: now },
+  ]);
+
+  await seedDocs(db, mongoCollections.sites, ['tenantId', 'auditId', 'id'], [
+    { ...base, id: 'site-1', name: 'Denver Assembly Plant', address: '1200 Industrial Pkwy, Denver, CO', activities: 'Assembly, welding, finishing', siteRef: 'SITE-DEN', updatedAt: now },
+    { ...base, id: 'site-2', name: 'Aurora Warehouse', address: '88 Logistics Way, Aurora, CO', activities: 'Storage, FLT operations, despatch', siteRef: 'SITE-AUR', updatedAt: now },
+  ]);
+
   await seedDocs(db, mongoCollections.awarenessRecords, ['tenantId', 'auditId', 'id'], [
     { ...base, id: 'aware-1', topic: 'Environmental policy & significant aspects', audience: 'All site staff', method: 'Induction + annual refresher', result: 'conforming', evidenceIds: [], updatedAt: now },
   ]);

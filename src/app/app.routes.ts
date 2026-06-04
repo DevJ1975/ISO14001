@@ -101,6 +101,11 @@ export const routes: Routes = [
         title: 'OH&S registers',
       },
       {
+        path: 'people',
+        loadComponent: () => import('./features/people/people.component').then((m) => m.PeopleComponent),
+        title: 'People & Sites',
+      },
+      {
         path: 'report',
         loadComponent: () => import('./features/report/report.component').then((m) => m.ReportComponent),
         title: 'Report',

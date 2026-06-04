@@ -21,6 +21,7 @@ export const NAV_DESTINATIONS: readonly NavItem[] = [
   { path: '/evidence', label: 'Evidence', icon: 'photo_camera', exact: false, keywords: ['photo', 'note', 'capture'] },
   { path: '/findings', label: 'Findings', icon: 'flag', exact: false, keywords: ['nonconformity', 'nc', 'capa', 'ofi'] },
   { path: '/registers', label: 'Registers', icon: 'health_and_safety', exact: false, keywords: ['hazard', 'incident', 'legal', 'risk'] },
+  { path: '/people', label: 'People & Sites', icon: 'groups', exact: false, keywords: ['worker', 'site', 'location', 'person'] },
   { path: '/report', label: 'Report', icon: 'description', exact: false, keywords: ['signoff', 'pdf', 'conclusion'] },
   { path: '/programme', label: 'Programme', icon: 'calendar_month', exact: false, keywords: ['schedule', 'plan', 'calendar'] },
   { path: '/requests', label: 'Requests', icon: 'cloud_upload', exact: false, keywords: ['evidence', 'upload', 'client'] },
