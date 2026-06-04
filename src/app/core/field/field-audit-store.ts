@@ -451,6 +451,21 @@ export interface ManagementOfChangeRecord {
   sync: SyncState;
 }
 
+/** Operational control / safe-system-of-work (ISO 45001 cl. 8.1.1 / 8.1.2 — controls that keep significant-risk operations safe, evaluated against the hierarchy of controls and their effectiveness). */
+export interface OperationalControl {
+  id: string;
+  activity: string;
+  controlDescription?: string;
+  controlType: 'elimination' | 'substitution' | 'engineering' | 'administrative' | 'ppe';
+  procedureRef?: string;
+  verified?: boolean;
+  effectiveness: 'effective' | 'partial' | 'ineffective' | 'notEvaluated';
+  relatedClause?: string;
+  result: RegisterResult;
+  updatedAt: string;
+  sync: SyncState;
+}
+
 /** Monitoring & measuring equipment calibration (ISO 45001 cl. 9.1.1). */
 export interface CalibrationRecord {
   id: string;
@@ -655,6 +670,7 @@ interface PersistedState {
   training: TrainingRecord[];
   suppliers: SupplierRecord[];
   changes: ManagementOfChangeRecord[];
+  operationalControls: OperationalControl[];
   reportMeta: ReportMeta;
   reportSignedAt: string | null;
   reportSignature?: ReportSignature | null;
@@ -766,6 +782,27 @@ function seedChanges(): ManagementOfChangeRecord[] {
     base({ title: 'Switch to water-based degreaser', description: 'Substitute solvent degreaser to reduce inhalation exposure.', changeType: 'material', status: 'implemented', aspectsReviewed: false, riskLevel: 'high', owner: 'H&S Lead', implementedAt: '2026-05-20', result: 'nonconforming', controls: 'Implemented before COSHH/manual-handling reassessment — gap.' }),
     base({ title: 'Reorganise warehouse racking layout', description: 'Relocate racking to widen pedestrian/FLT segregation.', changeType: 'organisational', status: 'approved', aspectsReviewed: true, riskLevel: 'low', owner: 'Site Manager', targetDate: '2026-04-30', result: 'needsFollowUp', controls: 'Barriers and walkway markings specified; target date passed.' }),
     base({ title: 'New PPE at work regulations', description: 'Adapt to updated PPE legal requirements.', changeType: 'regulatory', status: 'closed', aspectsReviewed: true, riskLevel: 'low', owner: 'Compliance', implementedAt: '2026-02-15', result: 'conforming' }),
+  ];
+}
+
+/** Demonstration operational-control / safe-system-of-work records — effective, partial and unverified controls across the hierarchy. */
+function seedOperationalControls(): OperationalControl[] {
+  const now = '2026-06-15T15:00:00.000Z';
+  const base = (extra: Partial<OperationalControl>): OperationalControl => ({
+    id: uid('opcontrol'),
+    activity: '',
+    controlType: 'administrative',
+    effectiveness: 'notEvaluated',
+    result: 'notStarted',
+    updatedAt: now,
+    sync: 'synced',
+    ...extra,
+  });
+  return [
+    base({ activity: 'Working at height — roof access', controlDescription: 'Fixed edge protection and fall-arrest harness on anchor points.', controlType: 'engineering', procedureRef: 'SSOW-WAH-02', verified: true, effectiveness: 'effective', relatedClause: '8.1.2', result: 'conforming' }),
+    base({ activity: 'Forklift / pedestrian movement in warehouse', controlDescription: 'Segregated walkways with barriers; banksman for blind corners.', controlType: 'engineering', procedureRef: 'SSOW-FLT-01', verified: false, effectiveness: 'partial', relatedClause: '8.1.2', result: 'needsFollowUp' }),
+    base({ activity: 'Hot work / welding on line 2', controlDescription: 'Hot-work permit, fire watch and screens; relies on operator compliance.', controlType: 'administrative', procedureRef: 'PTW-HOT-07', verified: true, effectiveness: 'partial', relatedClause: '8.1.2', result: 'needsFollowUp' }),
+    base({ activity: 'Solvent degreasing', controlDescription: 'Local exhaust ventilation at the bench; PPE as last resort.', controlType: 'engineering', procedureRef: 'COSHH-DEG-03', verified: false, effectiveness: 'ineffective', relatedClause: '8.1.2', result: 'nonconforming' }),
   ];
 }
 
@@ -1194,6 +1231,7 @@ export class FieldAuditStore {
   readonly training = signal<TrainingRecord[]>(seedTraining());
   readonly suppliers = signal<SupplierRecord[]>(seedSuppliers());
   readonly changes = signal<ManagementOfChangeRecord[]>(seedChanges());
+  readonly operationalControls = signal<OperationalControl[]>(seedOperationalControls());
   readonly reportMeta = signal<ReportMeta>(defaultReportMeta());
   /** Read-only audit trail from the backend (not synced upward). */
   readonly changeLog = signal<ChangeLogEntry[]>([]);
@@ -1260,6 +1298,7 @@ export class FieldAuditStore {
       this.training().filter((t) => t.sync !== 'synced').length +
       this.suppliers().filter((s) => s.sync !== 'synced').length +
       this.changes().filter((c) => c.sync !== 'synced').length +
+      this.operationalControls().filter((c) => c.sync !== 'synced').length +
       (this.conclusion() && this.conclusion()!.sync !== 'synced' ? 1 : 0) +
       (this.reportMeta().sync !== 'synced' ? 1 : 0),
   );
@@ -2498,6 +2537,28 @@ export class FieldAuditStore {
     this.autoFlush();
   }
 
+  addOperationalControl(): void {
+    this.operationalControls.update((list) => [
+      { id: uid('opcontrol'), activity: '', controlType: 'administrative', effectiveness: 'notEvaluated', result: 'notStarted', updatedAt: new Date().toISOString(), sync: 'queued' },
+      ...list,
+    ]);
+    this.persist();
+    this.autoFlush();
+  }
+
+  updateOperationalControl(id: string, patch: Partial<OperationalControl>): void {
+    this.operationalControls.update((list) =>
+      list.map((entry) => (entry.id === id ? { ...entry, ...patch, updatedAt: new Date().toISOString(), sync: 'queued' } : entry)),
+    );
+    this.persist();
+    this.autoFlush();
+  }
+
+  removeOperationalControl(id: string): void {
+    this.operationalControls.update((list) => list.filter((entry) => entry.id !== id));
+    this.persist();
+  }
+
   /** The order-stable view of the report that an e-signature attests to. */
   signableReport(): SignableReport {
     const conclusion = this.conclusion();
@@ -2621,6 +2682,7 @@ export class FieldAuditStore {
     this.training.set(seedTraining());
     this.suppliers.set(seedSuppliers());
     this.changes.set(seedChanges());
+    this.operationalControls.set(seedOperationalControls());
     this.reportMeta.set(defaultReportMeta());
     this.reportSignedAt.set(null);
     this.reportSignature.set(null);
@@ -3033,6 +3095,17 @@ export class FieldAuditStore {
           this.setSync('changes', record.id, 'queued');
         }
       }
+      for (const record of this.operationalControls().filter((entry) => entry.sync !== 'synced')) {
+        this.setSync('operationalControls', record.id, 'syncing');
+        try {
+          const { sync, ...payload } = record;
+          void sync;
+          await this.api.upsertOperationalControl(payload);
+          this.setSync('operationalControls', record.id, 'synced');
+        } catch {
+          this.setSync('operationalControls', record.id, 'queued');
+        }
+      }
       this.persist();
     } finally {
       this.flushing = false;
@@ -3069,7 +3142,8 @@ export class FieldAuditStore {
       | 'calibration'
       | 'training'
       | 'suppliers'
-      | 'changes',
+      | 'changes'
+      | 'operationalControls',
     id: string,
     sync: SyncState,
   ): void {
@@ -3104,6 +3178,7 @@ export class FieldAuditStore {
       training: this.training,
       suppliers: this.suppliers,
       changes: this.changes,
+      operationalControls: this.operationalControls,
     };
     const ref = map[collection] as unknown as {
       update: (fn: (list: SyncRecord[]) => SyncRecord[]) => void;
@@ -3172,6 +3247,7 @@ export class FieldAuditStore {
       training: this.training(),
       suppliers: this.suppliers(),
       changes: this.changes(),
+      operationalControls: this.operationalControls(),
       reportMeta: this.reportMeta(),
       reportSignedAt: this.reportSignedAt(),
       reportSignature: this.reportSignature(),
@@ -3217,6 +3293,7 @@ export class FieldAuditStore {
       this.training.set((payload.training ?? []).map((t) => ({ ...t, sync: 'synced' as const })));
       this.suppliers.set((payload.suppliers ?? []).map((s) => ({ ...s, sync: 'synced' as const })));
       this.changes.set((payload.changes ?? []).map((c) => ({ ...c, sync: 'synced' as const })));
+      this.operationalControls.set((payload.operationalControls ?? []).map((c) => ({ ...c, sync: 'synced' as const })));
       // Report front-matter: prefer the server copy (shared across the team),
       // falling back to defaults, then overlay scope/dates from the audit record.
       this.reportMeta.set(
@@ -3279,6 +3356,7 @@ export class FieldAuditStore {
     this.training.set(saved.training ?? seedTraining());
     this.suppliers.set(saved.suppliers ?? seedSuppliers());
     this.changes.set(saved.changes ?? seedChanges());
+    this.operationalControls.set(saved.operationalControls ?? seedOperationalControls());
     if (saved.reportMeta) this.reportMeta.set({ ...defaultReportMeta(), ...saved.reportMeta });
     this.reportSignedAt.set(saved.reportSignedAt ?? null);
     this.reportSignature.set(saved.reportSignature ?? null);
