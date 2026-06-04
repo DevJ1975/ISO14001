@@ -1,0 +1,149 @@
+<section class="screen analytics">
+  <header class="screen-head">
+    <p class="tv-eyebrow">Cross-audit overview</p>
+    <h1>Portfolio analytics</h1>
+    <p>Aggregate metrics across your audits · {{ analytics().auditCount }} audit(s) in scope</p>
+  </header>
+
+  <!-- KPI cards -->
+  <div class="kpis">
+    <a class="kpi" routerLink="/audits"><strong>{{ analytics().auditCount }}</strong><span>Audits</span></a>
+    <a class="kpi crit" routerLink="/findings"><strong>{{ analytics().findings.openNc }}</strong><span>Open NCs</span></a>
+    <a class="kpi" routerLink="/findings"><strong>{{ analytics().findings.majorNc }}</strong><span>Major NCs</span></a>
+    <a class="kpi" routerLink="/findings"><strong>{{ analytics().findings.minorNc }}</strong><span>Minor NCs</span></a>
+    <a class="kpi" routerLink="/findings"><strong>{{ analytics().findings.ofi }}</strong><span>OFIs</span></a>
+    <a class="kpi" [class.crit]="analytics().capas.overdue > 0" routerLink="/findings"><strong>{{ analytics().capas.overdue }}</strong><span>CAPA overdue</span></a>
+    <a class="kpi" [class.crit]="programmeRate().internalOverdue > 0" routerLink="/programme"><strong>{{ programmeRate().internalOverdue }}</strong><span>Internal overdue</span></a>
+    <a class="kpi" routerLink="/findings"><strong>{{ analytics().findings.closedNc }}</strong><span>Closed NCs</span></a>
+  </div>
+
+  @if (findingsScopedToActive()) {
+    <p class="note">
+      <mat-icon aria-hidden="true">info</mat-icon>
+      Findings &amp; CAPA figures reflect the currently selected audit; status &amp; programme rollups span the whole portfolio.
+    </p>
+  }
+
+  <div class="cols">
+    <!-- Audits by status -->
+    <article class="panel">
+      <h2>Audits by status</h2>
+      @if (auditsByStatus().length) {
+        @for (b of auditsByStatus(); track b.label) {
+          <div class="chartrow">
+            <span class="cl">{{ b.label }}</span>
+            <span class="track"><span class="seg {{ b.tone }}" [style.width.%]="b.pct"></span></span>
+            <span class="n">{{ b.count }}</span>
+          </div>
+        }
+      } @else {
+        <p class="muted">No audits yet — create one to start the portfolio.</p>
+      }
+    </article>
+
+    <!-- Audits by type -->
+    <article class="panel">
+      <h2>Audits by type</h2>
+      @if (auditsByType().length) {
+        @for (b of auditsByType(); track b.label) {
+          <div class="chartrow">
+            <span class="cl">{{ b.label }}</span>
+            <span class="track"><span class="seg {{ b.tone }}" [style.width.%]="b.pct"></span></span>
+            <span class="n">{{ b.count }}</span>
+          </div>
+        }
+      } @else {
+        <p class="muted">No audits yet.</p>
+      }
+    </article>
+  </div>
+
+  <div class="cols">
+    <!-- Findings mix -->
+    <article class="panel">
+      <h2>Findings breakdown</h2>
+      @if (analytics().findings.total) {
+        @for (b of findingsMix(); track b.label) {
+          <div class="chartrow">
+            <span class="cl">{{ b.label }}</span>
+            <span class="track"><span class="seg {{ b.tone }}" [style.width.%]="b.pct"></span></span>
+            <span class="n">{{ b.count }}</span>
+          </div>
+        }
+      } @else {
+        <p class="muted">No findings raised — clean so far.</p>
+      }
+    </article>
+
+    <!-- CAPA mix -->
+    <article class="panel">
+      <h2>Corrective actions</h2>
+      @if (analytics().capas.total) {
+        @for (b of capaMix(); track b.label) {
+          <div class="chartrow">
+            <span class="cl">{{ b.label }}</span>
+            <span class="track"><span class="seg {{ b.tone }}" [style.width.%]="b.pct"></span></span>
+            <span class="n">{{ b.count }}</span>
+          </div>
+        }
+      } @else {
+        <p class="muted">No corrective actions opened yet.</p>
+      }
+    </article>
+  </div>
+
+  <!-- Programme health -->
+  <article class="panel">
+    <h2>Programme health</h2>
+    <div class="prog-head">
+      <span>Planned vs completed audits</span>
+      <span>{{ programmeRate().plannedCompleted }} / {{ programmeRate().plannedTotal }} · {{ programmeRate().plannedPct }}%</span>
+    </div>
+    <div class="bar"><span class="fill" [style.width.%]="programmeRate().plannedPct"></span></div>
+    <div class="prog-head" style="margin-top: 14px;">
+      <span>Internal audits completed (cl. 9.2)</span>
+      <span>{{ programmeRate().internalCompleted }} / {{ programmeRate().internalTotal }} · {{ programmeRate().internalPct }}%</span>
+    </div>
+    <div class="bar"><span class="fill" [style.width.%]="programmeRate().internalPct"></span></div>
+    @if (programmeRate().internalOverdue > 0) {
+      <p class="note">
+        <mat-icon aria-hidden="true">warning</mat-icon>
+        {{ programmeRate().internalOverdue }} internal audit(s) overdue against the planned schedule.
+      </p>
+    }
+  </article>
+
+  <div class="cols">
+    <!-- Findings by clause group -->
+    <article class="panel">
+      <h2>Findings by clause group (4–10)</h2>
+      @if (findingsByClause().length) {
+        @for (b of findingsByClause(); track b.label) {
+          <div class="chartrow">
+            <span class="cl">{{ b.label }}</span>
+            <span class="track"><span class="seg {{ b.tone }}" [style.width.%]="b.pct"></span></span>
+            <span class="n">{{ b.count }}</span>
+          </div>
+        }
+      } @else {
+        <p class="muted">No findings to distribute by clause.</p>
+      }
+    </article>
+
+    <!-- Findings trend by month -->
+    <article class="panel">
+      <h2>Findings by month</h2>
+      @if (findingsByMonth().length) {
+        @for (b of findingsByMonth(); track b.label) {
+          <div class="chartrow">
+            <span class="cl">{{ b.label }}</span>
+            <span class="track"><span class="seg {{ b.tone }}" [style.width.%]="b.pct"></span></span>
+            <span class="n">{{ b.count }}</span>
+          </div>
+        }
+      } @else {
+        <p class="muted">No dated findings to chart yet.</p>
+      }
+    </article>
+  </div>
+</section>

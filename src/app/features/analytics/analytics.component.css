@@ -1,0 +1,164 @@
+.analytics {
+  max-width: 1000px;
+}
+
+.prog-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.prog-head span {
+  font-size: 14px;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.panel > h2 {
+  margin: 0 0 12px;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.bar {
+  height: 12px;
+  border-radius: 999px;
+  background: var(--surface-guard);
+  overflow: hidden;
+}
+
+.bar .fill {
+  display: block;
+  height: 100%;
+  background: var(--primary);
+  transition: width 0.3s ease;
+}
+
+.kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+  gap: 10px;
+}
+
+.kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  text-decoration: none;
+  color: var(--text);
+}
+
+.kpi:hover {
+  border-color: var(--primary);
+}
+
+.kpi strong {
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.kpi span {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.kpi.crit strong {
+  color: var(--tone-critical-fg, #b00);
+}
+
+.cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.chartrow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.chartrow .cl {
+  flex: 0 0 96px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.track {
+  flex: 1;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--surface-guard);
+  overflow: hidden;
+}
+
+.seg {
+  display: block;
+  height: 100%;
+  background: var(--primary);
+}
+
+.seg.critical {
+  background: var(--tone-critical-fg, #c0392b);
+}
+
+.seg.progress {
+  background: var(--tone-progress-fg, #b8860b);
+}
+
+.seg.positive {
+  background: var(--tone-positive-fg, #2e7d32);
+}
+
+.seg.neutral {
+  background: var(--primary);
+}
+
+.chartrow .n {
+  flex: 0 0 auto;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  min-width: 28px;
+  text-align: right;
+}
+
+.note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.note mat-icon {
+  flex: 0 0 auto;
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+}
+
+.muted {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+}
+
+@media (max-width: 720px) {
+  .cols {
+    grid-template-columns: 1fr;
+  }
+}
