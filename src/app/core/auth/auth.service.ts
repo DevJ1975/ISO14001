@@ -6,7 +6,8 @@ import { APP_CONFIG } from '../config/app-config';
 
 export interface AuthUser {
   uid: string;
-  tenantId: string;
+  /** Null for the platform superadmin, who is not scoped to a tenant. */
+  tenantId: string | null;
   role: string;
   displayName: string;
   email: string;
@@ -36,15 +37,26 @@ export class AuthService {
 
   /** The auditee (client) role: a scoped portal user, not an auditor-workspace user. */
   readonly isAuditee = computed(() => this.user()?.role === 'clientViewer');
-  /** Any auditor-side role (everything that isn't the auditee portal role). */
+  /** The platform superadmin, who runs the provisioning console (no tenant). */
+  readonly isSuperadmin = computed(() => this.user()?.role === 'platformSuperadmin');
+  /** Any auditor-side role (everything that isn't the auditee portal or the superadmin). */
   readonly isAuditor = computed(() => {
     const role = this.user()?.role;
-    return role !== undefined && role !== 'clientViewer';
+    return role !== undefined && role !== 'clientViewer' && role !== 'platformSuperadmin';
   });
 
   async login(email: string, password: string): Promise<void> {
+    await this.authenticate('/auth/login', email, password);
+  }
+
+  /** Dedicated platform-superadmin sign-in (separate screen, separate endpoint). */
+  async superadminLogin(email: string, password: string): Promise<void> {
+    await this.authenticate('/auth/superadmin-login', email, password);
+  }
+
+  private async authenticate(path: string, email: string, password: string): Promise<void> {
     const response = await firstValueFrom(
-      this.http.post<LoginResponse>(`${this.config.apiBaseUrl}/auth/login`, { email: email.trim(), password }),
+      this.http.post<LoginResponse>(`${this.config.apiBaseUrl}${path}`, { email: email.trim(), password }),
     );
     this.token.set(response.token);
     this.user.set(response.user);

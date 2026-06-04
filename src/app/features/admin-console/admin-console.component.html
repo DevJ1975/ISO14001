@@ -1,0 +1,141 @@
+<div class="console">
+  <header class="top">
+    <div class="brand">
+      <span class="brand-mark"><mat-icon aria-hidden="true">shield_person</mat-icon></span>
+      <div>
+        <strong>Platform console</strong>
+        <small>{{ auth.user()?.email }}</small>
+      </div>
+    </div>
+    <button mat-stroked-button type="button" (click)="logout()"><mat-icon aria-hidden="true">logout</mat-icon>Sign out</button>
+  </header>
+
+  <main class="body">
+    @if (error(); as err) { <p class="error" role="alert"><mat-icon aria-hidden="true">error</mat-icon>{{ err }}</p> }
+
+    <!-- Create client -->
+    <article class="panel">
+      <h2>Onboard a client</h2>
+      <p class="sub">Create the client's tenant, its lead auditor, and the client's users. Each person gets a secure link to set their own password.</p>
+
+      <div class="grid">
+        <label class="fld span2"><span>Client / organisation name</span>
+          <input [value]="tenantName()" (input)="tenantName.set($any($event.target).value)" placeholder="e.g. Northstar Components" /></label>
+        <label class="fld"><span>Plan</span>
+          <select [value]="plan()" (change)="plan.set($any($event.target).value)">
+            @for (p of plans; track p) { <option [value]="p">{{ p }}</option> }
+          </select></label>
+      </div>
+
+      <h3>Lead auditor</h3>
+      <div class="grid">
+        <label class="fld"><span>Name</span>
+          <input [value]="auditorName()" (input)="auditorName.set($any($event.target).value)" placeholder="e.g. Ava Brooks" /></label>
+        <label class="fld"><span>Email</span>
+          <input type="email" [value]="auditorEmail()" (input)="auditorEmail.set($any($event.target).value)" placeholder="auditor@firm.com" /></label>
+      </div>
+
+      <h3>Client users <em>(auditee contacts)</em></h3>
+      @for (row of clientRows(); track $index) {
+        <div class="grid client-row">
+          <label class="fld"><span>Name</span>
+            <input [value]="row.displayName" (input)="setClientRow($index, 'displayName', $any($event.target).value)" placeholder="e.g. Dana Okoro" /></label>
+          <label class="fld"><span>Email</span>
+            <input type="email" [value]="row.email" (input)="setClientRow($index, 'email', $any($event.target).value)" placeholder="contact@client.com" /></label>
+          <button mat-icon-button type="button" class="row-del" aria-label="Remove" (click)="removeClientRow($index)"><mat-icon aria-hidden="true">close</mat-icon></button>
+        </div>
+      }
+      <button mat-stroked-button type="button" class="add-row" (click)="addClientRow()"><mat-icon aria-hidden="true">add</mat-icon>Add another client user</button>
+
+      <div class="actions">
+        <button mat-flat-button color="primary" type="button" [disabled]="!canProvision()" (click)="provision()">
+          <mat-icon aria-hidden="true">rocket_launch</mat-icon>{{ provisioning() ? 'Provisioning…' : 'Create client' }}
+        </button>
+      </div>
+
+      @if (provisioned(); as result) {
+        <div class="result">
+          <strong><mat-icon aria-hidden="true">check_circle</mat-icon>Client created — share these one-time set-password links:</strong>
+          @for (m of result.members; track m.uid) {
+            <div class="link-row">
+              <span class="who">{{ m.displayName }} <em>({{ roleLabel(m.role) }})</em> — {{ m.email }}</span>
+              @if (m.setPasswordLink) {
+                <code>{{ m.setPasswordLink }}</code>
+                <button mat-icon-button type="button" aria-label="Copy link" (click)="copy(m.setPasswordLink!)"><mat-icon aria-hidden="true">content_copy</mat-icon></button>
+              } @else {
+                <span class="muted">link emailed</span>
+              }
+            </div>
+          }
+        </div>
+      }
+    </article>
+
+    <!-- Tenants -->
+    <article class="panel">
+      <h2>Clients ({{ tenants().length }})</h2>
+      @if (loading()) {
+        <p class="muted">Loading…</p>
+      } @else {
+        @for (t of tenants(); track t.id) {
+          <div class="tenant">
+            <button class="tenant-head" type="button" (click)="toggle(t.id)">
+              <mat-icon aria-hidden="true">{{ expanded() === t.id ? 'expand_more' : 'chevron_right' }}</mat-icon>
+              <strong>{{ t.name }}</strong>
+              <span class="badge">{{ t.plan }}</span>
+              <span class="count">{{ t.memberCount }} users</span>
+            </button>
+
+            @if (expanded() === t.id) {
+              <div class="members">
+                @for (m of membersFor(t.id); track m.uid) {
+                  <div class="member" [class.disabled]="m.status !== 'active'">
+                    <div class="m-main">
+                      <strong>{{ m.displayName || m.email }}</strong>
+                      <small>{{ m.email }}</small>
+                    </div>
+                    <span class="role-tag">{{ roleLabel(m.role) }}</span>
+                    <span class="status" [attr.data-tone]="m.status === 'active' ? 'positive' : m.status === 'invited' ? 'progress' : 'critical'">{{ m.status }}</span>
+                    <div class="m-actions">
+                      @if (m.status !== 'active') {
+                        <button mat-icon-button type="button" title="Resend set-password link" (click)="resend(t.id, m.uid)"><mat-icon aria-hidden="true">forward_to_inbox</mat-icon></button>
+                        <button mat-icon-button type="button" title="Revoke link" (click)="revoke(t.id, m.uid)"><mat-icon aria-hidden="true">link_off</mat-icon></button>
+                      }
+                      <button mat-icon-button type="button" [title]="m.status === 'active' ? 'Disable' : 'Enable'" (click)="toggleStatus(t.id, m)">
+                        <mat-icon aria-hidden="true">{{ m.status === 'active' ? 'block' : 'check_circle' }}</mat-icon>
+                      </button>
+                    </div>
+                    @if (linkFor(m.uid); as link) {
+                      <div class="inline-link">
+                        <code>{{ link }}</code>
+                        <button mat-icon-button type="button" aria-label="Copy link" (click)="copy(link)"><mat-icon aria-hidden="true">content_copy</mat-icon></button>
+                      </div>
+                    }
+                  </div>
+                } @empty {
+                  <p class="muted">No users.</p>
+                }
+
+                <div class="add-member">
+                  <label class="fld"><span>Name</span>
+                    <input [value]="addName()" (input)="addName.set($any($event.target).value)" placeholder="Name" /></label>
+                  <label class="fld"><span>Email</span>
+                    <input type="email" [value]="addEmail()" (input)="addEmail.set($any($event.target).value)" placeholder="email@example.com" /></label>
+                  <label class="fld"><span>Role</span>
+                    <select [value]="addRole()" (change)="addRole.set($any($event.target).value)">
+                      <option value="clientViewer">Client</option>
+                      <option value="auditor">Auditor</option>
+                      <option value="leadAuditor">Lead auditor</option>
+                    </select></label>
+                  <button mat-flat-button color="primary" type="button" (click)="addMember(t.id)"><mat-icon aria-hidden="true">person_add</mat-icon>Add</button>
+                </div>
+              </div>
+            }
+          </div>
+        } @empty {
+          <p class="muted">No clients yet — onboard one above.</p>
+        }
+      }
+    </article>
+  </main>
+</div>

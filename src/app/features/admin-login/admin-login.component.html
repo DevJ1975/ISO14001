@@ -1,0 +1,38 @@
+<main class="login">
+  <form class="card" (submit)="submit($event)">
+    <div class="brand">
+      <span class="brand-mark"><mat-icon aria-hidden="true">shield_person</mat-icon></span>
+      <div>
+        <strong>Platform console</strong>
+        <small>Soteria Signum · superadmin</small>
+      </div>
+    </div>
+
+    <h1>Platform sign in</h1>
+    <p class="lead">Provision clients, auditors and client users.</p>
+
+    <label class="field">
+      <span>Email</span>
+      <input #emailEl type="email" autocomplete="username" [value]="email()" (input)="email.set(emailEl.value)" required />
+    </label>
+
+    <label class="field">
+      <span>Password</span>
+      <input #passwordEl type="password" autocomplete="current-password" [value]="password()" (input)="password.set(passwordEl.value)" required />
+    </label>
+
+    @if (error(); as message) {
+      <p class="error" role="alert"><mat-icon aria-hidden="true">error</mat-icon>{{ message }}</p>
+    }
+
+    <button mat-flat-button color="primary" type="submit" [disabled]="busy()">
+      <mat-icon aria-hidden="true">login</mat-icon>
+      {{ busy() ? 'Signing in…' : 'Sign in' }}
+    </button>
+
+    <p class="hint">
+      <mat-icon aria-hidden="true">info</mat-icon>
+      Seed a superadmin with <code>SUPERADMIN_EMAIL</code> + <code>SUPERADMIN_PASSWORD</code> then <code>npm run mongo:init</code>.
+    </p>
+  </form>
+</main>

@@ -2,6 +2,7 @@ import { Routes } from '@angular/router';
 
 import { authGuard } from './core/auth/auth.guard';
 import { portalScopeGuard } from './core/auth/portal-scope.guard';
+import { superadminGuard } from './core/auth/superadmin.guard';
 import { ShellComponent } from './core/shell/shell.component';
 
 export const routes: Routes = [
@@ -9,6 +10,22 @@ export const routes: Routes = [
     path: 'login',
     loadComponent: () => import('./features/login/login.component').then((m) => m.LoginComponent),
     title: 'Sign in',
+  },
+  {
+    path: 'admin/login',
+    loadComponent: () => import('./features/admin-login/admin-login.component').then((m) => m.AdminLoginComponent),
+    title: 'Platform sign in',
+  },
+  {
+    path: 'set-password',
+    loadComponent: () => import('./features/set-password/set-password.component').then((m) => m.SetPasswordComponent),
+    title: 'Set your password',
+  },
+  {
+    path: 'admin',
+    canActivate: [superadminGuard],
+    loadComponent: () => import('./features/admin-console/admin-console.component').then((m) => m.AdminConsoleComponent),
+    title: 'Platform console',
   },
   {
     path: 'report/print',

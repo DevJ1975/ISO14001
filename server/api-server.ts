@@ -2,6 +2,7 @@ import { createServer } from 'node:http';
 
 import { ensureMongoIndexes } from './collections.js';
 import { DEV_JWT_SECRET, loadServerConfig } from './config.js';
+import { createMailer } from './mailer.js';
 import { getMongoDb } from './mongo.js';
 import { handleApiRequest } from './routes.js';
 
@@ -15,9 +16,10 @@ async function main(): Promise<void> {
   }
   const db = await getMongoDb(config);
   await ensureMongoIndexes(db);
+  const mailer = createMailer(config);
 
   const server = createServer((request, response) => {
-    void handleApiRequest(request, response, { db, config });
+    void handleApiRequest(request, response, { db, config, mailer });
   });
 
   server.listen(config.port, () => {

@@ -102,16 +102,16 @@ export class FieldApiService {
     return result?.members ?? [];
   }
 
-  createMember(body: { email: string; displayName: string; role: string }): Promise<{ member: Member; tempPassword?: string }> {
-    return firstValueFrom(this.http.post<{ member: Member; tempPassword?: string }>(`${this.tenantBase()}/members`, body));
+  createMember(body: { email: string; displayName: string; role: string }): Promise<{ member: Member; setPasswordLink?: string }> {
+    return firstValueFrom(this.http.post<{ member: Member; setPasswordLink?: string }>(`${this.tenantBase()}/members`, body));
   }
 
   updateMember(uid: string, patch: { role?: string; status?: string; displayName?: string }): Promise<{ member: Member }> {
     return firstValueFrom(this.http.put<{ member: Member }>(`${this.tenantBase()}/members/${encodeURIComponent(uid)}`, patch));
   }
 
-  resetMemberPassword(uid: string): Promise<{ tempPassword?: string }> {
-    return firstValueFrom(this.http.post<{ tempPassword?: string }>(`${this.tenantBase()}/members/${encodeURIComponent(uid)}/password`, {}));
+  resetMemberPassword(uid: string): Promise<{ setPasswordLink?: string }> {
+    return firstValueFrom(this.http.post<{ setPasswordLink?: string }>(`${this.tenantBase()}/members/${encodeURIComponent(uid)}/password`, {}));
   }
 
   changeOwnPassword(currentPassword: string, newPassword: string): Promise<unknown> {

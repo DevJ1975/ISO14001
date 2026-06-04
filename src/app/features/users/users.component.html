@@ -6,14 +6,16 @@
 
   @if (handoff(); as h) {
     <article class="panel handoff">
-      <mat-icon aria-hidden="true">vpn_key</mat-icon>
+      <mat-icon aria-hidden="true">mark_email_read</mat-icon>
       <div class="handoff-main">
-        <strong>One-time password for {{ h.email }}</strong>
-        <span>Share this securely — it won't be shown again. Ask them to change it after signing in.</span>
-        <code>{{ h.password }}</code>
+        <strong>Invite sent to {{ h.email }}</strong>
+        <span>They've been emailed a secure, single-use link to set their password.</span>
+        @if (h.link) { <code>{{ h.link }}</code> }
       </div>
       <div class="handoff-actions">
-        <button mat-stroked-button type="button" (click)="copy(h.password)"><mat-icon aria-hidden="true">content_copy</mat-icon>Copy</button>
+        @if (h.link) {
+          <button mat-stroked-button type="button" (click)="copy(h.link)"><mat-icon aria-hidden="true">content_copy</mat-icon>Copy link</button>
+        }
         <button mat-button type="button" (click)="handoff.set(null)">Dismiss</button>
       </div>
     </article>
@@ -52,7 +54,7 @@
           </select></label>
         @if (error(); as err) { <p class="err"><mat-icon aria-hidden="true">error</mat-icon>{{ err }}</p> }
         <button mat-flat-button color="primary" type="button" [disabled]="inviting()" (click)="invite(email.value, displayName.value)">
-          <mat-icon aria-hidden="true">send</mat-icon>{{ inviting() ? 'Inviting…' : 'Invite & generate password' }}
+          <mat-icon aria-hidden="true">send</mat-icon>{{ inviting() ? 'Inviting…' : 'Send invite' }}
         </button>
       </article>
     }

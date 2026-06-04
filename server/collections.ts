@@ -4,6 +4,7 @@ export const mongoCollections = {
   tenants: 'tenants',
   members: 'members',
   invites: 'invites',
+  setPasswordTokens: 'setPasswordTokens',
   audits: 'audits',
   checklistItems: 'checklistItems',
   findings: 'findings',
@@ -49,7 +50,12 @@ export async function ensureMongoIndexes(db: Db): Promise<void> {
   await Promise.all([
     db.collection(mongoCollections.tenants).createIndex({ id: 1 }, { unique: true }),
     db.collection(mongoCollections.members).createIndex({ tenantId: 1, uid: 1 }, { unique: true }),
+    // One account per email address across the platform (provisioning relies on this).
+    db.collection(mongoCollections.members).createIndex({ 'profile.email': 1 }, { unique: true }),
     db.collection(mongoCollections.invites).createIndex({ tenantId: 1, email: 1, status: 1 }),
+    db.collection(mongoCollections.setPasswordTokens).createIndex({ tokenHash: 1 }, { unique: true }),
+    db.collection(mongoCollections.setPasswordTokens).createIndex({ tenantId: 1, uid: 1, purpose: 1 }),
+    db.collection(mongoCollections.setPasswordTokens).createIndex({ expiresAt: 1 }),
     db.collection(mongoCollections.audits).createIndex({ tenantId: 1, auditeeId: 1, status: 1 }),
     db.collection(mongoCollections.audits).createIndex({ tenantId: 1, assignedMembers: 1 }),
     db.collection(mongoCollections.checklistItems).createIndex({ tenantId: 1, auditId: 1, id: 1 }, { unique: true }),

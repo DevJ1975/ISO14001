@@ -22,6 +22,7 @@ export * from './ohs-signature.js';
 export * from './ohs-suppliers.js';
 export * from './ohs-training.js';
 export * from './nonconformity.js';
+export * from './platform-admin.js';
 export * from './field-execution.js';
 export * from './hardening.js';
 export * from './models.js';
