@@ -1172,6 +1172,107 @@ export async function handleApiRequest(
       return;
     }
 
+    // AI photo-evidence analysis (server-side vision). Inert until ANTHROPIC_API_KEY
+    // + a vision model (ANTHROPIC_VISION_MODEL or ANTHROPIC_MODEL) are set → 501
+    // ai_not_configured, so the client shows the graceful "needs the server/key"
+    // state. Returns a candidate (observations / hazard tags / suggested clause +
+    // finding) with status needsAuditorReview — the auditor accepts/rejects; nothing
+    // is auto-applied. The prompt forbids verbatim ISO requirement text (copyright).
+    const photoAnalyzeMatch = matchPath(
+      new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/evidence/([^/]+)/analyze$`),
+      url.pathname,
+      ['tenantId', 'auditId', 'evidenceId'],
+    );
+    if (request.method === 'POST' && photoAnalyzeMatch && actor) {
+      const tenantId = photoAnalyzeMatch.params['tenantId']!;
+      const auditId = photoAnalyzeMatch.params['auditId']!;
+      const evidenceId = photoAnalyzeMatch.params['evidenceId']!;
+      requireTenant(actor, tenantId);
+      requireAnyRole(actor, ['leadAuditor', 'auditor']);
+      const body = await readJson(request, z.object({ imageBase64: z.string().optional(), mimeType: z.string().optional() }).passthrough());
+      const apiKey = process.env['ANTHROPIC_API_KEY'];
+      const model = process.env['ANTHROPIC_VISION_MODEL'] ?? process.env['ANTHROPIC_MODEL'];
+      if (!apiKey || !model) {
+        sendJson(response, 501, { error: 'ai_not_configured' }, corsOrigin);
+        return;
+      }
+      // Prefer image bytes supplied in the body; otherwise look up the stored evidence.
+      let imageBase64 = typeof body['imageBase64'] === 'string' ? (body['imageBase64'] as string) : undefined;
+      let mimeType = typeof body['mimeType'] === 'string' ? (body['mimeType'] as string) : 'image/jpeg';
+      if (!imageBase64) {
+        const evidence = await dependencies.db
+          .collection(mongoCollections.evidence)
+          .findOne({ tenantId, auditId, id: evidenceId });
+        const stored = evidence as { imageBase64?: string; media?: { mimeType?: string } } | null;
+        if (stored?.imageBase64) {
+          imageBase64 = stored.imageBase64;
+          mimeType = stored.media?.mimeType ?? mimeType;
+        }
+      }
+      if (!imageBase64) {
+        sendJson(response, 422, { error: 'no_image' }, corsOrigin);
+        return;
+      }
+      const system =
+        'You are an ISO 45001 occupational health & safety auditor assistant reviewing a single site photo. Suggest only what is visible. Use ISO 45001 clause numbers and short titles only; do NOT quote or paraphrase verbatim ISO requirement text. Respond with a strict JSON object only with keys: observations (string[]), hazardTags (string[]), suggestedClauseId (string), suggestedFindingStatement (string), suggestedType (one of minorNc, majorNc, ofi, conformity). Every suggestion is a candidate for an auditor to review; do not assert conclusions.';
+      try {
+        const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+          body: JSON.stringify({
+            model,
+            max_tokens: 1024,
+            system,
+            messages: [
+              {
+                role: 'user',
+                content: [
+                  { type: 'image', source: { type: 'base64', media_type: mimeType, data: imageBase64 } },
+                  { type: 'text', text: 'Analyze this OH&S site photo and return the JSON object.' },
+                ],
+              },
+            ],
+          }),
+        });
+        if (!aiRes.ok) {
+          sendJson(response, 502, { error: 'ai_upstream' }, corsOrigin);
+          return;
+        }
+        const payload = (await aiRes.json()) as { content?: { text?: string }[] };
+        const text = (payload.content ?? []).map((part) => part.text ?? '').join('');
+        const found = text.match(/\{[\s\S]*\}/);
+        const parsed = found ? (JSON.parse(found[0]) as Record<string, unknown>) : null;
+        if (!parsed) {
+          sendJson(response, 502, { error: 'ai_parse' }, corsOrigin);
+          return;
+        }
+        const types = ['minorNc', 'majorNc', 'ofi', 'conformity'];
+        const rawType = parsed['suggestedType'];
+        const stringList = (value: unknown): string[] =>
+          Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : [];
+        sendJson(
+          response,
+          200,
+          {
+            status: 'needsAuditorReview',
+            observations: stringList(parsed['observations']),
+            hazardTags: stringList(parsed['hazardTags']),
+            suggestedClauseId: typeof parsed['suggestedClauseId'] === 'string' ? parsed['suggestedClauseId'] : undefined,
+            suggestedFindingStatement:
+              typeof parsed['suggestedFindingStatement'] === 'string' ? parsed['suggestedFindingStatement'] : undefined,
+            suggestedType: typeof rawType === 'string' && types.includes(rawType) ? rawType : 'ofi',
+            provider: 'anthropicClaude',
+            generatedAt: new Date().toISOString(),
+          },
+          corsOrigin,
+        );
+        return;
+      } catch {
+        sendJson(response, 502, { error: 'ai_failed' }, corsOrigin);
+        return;
+      }
+    }
+
     const findingConfirmMatch = matchPath(
       new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/findings/([^/]+)/confirm$`),
       url.pathname,

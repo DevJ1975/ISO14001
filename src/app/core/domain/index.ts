@@ -24,6 +24,7 @@ export * from './nonconformity.js';
 export * from './field-execution.js';
 export * from './hardening.js';
 export * from './models.js';
+export * from './photo-analysis.js';
 export * from './photo-evidence.js';
 export * from './production-backend.js';
 export * from './reports-capa.js';
