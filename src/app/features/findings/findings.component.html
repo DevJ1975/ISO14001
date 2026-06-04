@@ -77,14 +77,30 @@
                 <div class="capa-head">
                   <strong>Corrective action (ISO 45001 cl. 10.2)</strong>
                   @if (selectedCapa(); as capa) {
+                    <span class="intent-badge" data-tone="neutral">{{ intentLabel(capa.intent) }}</span>
                     <span [attr.data-tone]="capaTone(capa.status)">{{ capa.status }}</span>
                     @if (overdue(capa)) { <span data-tone="critical">overdue</span> }
                   }
                 </div>
 
                 @if (selectedCapa(); as capa) {
+                  <label class="fld"><span>Intent (cl. 10.2)</span>
+                    <select #intentSel [value]="capa.intent" (change)="saveIntent(capa, intentSel.value)">
+                      @for (option of intents; track option.value) {
+                        <option [value]="option.value">{{ option.label }}</option>
+                      }
+                    </select>
+                  </label>
                   <label class="fld"><span>Correction (immediate containment)</span>
                     <textarea #corr rows="2" [value]="capa.correction || ''" (change)="saveCapaField(capa, 'correction', corr.value)"></textarea>
+                  </label>
+                  <label class="fld"><span>Root-cause method</span>
+                    <select #rcm [value]="capa.rootCauseMethod || ''" (change)="saveRootCauseMethod(capa, rcm.value)">
+                      <option value="">Not selected</option>
+                      @for (option of rootCauseMethods; track option.value) {
+                        <option [value]="option.value">{{ option.label }}</option>
+                      }
+                    </select>
                   </label>
                   <label class="fld"><span>Root cause</span>
                     <textarea #rc rows="2" [value]="capa.rootCause || ''" (change)="saveCapaField(capa, 'rootCause', rc.value)"></textarea>

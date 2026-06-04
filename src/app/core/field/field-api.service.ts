@@ -37,8 +37,10 @@ import type {
   Permit,
   ResourceRecord,
   RiskOpportunity,
+  Site,
   SupplierRecord,
   TrainingRecord,
+  Worker,
   WorkerConsultation,
 } from './field-audit-store';
 
@@ -71,6 +73,8 @@ export interface FieldStatePayload {
   risksOpportunities?: Array<Omit<RiskOpportunity, 'sync'>>;
   resources?: Array<Omit<ResourceRecord, 'sync'>>;
   competence?: Array<Omit<CompetenceRecord, 'sync'>>;
+  workers?: Array<Omit<Worker, 'sync'>>;
+  sites?: Array<Omit<Site, 'sync'>>;
   awareness?: Array<Omit<AwarenessRecord, 'sync'>>;
   documentedInfo?: Array<Omit<DocumentedInfoRecord, 'sync'>>;
   performanceMetrics?: Array<Omit<PerformanceMetric, 'sync'>>;
@@ -307,6 +311,14 @@ export class FieldApiService {
 
   upsertCompetence(body: Omit<CompetenceRecord, 'sync'>): Promise<unknown> {
     return firstValueFrom(this.http.put(`${this.base()}/competence/${encodeURIComponent(body.id)}`, body));
+  }
+
+  upsertWorker(body: Omit<Worker, 'sync'>): Promise<unknown> {
+    return firstValueFrom(this.http.put(`${this.base()}/people/${encodeURIComponent(body.id)}`, body));
+  }
+
+  upsertSite(body: Omit<Site, 'sync'>): Promise<unknown> {
+    return firstValueFrom(this.http.put(`${this.base()}/sites/${encodeURIComponent(body.id)}`, body));
   }
 
   upsertAwareness(body: Omit<AwarenessRecord, 'sync'>): Promise<unknown> {

@@ -3,6 +3,9 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import {
   AuditAgenda,
   AuditAgendaInput,
+  CapaIntent,
+  CapaRootCauseMethod,
+  DEFAULT_CAPA_INTENT,
   EvidenceRequest,
   EvidenceSubmission,
   FindingDraft,
@@ -18,6 +21,7 @@ import {
   StandardChecklistRow,
   StandardEdition,
   analysisCandidateToFinding,
+  appendComplianceEvaluation,
   composeAuditAgenda,
   composeFindingDraft,
   composeMeetingScripts,
@@ -158,6 +162,15 @@ export interface Hazard {
   sync: SyncState;
 }
 
+/** One timestamped compliance evaluation in an obligation's history (ISO 45001 cl. 9.1.2). */
+export interface ComplianceEvaluation {
+  id: string;
+  evaluatedAt: string;
+  complianceStatus: 'compliant' | 'nonCompliant' | 'toVerify';
+  evaluatedBy?: string;
+  note?: string;
+}
+
 export interface ComplianceObligation {
   id: string;
   obligation: string;
@@ -166,6 +179,8 @@ export interface ComplianceObligation {
   complianceStatus: 'compliant' | 'nonCompliant' | 'toVerify';
   result: RegisterResult;
   lastEvaluatedAt?: string;
+  /** Timestamped history of compliance evaluations, newest first (cl. 9.1.2). */
+  evaluations: ComplianceEvaluation[];
   updatedAt: string;
   sync: SyncState;
 }
@@ -291,6 +306,37 @@ export interface CompetenceRecord {
   trainingEvidence?: string;
   status: 'competent' | 'inTraining' | 'gap';
   result: RegisterResult;
+  updatedAt: string;
+  sync: SyncState;
+}
+
+/**
+ * Worker / person master record (tenant/audit-scoped). Lets competence,
+ * training and consultation reference people consistently instead of by
+ * free-text name, and supports multi-site sampling (ISO 45001 cl. 5.4 / 7.2).
+ */
+export interface Worker {
+  id: string;
+  name: string;
+  role: string;
+  employeeRef?: string;
+  competenceSummary?: string;
+  active: boolean;
+  updatedAt: string;
+  sync: SyncState;
+}
+
+/**
+ * Site / location master record (tenant/audit-scoped). Provides a shared list
+ * of locations for multi-site sampling rather than burying sites inside the
+ * auditee record.
+ */
+export interface Site {
+  id: string;
+  name: string;
+  address?: string;
+  activities?: string;
+  siteRef?: string;
   updatedAt: string;
   sync: SyncState;
 }
@@ -558,7 +604,11 @@ export interface FieldEvidenceRequest extends EvidenceRequest {
 export interface FieldCapa {
   id: string;
   findingId: string;
+  /** ISO 45001 cl. 10.2 action intent: immediate correction, root-cause corrective action, or proactive preventive action. */
+  intent: CapaIntent;
   correction?: string;
+  /** Root-cause analysis method used to drive the corrective action. */
+  rootCauseMethod?: CapaRootCauseMethod;
   rootCause?: string;
   action?: string;
   owner?: string;
@@ -593,6 +643,8 @@ interface PersistedState {
   risksOpportunities: RiskOpportunity[];
   resources: ResourceRecord[];
   competence: CompetenceRecord[];
+  workers: Worker[];
+  sites: Site[];
   awareness: AwarenessRecord[];
   documentedInfo: DocumentedInfoRecord[];
   performanceMetrics: PerformanceMetric[];
@@ -848,6 +900,41 @@ function seedPerformanceMetrics(): PerformanceMetric[] {
   ];
 }
 
+/** Demonstration worker/person master list — referenced by competence, training & consultation. */
+function seedWorkers(): Worker[] {
+  const now = '2026-06-15T15:00:00.000Z';
+  const base = (extra: Partial<Worker>): Worker => ({
+    id: uid('worker'),
+    name: '',
+    role: '',
+    active: true,
+    updatedAt: now,
+    sync: 'synced',
+    ...extra,
+  });
+  return [
+    base({ name: 'J. Okafor', role: 'H&S lead', employeeRef: 'EMP-1001', competenceSummary: 'ISO 45001 internal auditor; NEBOSH General Certificate.' }),
+    base({ name: 'M. Silva', role: 'First aider', employeeRef: 'EMP-1042', competenceSummary: 'First aid at work (renewal due 2026-07).' }),
+    base({ name: 'R. Adeyemi', role: 'MEWP operator', employeeRef: 'EMP-1108', competenceSummary: 'IPAF MEWP licence (lapsed — re-certification required).', active: false }),
+  ];
+}
+
+/** Demonstration site/location master list — supports multi-site sampling. */
+function seedSites(): Site[] {
+  const now = '2026-06-15T15:00:00.000Z';
+  const base = (extra: Partial<Site>): Site => ({
+    id: uid('site'),
+    name: '',
+    updatedAt: now,
+    sync: 'synced',
+    ...extra,
+  });
+  return [
+    base({ name: 'Denver Assembly Plant', address: '1200 Industrial Pkwy, Denver, CO', activities: 'Assembly, welding, finishing', siteRef: 'SITE-DEN' }),
+    base({ name: 'Aurora Warehouse', address: '88 Logistics Way, Aurora, CO', activities: 'Storage, FLT operations, despatch', siteRef: 'SITE-AUR' }),
+  ];
+}
+
 const DEMO_SEED_AT = '2026-06-15T15:00:00.000Z';
 
 /**
@@ -1095,6 +1182,8 @@ export class FieldAuditStore {
   readonly risksOpportunities = signal<RiskOpportunity[]>([]);
   readonly resources = signal<ResourceRecord[]>([]);
   readonly competence = signal<CompetenceRecord[]>([]);
+  readonly workers = signal<Worker[]>(seedWorkers());
+  readonly sites = signal<Site[]>(seedSites());
   readonly awareness = signal<AwarenessRecord[]>([]);
   readonly documentedInfo = signal<DocumentedInfoRecord[]>(seedDocumentedInfo());
   readonly performanceMetrics = signal<PerformanceMetric[]>(seedPerformanceMetrics());
@@ -1159,6 +1248,8 @@ export class FieldAuditStore {
       this.risksOpportunities().filter((r) => r.sync !== 'synced').length +
       this.resources().filter((r) => r.sync !== 'synced').length +
       this.competence().filter((c) => c.sync !== 'synced').length +
+      this.workers().filter((w) => w.sync !== 'synced').length +
+      this.sites().filter((s) => s.sync !== 'synced').length +
       this.awareness().filter((a) => a.sync !== 'synced').length +
       this.documentedInfo().filter((d) => d.sync !== 'synced').length +
       this.performanceMetrics().filter((m) => m.sync !== 'synced').length +
@@ -1640,6 +1731,7 @@ export class FieldAuditStore {
     const capa: FieldCapa = {
       id: uid('capa'),
       findingId,
+      intent: DEFAULT_CAPA_INTENT,
       implementationEvidenceIds: [],
       verificationEvidenceIds: [],
       status: 'open',
@@ -1655,7 +1747,12 @@ export class FieldAuditStore {
 
   updateCapa(
     capaId: string,
-    patch: Partial<Pick<FieldCapa, 'correction' | 'rootCause' | 'action' | 'owner' | 'dueDate' | 'implementationEvidenceIds'>>,
+    patch: Partial<
+      Pick<
+        FieldCapa,
+        'intent' | 'correction' | 'rootCauseMethod' | 'rootCause' | 'action' | 'owner' | 'dueDate' | 'implementationEvidenceIds'
+      >
+    >,
   ): void {
     this.capas.update((list) =>
       list.map((capa) => {
@@ -1941,7 +2038,7 @@ export class FieldAuditStore {
 
   addObligation(): void {
     this.obligations.update((list) => [
-      { id: uid('obligation'), obligation: '', source: 'legal', requirement: '', complianceStatus: 'toVerify', result: 'notStarted', updatedAt: new Date().toISOString(), sync: 'queued' },
+      { id: uid('obligation'), obligation: '', source: 'legal', requirement: '', complianceStatus: 'toVerify', result: 'notStarted', evaluations: [], updatedAt: new Date().toISOString(), sync: 'queued' },
       ...list,
     ]);
     this.persist();
@@ -1951,6 +2048,39 @@ export class FieldAuditStore {
   updateObligation(id: string, patch: Partial<ComplianceObligation>): void {
     this.obligations.update((list) =>
       list.map((entry) => (entry.id === id ? { ...entry, ...patch, updatedAt: new Date().toISOString(), sync: 'queued' } : entry)),
+    );
+    this.persist();
+    this.autoFlush();
+  }
+
+  /**
+   * Record a timestamped compliance evaluation against an obligation (ISO 45001
+   * cl. 9.1.2). Appends to the obligation's evaluation history (newest first)
+   * and updates its current `complianceStatus`/`lastEvaluatedAt` to match, then
+   * persists & syncs. Builds the auditor trend across audit cycles.
+   */
+  addComplianceEvaluation(
+    obligationId: string,
+    entry: { complianceStatus: ComplianceEvaluation['complianceStatus']; evaluatedBy?: string; note?: string },
+  ): void {
+    const evaluation: ComplianceEvaluation = {
+      id: uid('evaluation'),
+      evaluatedAt: new Date().toISOString(),
+      complianceStatus: entry.complianceStatus,
+      evaluatedBy: entry.evaluatedBy?.trim() || AUDITOR,
+      note: entry.note?.trim() || undefined,
+    };
+    this.obligations.update((list) =>
+      list.map((row) =>
+        row.id === obligationId
+          ? {
+              ...row,
+              ...appendComplianceEvaluation(row.evaluations, evaluation),
+              updatedAt: new Date().toISOString(),
+              sync: 'queued',
+            }
+          : row,
+      ),
     );
     this.persist();
     this.autoFlush();
@@ -2107,6 +2237,50 @@ export class FieldAuditStore {
     );
     this.persist();
     this.autoFlush();
+  }
+
+  addWorker(): void {
+    this.workers.update((list) => [
+      { id: uid('worker'), name: '', role: '', active: true, updatedAt: new Date().toISOString(), sync: 'queued' },
+      ...list,
+    ]);
+    this.persist();
+    this.autoFlush();
+  }
+
+  updateWorker(id: string, patch: Partial<Worker>): void {
+    this.workers.update((list) =>
+      list.map((entry) => (entry.id === id ? { ...entry, ...patch, updatedAt: new Date().toISOString(), sync: 'queued' } : entry)),
+    );
+    this.persist();
+    this.autoFlush();
+  }
+
+  removeWorker(id: string): void {
+    this.workers.update((list) => list.filter((entry) => entry.id !== id));
+    this.persist();
+  }
+
+  addSite(): void {
+    this.sites.update((list) => [
+      { id: uid('site'), name: '', updatedAt: new Date().toISOString(), sync: 'queued' },
+      ...list,
+    ]);
+    this.persist();
+    this.autoFlush();
+  }
+
+  updateSite(id: string, patch: Partial<Site>): void {
+    this.sites.update((list) =>
+      list.map((entry) => (entry.id === id ? { ...entry, ...patch, updatedAt: new Date().toISOString(), sync: 'queued' } : entry)),
+    );
+    this.persist();
+    this.autoFlush();
+  }
+
+  removeSite(id: string): void {
+    this.sites.update((list) => list.filter((entry) => entry.id !== id));
+    this.persist();
   }
 
   addAwareness(): void {
@@ -2435,6 +2609,8 @@ export class FieldAuditStore {
     this.risksOpportunities.set([]);
     this.resources.set([]);
     this.competence.set([]);
+    this.workers.set(seedWorkers());
+    this.sites.set(seedSites());
     this.awareness.set([]);
     this.documentedInfo.set(seedDocumentedInfo());
     this.performanceMetrics.set(seedPerformanceMetrics());
@@ -2725,6 +2901,28 @@ export class FieldAuditStore {
           this.setSync('competence', record.id, 'queued');
         }
       }
+      for (const record of this.workers().filter((entry) => entry.sync !== 'synced')) {
+        this.setSync('workers', record.id, 'syncing');
+        try {
+          const { sync, ...payload } = record;
+          void sync;
+          await this.api.upsertWorker(payload);
+          this.setSync('workers', record.id, 'synced');
+        } catch {
+          this.setSync('workers', record.id, 'queued');
+        }
+      }
+      for (const record of this.sites().filter((entry) => entry.sync !== 'synced')) {
+        this.setSync('sites', record.id, 'syncing');
+        try {
+          const { sync, ...payload } = record;
+          void sync;
+          await this.api.upsertSite(payload);
+          this.setSync('sites', record.id, 'synced');
+        } catch {
+          this.setSync('sites', record.id, 'queued');
+        }
+      }
       for (const record of this.awareness().filter((entry) => entry.sync !== 'synced')) {
         this.setSync('awareness', record.id, 'syncing');
         try {
@@ -2860,6 +3058,8 @@ export class FieldAuditStore {
       | 'risksOpportunities'
       | 'resources'
       | 'competence'
+      | 'workers'
+      | 'sites'
       | 'awareness'
       | 'documentedInfo'
       | 'performanceMetrics'
@@ -2892,6 +3092,8 @@ export class FieldAuditStore {
       risksOpportunities: this.risksOpportunities,
       resources: this.resources,
       competence: this.competence,
+      workers: this.workers,
+      sites: this.sites,
       awareness: this.awareness,
       documentedInfo: this.documentedInfo,
       performanceMetrics: this.performanceMetrics,
@@ -2958,6 +3160,8 @@ export class FieldAuditStore {
       risksOpportunities: this.risksOpportunities(),
       resources: this.resources(),
       competence: this.competence(),
+      workers: this.workers(),
+      sites: this.sites(),
       awareness: this.awareness(),
       documentedInfo: this.documentedInfo(),
       performanceMetrics: this.performanceMetrics(),
@@ -2986,12 +3190,12 @@ export class FieldAuditStore {
       this.evidence.set(payload.evidence.map((record) => ({ ...record, sync: 'synced' as const })));
       this.findings.set(payload.findings.map((finding) => ({ ...finding, sync: 'synced' as const })));
       this.evidenceRequests.set((payload.evidenceRequests ?? []).map((req) => ({ ...req, sync: 'synced' as const })));
-      this.capas.set((payload.capas ?? []).map((capa) => ({ ...capa, sync: 'synced' as const })));
+      this.capas.set((payload.capas ?? []).map((capa) => ({ ...capa, intent: capa.intent ?? DEFAULT_CAPA_INTENT, sync: 'synced' as const })));
       this.auditStatus.set(payload.auditStatus ?? 'fieldwork');
       this.meetings.set((payload.meetings ?? []).map((meeting) => ({ ...meeting, sync: 'synced' as const })));
       this.conclusion.set(payload.conclusion ? { ...payload.conclusion, sync: 'synced' } : null);
       this.aspects.set((payload.aspects ?? []).map((a) => ({ ...a, sync: 'synced' as const })));
-      this.obligations.set((payload.obligations ?? []).map((o) => ({ ...o, sync: 'synced' as const })));
+      this.obligations.set((payload.obligations ?? []).map((o) => ({ ...o, evaluations: o.evaluations ?? [], sync: 'synced' as const })));
       this.emergencyRecords.set((payload.emergencyRecords ?? []).map((e) => ({ ...e, sync: 'synced' as const })));
       this.interestedParties.set((payload.interestedParties ?? []).map((p) => ({ ...p, sync: 'synced' as const })));
       this.objectives.set((payload.objectives ?? []).map((o) => ({ ...o, sync: 'synced' as const })));
@@ -3001,6 +3205,8 @@ export class FieldAuditStore {
       this.risksOpportunities.set((payload.risksOpportunities ?? []).map((r) => ({ ...r, sync: 'synced' as const })));
       this.resources.set((payload.resources ?? []).map((r) => ({ ...r, sync: 'synced' as const })));
       this.competence.set((payload.competence ?? []).map((c) => ({ ...c, sync: 'synced' as const })));
+      this.workers.set((payload.workers ?? []).map((w) => ({ ...w, sync: 'synced' as const })));
+      this.sites.set((payload.sites ?? []).map((s) => ({ ...s, sync: 'synced' as const })));
       this.awareness.set((payload.awareness ?? []).map((a) => ({ ...a, sync: 'synced' as const })));
       this.documentedInfo.set((payload.documentedInfo ?? []).map((d) => ({ ...d, sync: 'synced' as const })));
       this.performanceMetrics.set((payload.performanceMetrics ?? []).map((m) => ({ ...m, sync: 'synced' as const })));
@@ -3046,12 +3252,12 @@ export class FieldAuditStore {
     this.items.set(saved.items);
     this.findings.set(saved.findings.map(normalizeFinding));
     this.evidenceRequests.set(saved.evidenceRequests ?? seedEvidenceRequests());
-    this.capas.set(saved.capas ?? []);
+    this.capas.set((saved.capas ?? []).map((capa) => ({ ...capa, intent: capa.intent ?? DEFAULT_CAPA_INTENT })));
     this.auditStatus.set(saved.auditStatus ?? 'fieldwork');
     this.meetings.set(saved.meetings ?? []);
     this.conclusion.set(saved.conclusion ?? null);
     this.aspects.set(saved.aspects ?? []);
-    this.obligations.set(saved.obligations ?? []);
+    this.obligations.set((saved.obligations ?? []).map((o) => ({ ...o, evaluations: o.evaluations ?? [] })));
     this.emergencyRecords.set(saved.emergencyRecords ?? []);
     this.interestedParties.set(saved.interestedParties ?? []);
     this.objectives.set(saved.objectives ?? []);
@@ -3061,6 +3267,8 @@ export class FieldAuditStore {
     this.risksOpportunities.set(saved.risksOpportunities ?? []);
     this.resources.set(saved.resources ?? []);
     this.competence.set(saved.competence ?? []);
+    this.workers.set(saved.workers ?? seedWorkers());
+    this.sites.set(saved.sites ?? seedSites());
     this.awareness.set(saved.awareness ?? []);
     this.documentedInfo.set(saved.documentedInfo ?? []);
     this.performanceMetrics.set(saved.performanceMetrics ?? seedPerformanceMetrics());

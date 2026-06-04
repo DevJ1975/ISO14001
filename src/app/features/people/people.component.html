@@ -1,0 +1,89 @@
+<section class="screen">
+  <header class="screen-head">
+    <h1>People &amp; Sites</h1>
+    <p>
+      Tenant- and audit-scoped master lists of workers/persons and sites/locations. Reference people consistently across
+      competence, training and consultation records instead of free-text names, and maintain the locations used for
+      multi-site sampling (ISO 45001 cl. 5.4 / 7.2). Changes are saved offline-first and sync when connected.
+    </p>
+  </header>
+
+  <div class="seg">
+    <button type="button" [class.on]="tab() === 'workers'" (click)="setTab('workers')">
+      <mat-icon aria-hidden="true">groups</mat-icon>Workers
+    </button>
+    <button type="button" [class.on]="tab() === 'sites'" (click)="setTab('sites')">
+      <mat-icon aria-hidden="true">pin_drop</mat-icon>Sites
+    </button>
+  </div>
+
+  @switch (tab()) {
+    @case ('workers') {
+      <div class="reg">
+        <div class="reg-head">
+          <h2>Workers &amp; persons</h2>
+          <button mat-flat-button color="primary" type="button" (click)="store.addWorker()">
+            <mat-icon aria-hidden="true">add</mat-icon>Add worker
+          </button>
+        </div>
+        @for (row of store.workers(); track row.id) {
+          <article class="tile row">
+            <div class="grid2">
+              <label class="fld"><span>Name</span><input [value]="row.name" (change)="store.updateWorker(row.id, { name: value($event) })" /></label>
+              <label class="fld"><span>Role / function</span><input [value]="row.role" (change)="store.updateWorker(row.id, { role: value($event) })" /></label>
+            </div>
+            <label class="fld"><span>Employee reference</span><input [value]="row.employeeRef || ''" (change)="store.updateWorker(row.id, { employeeRef: value($event) })" /></label>
+            <label class="fld"><span>Competence summary</span><input [value]="row.competenceSummary || ''" (change)="store.updateWorker(row.id, { competenceSummary: value($event) })" /></label>
+            <div class="row-foot">
+              <label class="chk2">
+                <input type="checkbox" [checked]="row.active" (change)="store.updateWorker(row.id, { active: checked($event) })" />
+                Active
+              </label>
+              <button type="button" class="del" (click)="removeWorker(row.id, row.name)" aria-label="Remove worker">
+                <mat-icon aria-hidden="true">delete</mat-icon>Remove
+              </button>
+            </div>
+          </article>
+        } @empty {
+          <div class="panel empty">
+            <mat-icon aria-hidden="true">groups</mat-icon>
+            <strong>No workers yet</strong>
+            <span>Add the people involved in the audited activities so other registers can reference them.</span>
+          </div>
+        }
+      </div>
+    }
+    @case ('sites') {
+      <div class="reg">
+        <div class="reg-head">
+          <h2>Sites &amp; locations</h2>
+          <button mat-flat-button color="primary" type="button" (click)="store.addSite()">
+            <mat-icon aria-hidden="true">add</mat-icon>Add site
+          </button>
+        </div>
+        @for (row of store.sites(); track row.id) {
+          <article class="tile row">
+            <div class="grid2">
+              <label class="fld"><span>Name</span><input [value]="row.name" (change)="store.updateSite(row.id, { name: value($event) })" /></label>
+              <label class="fld"><span>Site reference</span><input [value]="row.siteRef || ''" (change)="store.updateSite(row.id, { siteRef: value($event) })" /></label>
+            </div>
+            <label class="fld"><span>Address</span><input [value]="row.address || ''" (change)="store.updateSite(row.id, { address: value($event) })" /></label>
+            <label class="fld"><span>Activities</span><input [value]="row.activities || ''" (change)="store.updateSite(row.id, { activities: value($event) })" /></label>
+            <div class="row-foot">
+              <span class="spacer"></span>
+              <button type="button" class="del" (click)="removeSite(row.id, row.name)" aria-label="Remove site">
+                <mat-icon aria-hidden="true">delete</mat-icon>Remove
+              </button>
+            </div>
+          </article>
+        } @empty {
+          <div class="panel empty">
+            <mat-icon aria-hidden="true">pin_drop</mat-icon>
+            <strong>No sites yet</strong>
+            <span>Add the locations in scope to support multi-site sampling.</span>
+          </div>
+        }
+      </div>
+    }
+  }
+</section>

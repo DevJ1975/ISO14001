@@ -342,7 +342,10 @@ const capaStatusServerSchema = z.enum(['open', 'inProgress', 'verificationDue', 
 const capaUpsertCommandSchema = z.object({
   id: z.string().min(1),
   findingId: z.string().min(1),
+  // ISO 45001 cl. 10.2: action intent + root-cause method driving the action.
+  intent: z.enum(['correction', 'correctiveAction', 'preventiveAction']).default('correctiveAction'),
   correction: z.string().max(4000).optional(),
+  rootCauseMethod: z.enum(['fiveWhys', 'fishbone', 'faultTree', 'other']).optional(),
   rootCause: z.string().max(4000).optional(),
   action: z.string().max(4000).optional(),
   owner: z.string().max(300).optional(),
@@ -425,6 +428,15 @@ const aspectUpsertCommandSchema = z.object({
   result: registerResultSchema.default('notStarted'),
 });
 
+/** One timestamped compliance evaluation in an obligation's history (cl. 9.1.2). */
+const complianceEvaluationSchema = z.object({
+  id: z.string().min(1),
+  evaluatedAt: z.string(),
+  complianceStatus: z.enum(['compliant', 'nonCompliant', 'toVerify']),
+  evaluatedBy: z.string().max(200).optional(),
+  note: z.string().max(2000).optional(),
+});
+
 const obligationUpsertCommandSchema = z.object({
   id: z.string().min(1),
   obligation: z.string().max(300).default(''),
@@ -432,6 +444,7 @@ const obligationUpsertCommandSchema = z.object({
   requirement: z.string().max(2000).default(''),
   complianceStatus: z.enum(['compliant', 'nonCompliant', 'toVerify']).default('toVerify'),
   lastEvaluatedAt: z.string().optional(),
+  evaluations: z.array(complianceEvaluationSchema).max(200).default([]),
   result: registerResultSchema.default('notStarted'),
 });
 
@@ -533,6 +546,23 @@ const competenceUpsertCommandSchema = z.object({
   trainingEvidence: z.string().max(2000).optional(),
   status: z.enum(['competent', 'inTraining', 'gap']).default('competent'),
   result: registerResultSchema.default('notStarted'),
+});
+
+const workerUpsertCommandSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().max(300).default(''),
+  role: z.string().max(300).default(''),
+  employeeRef: z.string().max(120).optional(),
+  competenceSummary: z.string().max(2000).optional(),
+  active: z.boolean().default(true),
+});
+
+const siteUpsertCommandSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().max(300).default(''),
+  address: z.string().max(500).optional(),
+  activities: z.string().max(2000).optional(),
+  siteRef: z.string().max(120).optional(),
 });
 
 const awarenessUpsertCommandSchema = z.object({
@@ -1584,6 +1614,14 @@ export async function handleApiRequest(
         .collection(mongoCollections.workerConsultations)
         .find({ tenantId, auditId }, { projection: { _id: 0 } })
         .toArray();
+      const workers = await dependencies.db
+        .collection(mongoCollections.workers)
+        .find({ tenantId, auditId }, { projection: { _id: 0 } })
+        .toArray();
+      const sites = await dependencies.db
+        .collection(mongoCollections.sites)
+        .find({ tenantId, auditId }, { projection: { _id: 0 } })
+        .toArray();
       const reportMeta = await dependencies.db
         .collection(mongoCollections.reportMeta)
         .findOne({ tenantId, auditId }, { projection: { _id: 0 } });
@@ -1619,6 +1657,8 @@ export async function handleApiRequest(
           risksOpportunities,
           resources,
           competence,
+          workers,
+          sites,
           awareness,
           documentedInfo,
           performanceMetrics,
@@ -2555,6 +2595,44 @@ export async function handleApiRequest(
         .collection(mongoCollections.competenceRecords)
         .updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
       sendJson(response, 200, { competence: record }, corsOrigin);
+      return;
+    }
+
+    const workerMatch = matchPath(
+      new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/people/([^/]+)$`),
+      url.pathname,
+      ['tenantId', 'auditId', 'id'],
+    );
+    if (request.method === 'PUT' && workerMatch && actor) {
+      const tenantId = workerMatch.params['tenantId']!;
+      const auditId = workerMatch.params['auditId']!;
+      requireTenant(actor, tenantId);
+      requireAnyRole(actor, ['leadAuditor', 'auditor']);
+      const command = await readJson(request, workerUpsertCommandSchema);
+      const record = { ...command, tenantId, auditId, updatedAt: new Date().toISOString() };
+      await dependencies.db
+        .collection(mongoCollections.workers)
+        .updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
+      sendJson(response, 200, { worker: record }, corsOrigin);
+      return;
+    }
+
+    const siteMatch = matchPath(
+      new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/sites/([^/]+)$`),
+      url.pathname,
+      ['tenantId', 'auditId', 'id'],
+    );
+    if (request.method === 'PUT' && siteMatch && actor) {
+      const tenantId = siteMatch.params['tenantId']!;
+      const auditId = siteMatch.params['auditId']!;
+      requireTenant(actor, tenantId);
+      requireAnyRole(actor, ['leadAuditor', 'auditor']);
+      const command = await readJson(request, siteUpsertCommandSchema);
+      const record = { ...command, tenantId, auditId, updatedAt: new Date().toISOString() };
+      await dependencies.db
+        .collection(mongoCollections.sites)
+        .updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
+      sendJson(response, 200, { site: record }, corsOrigin);
       return;
     }
 

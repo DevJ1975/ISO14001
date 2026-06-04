@@ -48,7 +48,7 @@ async function seedDemoAudit(db: Db): Promise<void> {
   ]);
 
   await seedDocs(db, mongoCollections.capa, ['tenantId', 'auditId', 'id'], [
-    { ...base, id: 'capa-seed-1', findingId: 'finding-seed-1', findingRef: 'finding-seed-1', correction: 'Backfilled progress notes for the two affected objectives.', rootCause: 'Objective owners were not reminded to log quarterly progress.', action: 'Add a quarterly objective-review step to the OHSMS calendar with automated owner reminders.', owner: 'EHS Manager', dueDate: dateOnly(45), implementationEvidenceIds: [], verificationEvidenceIds: [], status: 'inProgress', createdAt: now },
+    { ...base, id: 'capa-seed-1', findingId: 'finding-seed-1', findingRef: 'finding-seed-1', intent: 'correctiveAction', correction: 'Backfilled progress notes for the two affected objectives.', rootCauseMethod: 'fiveWhys', rootCause: 'Objective owners were not reminded to log quarterly progress.', action: 'Add a quarterly objective-review step to the OHSMS calendar with automated owner reminders.', owner: 'EHS Manager', dueDate: dateOnly(45), implementationEvidenceIds: [], verificationEvidenceIds: [], status: 'inProgress', createdAt: now },
   ]);
 
   await seedDocs(db, mongoCollections.environmentalAspects, ['tenantId', 'auditId', 'id'], [
@@ -97,6 +97,16 @@ async function seedDemoAudit(db: Db): Promise<void> {
   await seedDocs(db, mongoCollections.competenceRecords, ['tenantId', 'auditId', 'id'], [
     { ...base, id: 'comp-1', role: 'Coating line operators', requiredCompetence: 'Safe solvent handling; spill response', trainingEvidence: 'Annual training records on file.', status: 'competent', result: 'conforming', evidenceIds: [], updatedAt: now },
     { ...base, id: 'comp-2', role: 'Internal OHSMS auditors', requiredCompetence: 'ISO 45001 internal auditing', trainingEvidence: 'One auditor pending refresher.', status: 'inTraining', result: 'needsFollowUp', evidenceIds: [], updatedAt: now },
+  ]);
+
+  await seedDocs(db, mongoCollections.workers, ['tenantId', 'auditId', 'id'], [
+    { ...base, id: 'worker-1', name: 'J. Okafor', role: 'H&S lead', employeeRef: 'EMP-1001', competenceSummary: 'ISO 45001 internal auditor; NEBOSH General Certificate.', active: true, updatedAt: now },
+    { ...base, id: 'worker-2', name: 'M. Silva', role: 'First aider', employeeRef: 'EMP-1042', competenceSummary: 'First aid at work (renewal due 2026-07).', active: true, updatedAt: now },
+  ]);
+
+  await seedDocs(db, mongoCollections.sites, ['tenantId', 'auditId', 'id'], [
+    { ...base, id: 'site-1', name: 'Denver Assembly Plant', address: '1200 Industrial Pkwy, Denver, CO', activities: 'Assembly, welding, finishing', siteRef: 'SITE-DEN', updatedAt: now },
+    { ...base, id: 'site-2', name: 'Aurora Warehouse', address: '88 Logistics Way, Aurora, CO', activities: 'Storage, FLT operations, despatch', siteRef: 'SITE-AUR', updatedAt: now },
   ]);
 
   await seedDocs(db, mongoCollections.awarenessRecords, ['tenantId', 'auditId', 'id'], [
