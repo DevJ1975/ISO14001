@@ -94,6 +94,8 @@ describe('OHSMS governance API routes', () => {
     { path: 'risks-opportunities', collection: 'risksOpportunities', body: { id: 'risk-1', description: 'Permit limit risk', kind: 'risk', significance: 'high', result: 'needsFollowUp' }, check: 'description' },
     { path: 'resources', collection: 'resourceRecords', body: { id: 'res-1', resource: 'EHS team', category: 'people', adequacy: 'partial', result: 'needsFollowUp' }, check: 'resource' },
     { path: 'competence', collection: 'competenceRecords', body: { id: 'comp-1', role: 'Operators', status: 'competent', result: 'conforming' }, check: 'role' },
+    { path: 'people', collection: 'workers', body: { id: 'worker-1', name: 'J. Okafor', role: 'H&S lead', employeeRef: 'EMP-1001', competenceSummary: 'ISO 45001 internal auditor', active: true }, check: 'name' },
+    { path: 'sites', collection: 'sites', body: { id: 'site-1', name: 'Denver Assembly Plant', address: '1200 Industrial Pkwy', activities: 'Assembly, welding', siteRef: 'SITE-DEN' }, check: 'name' },
     { path: 'awareness', collection: 'awarenessRecords', body: { id: 'aware-1', topic: 'Policy', audience: 'All staff', result: 'conforming' }, check: 'topic' },
     { path: 'documented-info', collection: 'documentedInfo', body: { id: 'doc-1', document: 'OHSMS Manual', controlStatus: 'controlled', version: 'v3.0', owner: 'EHS Manager', lastReviewedAt: '2025-10-01', nextReviewAt: '2026-10-01', reviewFrequencyMonths: 12, attachments: [{ id: 'att-1', name: 'manual.pdf', mime: 'application/pdf', size: 1024, blobKey: 'att-1', addedAt: '2026-01-01T00:00:00.000Z' }], result: 'conforming' }, check: 'document' },
     { path: 'performance-metrics', collection: 'performanceMetrics', body: { id: 'metric-1', indicator: 'Lost-time injuries', category: 'lostTimeInjury', unit: 'per 100k hrs', targetValue: 1.2, actualValue: 1.1, trend: 'improving', result: 'conforming' }, check: 'indicator' },
@@ -134,6 +136,7 @@ describe('OHSMS governance API routes', () => {
         'documented-info': 'documentedInfo',
         'performance-metrics': 'performanceMetrics',
         'worker-consultations': 'workerConsultations',
+        people: 'workers',
       };
       const key = keyMap[path] ?? path;
       assert.equal(payload[key]!.length, 1);

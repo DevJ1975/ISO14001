@@ -84,6 +84,7 @@ export class ShellComponent {
     { path: '/evidence', label: 'Evidence', icon: 'photo_camera', exact: false },
     { path: '/findings', label: 'Findings', icon: 'flag', exact: false },
     { path: '/registers', label: 'Registers', icon: 'health_and_safety', exact: false },
+    { path: '/people', label: 'People & Sites', icon: 'groups', exact: false },
     { path: '/report', label: 'Report', icon: 'description', exact: false },
     { path: '/programme', label: 'Programme', icon: 'calendar_month', exact: false },
     { path: '/requests', label: 'Requests', icon: 'cloud_upload', exact: false },

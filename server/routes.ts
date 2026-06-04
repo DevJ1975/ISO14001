@@ -535,6 +535,23 @@ const competenceUpsertCommandSchema = z.object({
   result: registerResultSchema.default('notStarted'),
 });
 
+const workerUpsertCommandSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().max(300).default(''),
+  role: z.string().max(300).default(''),
+  employeeRef: z.string().max(120).optional(),
+  competenceSummary: z.string().max(2000).optional(),
+  active: z.boolean().default(true),
+});
+
+const siteUpsertCommandSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().max(300).default(''),
+  address: z.string().max(500).optional(),
+  activities: z.string().max(2000).optional(),
+  siteRef: z.string().max(120).optional(),
+});
+
 const awarenessUpsertCommandSchema = z.object({
   id: z.string().min(1),
   topic: z.string().max(300).default(''),
@@ -1584,6 +1601,14 @@ export async function handleApiRequest(
         .collection(mongoCollections.workerConsultations)
         .find({ tenantId, auditId }, { projection: { _id: 0 } })
         .toArray();
+      const workers = await dependencies.db
+        .collection(mongoCollections.workers)
+        .find({ tenantId, auditId }, { projection: { _id: 0 } })
+        .toArray();
+      const sites = await dependencies.db
+        .collection(mongoCollections.sites)
+        .find({ tenantId, auditId }, { projection: { _id: 0 } })
+        .toArray();
       const reportMeta = await dependencies.db
         .collection(mongoCollections.reportMeta)
         .findOne({ tenantId, auditId }, { projection: { _id: 0 } });
@@ -1619,6 +1644,8 @@ export async function handleApiRequest(
           risksOpportunities,
           resources,
           competence,
+          workers,
+          sites,
           awareness,
           documentedInfo,
           performanceMetrics,
@@ -2555,6 +2582,44 @@ export async function handleApiRequest(
         .collection(mongoCollections.competenceRecords)
         .updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
       sendJson(response, 200, { competence: record }, corsOrigin);
+      return;
+    }
+
+    const workerMatch = matchPath(
+      new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/people/([^/]+)$`),
+      url.pathname,
+      ['tenantId', 'auditId', 'id'],
+    );
+    if (request.method === 'PUT' && workerMatch && actor) {
+      const tenantId = workerMatch.params['tenantId']!;
+      const auditId = workerMatch.params['auditId']!;
+      requireTenant(actor, tenantId);
+      requireAnyRole(actor, ['leadAuditor', 'auditor']);
+      const command = await readJson(request, workerUpsertCommandSchema);
+      const record = { ...command, tenantId, auditId, updatedAt: new Date().toISOString() };
+      await dependencies.db
+        .collection(mongoCollections.workers)
+        .updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
+      sendJson(response, 200, { worker: record }, corsOrigin);
+      return;
+    }
+
+    const siteMatch = matchPath(
+      new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/sites/([^/]+)$`),
+      url.pathname,
+      ['tenantId', 'auditId', 'id'],
+    );
+    if (request.method === 'PUT' && siteMatch && actor) {
+      const tenantId = siteMatch.params['tenantId']!;
+      const auditId = siteMatch.params['auditId']!;
+      requireTenant(actor, tenantId);
+      requireAnyRole(actor, ['leadAuditor', 'auditor']);
+      const command = await readJson(request, siteUpsertCommandSchema);
+      const record = { ...command, tenantId, auditId, updatedAt: new Date().toISOString() };
+      await dependencies.db
+        .collection(mongoCollections.sites)
+        .updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
+      sendJson(response, 200, { site: record }, corsOrigin);
       return;
     }
 
