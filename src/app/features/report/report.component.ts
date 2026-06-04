@@ -6,6 +6,7 @@ import { RouterLink } from '@angular/router';
 import { shortFingerprint, verifyReportSignature } from '../../core/domain';
 import { AuthService } from '../../core/auth/auth.service';
 import { AuditType, FieldAuditStore, Recommendation } from '../../core/field/field-audit-store';
+import { ToastService } from '../../core/ui/toast.service';
 
 @Component({
   selector: 'app-report',
@@ -18,6 +19,7 @@ import { AuditType, FieldAuditStore, Recommendation } from '../../core/field/fie
 export class ReportComponent {
   protected readonly store = inject(FieldAuditStore);
   private readonly auth = inject(AuthService);
+  private readonly toast = inject(ToastService);
 
   protected readonly isLead = computed(() => this.auth.user()?.role === 'leadAuditor');
   protected readonly conclusion = computed(() => this.store.conclusion());
@@ -63,22 +65,38 @@ export class ReportComponent {
 
   protected setRecommendation(recommendation: Recommendation): void {
     this.store.saveConclusion({ recommendation });
+    this.toast.saved('Report saved');
   }
 
   protected saveOverall(text: string): void {
-    this.store.saveConclusion({ overallConformity: text.trim() });
+    if (!this.saveConclusionField('overallConformity', text)) return;
+    this.toast.saved('Report saved');
   }
 
   protected saveOpinion(text: string): void {
-    this.store.saveConclusion({ emsEffectivenessOpinion: text.trim() });
+    if (!this.saveConclusionField('emsEffectivenessOpinion', text)) return;
+    this.toast.saved('Report saved');
   }
 
   protected saveCriteria(text: string): void {
-    this.store.saveConclusion({ criteriaMetStatement: text.trim() });
+    if (!this.saveConclusionField('criteriaMetStatement', text)) return;
+    this.toast.saved('Report saved');
   }
 
   protected saveDiverging(text: string): void {
-    this.store.saveConclusion({ divergingOpinions: text.trim() });
+    if (!this.saveConclusionField('divergingOpinions', text)) return;
+    this.toast.saved('Report saved');
+  }
+
+  /** Persist one conclusion text field; returns false (no-op) if unchanged. */
+  private saveConclusionField(
+    field: 'overallConformity' | 'emsEffectivenessOpinion' | 'criteriaMetStatement' | 'divergingOpinions',
+    text: string,
+  ): boolean {
+    const next = text.trim();
+    if (next === (this.conclusion()?.[field] ?? '')) return false;
+    this.store.saveConclusion({ [field]: next });
+    return true;
   }
 
   /** Auto-draft the conclusions from the audit data (AI when live, rule-based offline). */
@@ -86,6 +104,7 @@ export class ReportComponent {
     this.generating.set(true);
     try {
       await this.store.generateReportDraft();
+      this.toast.saved('Draft generated');
     } finally {
       this.generating.set(false);
     }
@@ -97,10 +116,15 @@ export class ReportComponent {
 
   protected setAuditType(value: AuditType): void {
     this.store.updateReportMeta({ auditType: value });
+    this.toast.saved('Report saved');
   }
 
   protected saveMeta(patch: Parameters<FieldAuditStore['updateReportMeta']>[0]): void {
+    const meta = this.meta();
+    const changed = Object.entries(patch).some(([key, value]) => meta[key as keyof typeof meta] !== value);
+    if (!changed) return;
     this.store.updateReportMeta(patch);
+    this.toast.saved('Report saved');
   }
 
   protected async sign(attestation: string): Promise<void> {

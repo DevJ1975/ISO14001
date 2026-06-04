@@ -1,6 +1,7 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { RouterLink } from '@angular/router';
 
 import { editionFromCriteria, standardChecklist } from '../../core/domain';
 import {
@@ -10,7 +11,9 @@ import {
   FindingType,
   SyncState,
 } from '../../core/field/field-audit-store';
+import { CommandPaletteService } from '../../core/ui/command-palette.service';
 import { ConfirmService } from '../../core/ui/confirm.service';
+import { ToastService } from '../../core/ui/toast.service';
 
 type Tone = 'positive' | 'progress' | 'critical' | 'neutral';
 type FilterKey = 'all' | 'open' | 'nc';
@@ -18,20 +21,53 @@ type FilterKey = 'all' | 'open' | 'nc';
 @Component({
   selector: 'app-fieldwork',
   standalone: true,
-  imports: [MatButtonModule, MatIconModule],
+  imports: [MatButtonModule, MatIconModule, RouterLink],
   templateUrl: './fieldwork.component.html',
   styleUrl: './fieldwork.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: { '(document:keydown)': 'onKey($event)' },
 })
 export class FieldworkComponent {
   protected readonly store = inject(FieldAuditStore);
   private readonly confirm = inject(ConfirmService);
+  private readonly toast = inject(ToastService);
+  private readonly palette = inject(CommandPaletteService);
   protected readonly index = signal(0);
   protected readonly filter = signal<FilterKey>('all');
 
   /** Per-audit checklist authoring state. */
   protected readonly editing = signal(false);
   protected readonly showAdd = signal(false);
+
+  /** Whether every clause on the checklist has an answer. */
+  protected readonly completed = computed(() => {
+    const progress = this.store.progress();
+    return progress.total > 0 && progress.percent === 100;
+  });
+
+  /** Transient "all clauses answered" banner; auto-clears after a few seconds. */
+  protected readonly showCelebration = signal(false);
+  private primed = false;
+  private wasComplete = false;
+
+  constructor() {
+    // Celebrate only on a genuine transition to 100% — never on mount when the
+    // checklist is already complete (so reopening the screen stays quiet).
+    effect(() => {
+      const done = this.completed();
+      if (!this.primed) {
+        this.primed = true;
+        this.wasComplete = done;
+        return;
+      }
+      if (done && !this.wasComplete) {
+        this.showCelebration.set(true);
+        this.toast.saved('Audit checklist complete');
+        setTimeout(() => this.showCelebration.set(false), 3500);
+      }
+      this.wasComplete = done;
+    });
+  }
 
   /** Standard clauses offered when adding a custom check. */
   protected readonly clauseOptions = computed(() =>
@@ -141,17 +177,60 @@ export class FieldworkComponent {
       danger: true,
     });
     if (ok) {
+      const removed = item;
       this.store.removeChecklistItem(item.id);
       this.index.set(0);
+      this.toast.undo('Check removed', () => {
+        this.store.restoreChecklistItem(removed);
+        this.index.set(0);
+      });
     }
   }
 
   protected choose(item: FieldChecklistItem, value: FieldResult): void {
     this.store.setResult(item.id, value);
+    this.toast.saved(`${this.resultLabel(value)} recorded`);
   }
 
   protected saveNote(item: FieldChecklistItem, note: string): void {
-    this.store.setNote(item.id, note.trim());
+    const trimmed = note.trim();
+    if (trimmed === (item.note ?? '')) return;
+    this.store.setNote(item.id, trimmed);
+    this.toast.saved('Note saved');
+  }
+
+  /**
+   * Power-user shortcuts: ← / → step between clauses, 1–5 set the decision.
+   * Ignored while typing, editing wording, a dialog/palette is open, or a
+   * modifier is held — so it never fights normal input or the command palette.
+   */
+  protected onKey(event: KeyboardEvent): void {
+    if (event.metaKey || event.ctrlKey || event.altKey) return;
+    if (this.editing() || this.showAdd()) return;
+    if (this.confirm.pending() || this.palette.open()) return;
+    if (this.isTypingTarget(event.target)) return;
+
+    const item = this.current();
+    if (event.key === 'ArrowLeft') {
+      event.preventDefault();
+      this.prev();
+    } else if (event.key === 'ArrowRight') {
+      event.preventDefault();
+      this.next();
+    } else if (item && /^[1-5]$/.test(event.key)) {
+      const decision = this.decisions[Number(event.key) - 1];
+      if (decision) {
+        event.preventDefault();
+        this.choose(item, decision.value);
+      }
+    }
+  }
+
+  private isTypingTarget(target: EventTarget | null): boolean {
+    const el = target as HTMLElement | null;
+    if (!el) return false;
+    const tag = el.tagName;
+    return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable;
   }
 
   protected onPhoto(event: Event, item: FieldChecklistItem): void {

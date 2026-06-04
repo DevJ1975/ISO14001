@@ -498,6 +498,102 @@ select {
   opacity: 0.55;
 }
 
+/* Primary next-step action under an empty state's icon + copy. The .empty grid
+   already centres its children; this just adds breathing room and a sane width. */
+.empty .empty-cta {
+  margin-top: 14px;
+  max-width: 320px;
+}
+
+/* Screen-reader-only text (e.g. a label for an aria-busy skeleton region). */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ----------------------------------------------------------------------------
+   Skeleton loaders — shimmer placeholders for async content. Built on the
+   themed tokens so they are correct in light + dark mode; the sweep is removed
+   under reduced-motion (falls back to a flat, calm block).
+---------------------------------------------------------------------------- */
+@keyframes shimmer {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--tv-radius);
+  background: var(--tone-neutral-bg);
+}
+
+.skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    color-mix(in srgb, var(--surface) 65%, transparent) 50%,
+    transparent 100%
+  );
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+.skeleton--line {
+  height: 12px;
+}
+.skeleton--title {
+  height: 18px;
+  width: 60%;
+}
+.skeleton--pill {
+  height: 22px;
+  width: 84px;
+  border-radius: var(--tv-radius-pill);
+}
+.skeleton--thumb {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton::after {
+    display: none;
+  }
+}
+
+/* Subtle scale + fade used for the fieldwork "all clauses answered" moment.
+   Reduced-motion strips the duration globally, so it appears statically. */
+@keyframes celebrate {
+  0% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  55% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
 /* ----------------------------------------------------------------------------
    Trainovate design-system primitives (class-only; safe to use app-wide)
 ---------------------------------------------------------------------------- */

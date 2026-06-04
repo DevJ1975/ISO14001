@@ -26,6 +26,8 @@ export class UsersComponent {
 
   protected readonly roleLabels = ROLE_LABELS;
   protected readonly assignableRoles = ['auditor', 'leadAuditor', 'clientViewer', 'tenantAdmin'];
+  /** Placeholder rows rendered while members load. */
+  protected readonly skeletonRows = [0, 1, 2, 3, 4];
 
   protected readonly members = signal<Member[]>([]);
   protected readonly loading = signal(true);

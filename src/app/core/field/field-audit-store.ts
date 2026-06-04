@@ -1086,6 +1086,17 @@ export class FieldAuditStore {
     this.autoFlush();
   }
 
+  /** Re-add a previously removed check (undo). Keeps its id, result and note. */
+  restoreChecklistItem(item: FieldChecklistItem): void {
+    this.items.update((items) =>
+      items.some((existing) => existing.id === item.id)
+        ? items
+        : [...items, { ...item, sync: 'queued', updatedAt: new Date().toISOString() }],
+    );
+    this.persist();
+    this.autoFlush();
+  }
+
   addNoteEvidence(input: { itemId?: string; clauseId?: string; text: string }): void {
     const id = uid('evidence-note');
     const record: FieldEvidence = {

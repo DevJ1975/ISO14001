@@ -20,7 +20,15 @@
   }
 
   @if (loading()) {
-    <div class="panel empty"><mat-icon aria-hidden="true">hourglass_top</mat-icon><span>Loading users…</span></div>
+    <div class="panel sk-list" aria-busy="true">
+      <span class="sr-only">Loading users…</span>
+      @for (row of skeletonRows; track row) {
+        <div class="tile sk-row" aria-hidden="true">
+          <span class="skeleton skeleton--title"></span>
+          <span class="skeleton skeleton--line"></span>
+        </div>
+      }
+    </div>
   } @else if (!live()) {
     <div class="panel empty">
       <mat-icon aria-hidden="true">cloud_off</mat-icon>
@@ -95,7 +103,17 @@
           }
         </article>
       } @empty {
-        <div class="panel empty"><mat-icon aria-hidden="true">group</mat-icon><span>No users yet.</span></div>
+        <div class="panel empty">
+          <mat-icon aria-hidden="true">group</mat-icon>
+          <strong>No users yet</strong>
+          <span>Invite a teammate to give them tenant-scoped access.</span>
+          @if (canManage()) {
+            <button class="empty-cta" mat-flat-button color="primary" type="button" (click)="showInvite.set(true)">
+              <mat-icon aria-hidden="true">person_add</mat-icon>
+              Invite user
+            </button>
+          }
+        </div>
       }
     </div>
   }

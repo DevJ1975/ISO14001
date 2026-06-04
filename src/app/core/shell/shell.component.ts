@@ -9,19 +9,27 @@ import { ConditionsService } from '../conditions/conditions.service';
 import { FieldAuditStore } from '../field/field-audit-store';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ThemeService } from '../theme/theme.service';
+import { CommandPaletteComponent } from '../ui/command-palette.component';
+import { CommandPaletteService } from '../ui/command-palette.service';
 import { ConfirmHostComponent } from '../ui/confirm-host.component';
-
-interface NavItem {
-  readonly path: string;
-  readonly label: string;
-  readonly icon: string;
-  readonly exact: boolean;
-}
+import { ToastHostComponent } from '../ui/toast-host.component';
+import { WelcomeHostComponent } from '../onboarding/welcome-host.component';
+import { NAV_DESTINATIONS, NavItem } from './nav';
 
 @Component({
   selector: 'app-shell',
   standalone: true,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, MatButtonModule, MatIconModule, ConfirmHostComponent],
+  imports: [
+    RouterOutlet,
+    RouterLink,
+    RouterLinkActive,
+    MatButtonModule,
+    MatIconModule,
+    ConfirmHostComponent,
+    ToastHostComponent,
+    CommandPaletteComponent,
+    WelcomeHostComponent,
+  ],
   templateUrl: './shell.component.html',
   styleUrl: './shell.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -33,6 +41,7 @@ export class ShellComponent {
   protected readonly auth = inject(AuthService);
   protected readonly alerts = inject(AlertsService);
   protected readonly notifications = inject(NotificationsService);
+  protected readonly palette = inject(CommandPaletteService);
   private readonly router = inject(Router);
 
   /** Notification dropdown open state. */
@@ -75,20 +84,7 @@ export class ShellComponent {
     return 'Local store — backend not connected';
   });
 
-  protected readonly nav: NavItem[] = [
-    { path: '/', label: 'Overview', icon: 'dashboard', exact: true },
-    { path: '/actions', label: 'Actions', icon: 'notifications', exact: false },
-    { path: '/audits', label: 'Audits', icon: 'folder_open', exact: false },
-    { path: '/audit', label: 'Audit', icon: 'event', exact: false },
-    { path: '/fieldwork', label: 'Fieldwork', icon: 'checklist', exact: false },
-    { path: '/evidence', label: 'Evidence', icon: 'photo_camera', exact: false },
-    { path: '/findings', label: 'Findings', icon: 'flag', exact: false },
-    { path: '/registers', label: 'Registers', icon: 'health_and_safety', exact: false },
-    { path: '/report', label: 'Report', icon: 'description', exact: false },
-    { path: '/programme', label: 'Programme', icon: 'calendar_month', exact: false },
-    { path: '/portal', label: 'Auditee', icon: 'handshake', exact: false },
-    { path: '/users', label: 'Users', icon: 'group', exact: false },
-  ];
+  protected readonly nav: readonly NavItem[] = NAV_DESTINATIONS;
 
   protected toggleTheme(): void {
     this.theme.toggle();
