@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 
+import { editionFromCriteria, standardChecklist } from '../../core/domain';
 import {
   FieldAuditStore,
   FieldChecklistItem,
@@ -25,6 +26,14 @@ export class FieldworkComponent {
   protected readonly store = inject(FieldAuditStore);
   protected readonly index = signal(0);
   protected readonly filter = signal<FilterKey>('all');
+
+  /** Clauses in the selected standard not yet on the checklist (drives the "add missing" action). */
+  protected readonly missingCount = computed(() => {
+    const present = new Set(this.store.items().map((item) => item.clauseId));
+    return standardChecklist(editionFromCriteria(this.store.criteria())).filter(
+      (row) => !present.has(row.clauseId),
+    ).length;
+  });
 
   protected readonly filters: { value: FilterKey; label: string }[] = [
     { value: 'all', label: 'All' },
@@ -65,6 +74,19 @@ export class FieldworkComponent {
   protected setFilter(value: FilterKey): void {
     this.filter.set(value);
     this.index.set(0);
+  }
+
+  /** Pull in every ISO 45001 clause not yet on the checklist so all of them are answerable. */
+  protected addMissingClauses(): void {
+    this.store.addMissingClauseItems();
+    this.index.set(0);
+  }
+
+  /** Top-level clause group label (e.g. "6 · Planning") for orientation while stepping clause by clause. */
+  protected sectionTitle(clauseId: string): string {
+    const top = clauseId.split('.')[0] ?? clauseId;
+    const parent = this.store.items().find((item) => item.clauseId === top);
+    return parent ? `${top} · ${parent.clauseTitle}` : `Section ${top}`;
   }
 
   protected choose(item: FieldChecklistItem, value: FieldResult): void {

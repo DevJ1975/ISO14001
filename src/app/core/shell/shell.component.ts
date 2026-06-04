@@ -9,6 +9,7 @@ import { ConditionsService } from '../conditions/conditions.service';
 import { FieldAuditStore } from '../field/field-audit-store';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ThemeService } from '../theme/theme.service';
+import { ConfirmHostComponent } from '../ui/confirm-host.component';
 
 interface NavItem {
   readonly path: string;
@@ -20,7 +21,7 @@ interface NavItem {
 @Component({
   selector: 'app-shell',
   standalone: true,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, MatButtonModule, MatIconModule],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, MatButtonModule, MatIconModule, ConfirmHostComponent],
   templateUrl: './shell.component.html',
   styleUrl: './shell.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,

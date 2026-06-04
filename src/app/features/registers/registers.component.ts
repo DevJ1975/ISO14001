@@ -1,7 +1,8 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 
 import {
   RiskRatingResult,
@@ -24,6 +25,7 @@ import {
 } from '../../core/domain';
 import { CsvExportService } from '../../core/export/csv-export.service';
 import { Hazard, FieldAuditStore, Permit, RegisterResult } from '../../core/field/field-audit-store';
+import { ConfirmService } from '../../core/ui/confirm.service';
 import {
   calibrationColumns,
   changeColumns,
@@ -70,8 +72,23 @@ type Tone = 'positive' | 'progress' | 'critical' | 'neutral';
 export class RegistersComponent {
   protected readonly store = inject(FieldAuditStore);
   private readonly csv = inject(CsvExportService);
+  private readonly route = inject(ActivatedRoute);
+  private readonly confirm = inject(ConfirmService);
   protected readonly tab = signal<Tab>('aspects');
   protected readonly hintsOpen = signal(false);
+  /** URL fragment (e.g. #permits) → open that register tab on deep-link from dashboards/alerts. */
+  private readonly fragment = toSignal(this.route.fragment);
+
+  constructor() {
+    effect(() => {
+      const fragment = this.fragment();
+      if (fragment && this.isTab(fragment)) this.tab.set(fragment);
+    });
+  }
+
+  private isTab(value: string): value is Tab {
+    return this.tabs.some((entry) => entry.value === value);
+  }
 
   /** Each register maps to the ISO 45001 clause it evaluates, for contextual field-guide help. */
   private readonly tabClause: Record<Tab, string> = {
@@ -132,6 +149,17 @@ export class RegistersComponent {
 
   protected setTab(value: Tab): void {
     this.tab.set(value);
+  }
+
+  /** Confirm before removing a document attachment (destructive, no undo). */
+  protected async confirmRemoveAttachment(rowId: string, attachmentId: string, name: string): Promise<void> {
+    const ok = await this.confirm.ask({
+      title: 'Remove attachment?',
+      message: `"${name}" will be removed from this document record.`,
+      confirmLabel: 'Remove',
+      danger: true,
+    });
+    if (ok) this.store.removeDocumentAttachment(rowId, attachmentId);
   }
 
   /**

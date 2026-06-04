@@ -27,7 +27,7 @@
             </select>
             <span [attr.data-tone]="statusTone(audit.status)">{{ audit.status }}</span>
             @if (canEdit()) {
-              <button class="icon" type="button" (click)="store.removePlannedAudit(audit.id)" aria-label="Remove"><mat-icon aria-hidden="true">delete</mat-icon></button>
+              <button class="icon" type="button" (click)="confirmRemovePlanned(audit.id)" aria-label="Remove"><mat-icon aria-hidden="true">delete</mat-icon></button>
             }
           </div>
         } @empty {
@@ -146,7 +146,7 @@
             }
             <span class="muted small">{{ cert.history.length }} event(s)</span>
             @if (canEdit()) {
-              <button class="icon" type="button" (click)="store.removeCertificate(cert.id)" aria-label="Remove"><mat-icon aria-hidden="true">delete</mat-icon></button>
+              <button class="icon" type="button" (click)="confirmRemoveCertificate(cert.id)" aria-label="Remove"><mat-icon aria-hidden="true">delete</mat-icon></button>
             }
           </div>
         </div>
@@ -187,7 +187,7 @@
           </div>
           <input [value]="item.resolution || ''" (change)="store.updateComplaint(item.id, { resolution: $any($event.target).value })" [disabled]="!canEdit()" placeholder="Resolution / decision" />
           @if (canEdit()) {
-            <button class="icon" type="button" (click)="store.removeComplaint(item.id)" aria-label="Remove"><mat-icon aria-hidden="true">delete</mat-icon></button>
+            <button class="icon" type="button" (click)="confirmRemoveComplaint(item.id)" aria-label="Remove"><mat-icon aria-hidden="true">delete</mat-icon></button>
           }
         </div>
       } @empty {

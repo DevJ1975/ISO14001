@@ -332,3 +332,44 @@
     min-height: 58px;
   }
 }
+
+.fw-top .section {
+  flex: 1 1 auto;
+  margin: 0 10px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fw-missing {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--tone-progress-fg, var(--border-strong));
+  background: var(--tone-progress-bg, var(--surface-guard));
+  color: var(--tone-progress-fg, var(--text));
+  border-radius: 12px;
+  padding: 10px 14px;
+  margin: 12px 0;
+}
+
+.fw-missing > span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.fw-missing mat-icon {
+  flex: 0 0 auto;
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+}

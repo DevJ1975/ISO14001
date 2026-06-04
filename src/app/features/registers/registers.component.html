@@ -422,7 +422,7 @@
               @for (att of row.attachments || []; track att.id) {
                 <div class="att-item">
                   <button type="button" class="att-name" (click)="openAttachment(att.blobKey)"><mat-icon aria-hidden="true">description</mat-icon>{{ att.name }}</button>
-                  <button type="button" class="att-del" aria-label="Remove attachment" (click)="store.removeDocumentAttachment(row.id, att.id)"><mat-icon aria-hidden="true">close</mat-icon></button>
+                  <button type="button" class="att-del" aria-label="Remove attachment" (click)="confirmRemoveAttachment(row.id, att.id, att.name)"><mat-icon aria-hidden="true">close</mat-icon></button>
                 </div>
               } @empty {
                 <span class="att-empty">No files attached.</span>

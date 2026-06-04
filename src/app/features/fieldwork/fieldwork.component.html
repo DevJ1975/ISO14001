@@ -10,6 +10,16 @@
     </div>
   </header>
 
+  @if (missingCount() > 0) {
+    <div class="fw-missing">
+      <span><mat-icon aria-hidden="true">info</mat-icon>Only part of the standard is loaded — {{ missingCount() }} ISO 45001 clauses are not yet on this checklist.</span>
+      <button mat-flat-button color="primary" type="button" (click)="addMissingClauses()">
+        <mat-icon aria-hidden="true">playlist_add</mat-icon>
+        Add {{ missingCount() }} clauses
+      </button>
+    </div>
+  }
+
   <div class="filters">
     @for (option of filters; track option.value) {
       <button type="button" class="chip" [class.on]="filter() === option.value" (click)="setFilter(option.value)">
@@ -22,6 +32,7 @@
     <article class="panel fw-card">
       <div class="fw-top">
         <span class="clause">Clause {{ item.clauseId }}</span>
+        <span class="section">{{ sectionTitle(item.clauseId) }}</span>
         <span class="pos">{{ position() }} of {{ visibleItems().length }}</span>
       </div>
       <h2>{{ item.clauseTitle }}</h2>

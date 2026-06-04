@@ -1,6 +1,14 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 
-import { ReportSignature, SignableReport, reportContentHash } from '../domain';
+import {
+  ReportSignature,
+  SignableReport,
+  StandardChecklistRow,
+  StandardEdition,
+  editionFromCriteria,
+  reportContentHash,
+  standardChecklist,
+} from '../domain';
 import { AuditSelectionService } from './audit-selection.service';
 import { FieldApiService } from './field-api.service';
 import { idbDelete, idbGet, idbSet } from './idb';
@@ -735,47 +743,52 @@ function seedPerformanceMetrics(): PerformanceMetric[] {
   ];
 }
 
-function seedItems(): FieldChecklistItem[] {
-  const now = '2026-06-15T15:00:00.000Z';
-  return [
-    {
-      id: 'item-4',
-      clauseId: '4',
-      clauseTitle: 'Context of the organization',
-      question: 'What internal and external OH&S context changes should the team verify during this audit?',
-      guidance: 'Use auditee-authored context records, interviews, and site observations.',
-      ownerName: 'Maya Chen',
-      result: 'conform',
-      evidenceIds: [],
-      sync: 'synced',
-      updatedAt: now,
-    },
-    {
-      id: 'item-6',
-      clauseId: '6',
-      clauseTitle: 'Planning',
-      question: 'Which planned controls, objectives, and evidence sources should be sampled for transition readiness?',
-      guidance: 'Keep the prompt tied to auditee records and avoid copying standard text.',
-      ownerName: 'Omar Patel',
-      result: 'ofi',
-      note: 'Objective tracking evidence partially available; confirm before signoff.',
-      evidenceIds: ['evidence-seed-note'],
-      sync: 'synced',
-      updatedAt: now,
-    },
-    {
-      id: 'item-8',
-      clauseId: '8',
-      clauseTitle: 'Operation',
-      question: 'Which operational controls should be observed, photographed, or sampled during fieldwork?',
-      guidance: 'Use photo evidence only where site rules allow it.',
-      ownerName: 'Ava Brooks',
-      result: 'notStarted',
-      evidenceIds: [],
-      sync: 'synced',
-      updatedAt: now,
-    },
-  ];
+const DEMO_SEED_AT = '2026-06-15T15:00:00.000Z';
+
+/**
+ * Demo answers layered onto the generated full-standard checklist so the seeded
+ * audit still tells a story (clause 4 conform, 6 OFI with a note + evidence, 8
+ * not yet started). Keyed by clauseId.
+ */
+const DEMO_CHECKLIST_ANSWERS: Record<
+  string,
+  Partial<Pick<FieldChecklistItem, 'ownerName' | 'result' | 'note' | 'evidenceIds'>>
+> = {
+  '4': { ownerName: 'Maya Chen', result: 'conform' },
+  '6': {
+    ownerName: 'Omar Patel',
+    result: 'ofi',
+    note: 'Objective tracking evidence partially available; confirm before signoff.',
+    evidenceIds: ['evidence-seed-note'],
+  },
+  '8': { ownerName: 'Ava Brooks', result: 'notStarted' },
+};
+
+function checklistItemId(clauseId: string): string {
+  return `item-${clauseId}`;
+}
+
+/** Turn a generated clause row into a checklist item, applying any demo answer. */
+function rowToItem(row: StandardChecklistRow): FieldChecklistItem {
+  const demo = DEMO_CHECKLIST_ANSWERS[row.clauseId];
+  return {
+    id: checklistItemId(row.clauseId),
+    clauseId: row.clauseId,
+    clauseTitle: row.clauseTitle,
+    question: row.question,
+    guidance: row.guidance,
+    ownerName: demo?.ownerName ?? '',
+    result: demo?.result ?? 'notStarted',
+    note: demo?.note,
+    evidenceIds: demo?.evidenceIds ?? [],
+    sync: 'synced',
+    updatedAt: DEMO_SEED_AT,
+  };
+}
+
+/** Seed the whole ISO 45001 clause set so every clause is answerable from day one. */
+function seedItems(edition: StandardEdition['id'] = 'ISO_45001_2018'): FieldChecklistItem[] {
+  return standardChecklist(edition).map(rowToItem);
 }
 
 function seedEvidence(): FieldEvidence[] {
@@ -978,6 +991,43 @@ export class FieldAuditStore {
         item.id === itemId ? { ...item, note, sync: 'queued', updatedAt: new Date().toISOString() } : item,
       ),
     );
+    this.persist();
+    this.autoFlush();
+  }
+
+  /**
+   * Append any standard clauses not yet present as checklist items so the auditor
+   * can record conformity for the whole standard (idempotent). Returns the number
+   * of clauses added; items are kept in standard clause order.
+   */
+  addMissingClauseItems(edition?: StandardEdition['id']): number {
+    const ed = edition ?? editionFromCriteria(this.criteria());
+    const rows = standardChecklist(ed);
+    const existing = new Set(this.items().map((item) => item.clauseId));
+    const additions = rows
+      .filter((row) => !existing.has(row.clauseId))
+      .map((row) => ({ ...rowToItem(row), sync: 'queued' as const, updatedAt: new Date().toISOString() }));
+    if (!additions.length) return 0;
+    const order = new Map(rows.map((row, index) => [row.clauseId, index]));
+    this.items.update((items) =>
+      [...items, ...additions].sort(
+        (a, b) =>
+          (order.get(a.clauseId) ?? Number.MAX_SAFE_INTEGER) - (order.get(b.clauseId) ?? Number.MAX_SAFE_INTEGER),
+      ),
+    );
+    this.persist();
+    this.autoFlush();
+    return additions.length;
+  }
+
+  /** Add a single clause row on demand (no-op if it is already present). */
+  addChecklistItem(clauseId: string, edition?: StandardEdition['id']): void {
+    if (this.items().some((item) => item.clauseId === clauseId)) return;
+    const ed = edition ?? editionFromCriteria(this.criteria());
+    const row = standardChecklist(ed).find((candidate) => candidate.clauseId === clauseId);
+    if (!row) return;
+    const item: FieldChecklistItem = { ...rowToItem(row), sync: 'queued', updatedAt: new Date().toISOString() };
+    this.items.update((items) => [...items, item]);
     this.persist();
     this.autoFlush();
   }

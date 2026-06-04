@@ -28,5 +28,6 @@ export * from './photo-evidence.js';
 export * from './production-backend.js';
 export * from './reports-capa.js';
 export * from './roles.js';
+export * from './standard-checklist.js';
 export * from './standards.js';
 export * from './sync.js';

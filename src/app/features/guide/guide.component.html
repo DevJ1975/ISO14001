@@ -47,7 +47,25 @@
   <article class="panel doc" id="clauses">
     <h2><mat-icon aria-hidden="true">menu_book</mat-icon>What to look for by clause</h2>
     <p>For each ISO 45001 clause (4–10): why it matters, what to look for, the evidence to request, questions to ask, and the nonconformities that commonly turn up.</p>
-    @for (c of clauses; track c.clauseId) {
+
+    <div class="clause-search">
+      <mat-icon aria-hidden="true">search</mat-icon>
+      <input
+        #search
+        type="search"
+        placeholder="Filter clauses by number or title…"
+        [value]="query()"
+        (input)="query.set(search.value)"
+        aria-label="Filter clauses"
+      />
+    </div>
+    <nav class="clause-jump" aria-label="Jump to clause">
+      @for (entry of clauseIndex; track entry.clauseId) {
+        <a [href]="'#clause-' + entry.clauseId" [title]="entry.title">{{ entry.clauseId }}</a>
+      }
+    </nav>
+
+    @for (c of clauses(); track c.clauseId) {
       <div class="clause" [id]="'clause-' + c.clauseId">
         <h3><span class="ref">{{ c.clauseId }}</span>{{ c.title }}</h3>
         <p class="purpose">{{ c.purpose }}</p>
@@ -70,6 +88,8 @@
           </div>
         </div>
       </div>
+    } @empty {
+      <p class="muted">No clauses match "{{ query() }}".</p>
     }
   </article>
 </section>
