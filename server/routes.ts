@@ -731,6 +731,17 @@ const operationalControlUpsertCommandSchema = z.object({
   result: registerResultSchema.default('notStarted'),
 });
 
+const leadershipUpsertCommandSchema = z.object({
+  id: z.string().min(1),
+  kind: z.enum(['commitment', 'policyAttribute', 'roleAssignment']).default('commitment'),
+  label: z.string().max(300).default(''),
+  notes: z.string().max(2000).optional(),
+  owner: z.string().max(200).optional(),
+  flag: z.boolean().optional(),
+  relatedClause: z.string().max(40).optional(),
+  result: registerResultSchema.default('notStarted'),
+});
+
 const programmeUpsertSchema = z.object({
   cycleYear: z.number().int(),
   criteria: z.string().min(1),
@@ -1640,6 +1651,10 @@ export async function handleApiRequest(
         .collection(mongoCollections.operationalControls)
         .find({ tenantId, auditId }, { projection: { _id: 0 } })
         .toArray();
+      const leadership = await dependencies.db
+        .collection(mongoCollections.leadership)
+        .find({ tenantId, auditId }, { projection: { _id: 0 } })
+        .toArray();
       const workerConsultations = await dependencies.db
         .collection(mongoCollections.workerConsultations)
         .find({ tenantId, auditId }, { projection: { _id: 0 } })
@@ -1700,6 +1715,7 @@ export async function handleApiRequest(
           suppliers,
           changes,
           operationalControls,
+          leadership,
           workerConsultations,
           reportMeta,
           changeLog,
@@ -2873,6 +2889,25 @@ export async function handleApiRequest(
         .collection(mongoCollections.operationalControls)
         .updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
       sendJson(response, 200, { operationalControl: record }, corsOrigin);
+      return;
+    }
+
+    const leadershipMatch = matchPath(
+      new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/leadership/([^/]+)$`),
+      url.pathname,
+      ['tenantId', 'auditId', 'id'],
+    );
+    if (request.method === 'PUT' && leadershipMatch && actor) {
+      const tenantId = leadershipMatch.params['tenantId']!;
+      const auditId = leadershipMatch.params['auditId']!;
+      requireTenant(actor, tenantId);
+      requireAnyRole(actor, ['leadAuditor', 'auditor']);
+      const command = await readJson(request, leadershipUpsertCommandSchema);
+      const record = { ...command, tenantId, auditId, updatedAt: new Date().toISOString() };
+      await dependencies.db
+        .collection(mongoCollections.leadership)
+        .updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
+      sendJson(response, 200, { leadership: record }, corsOrigin);
       return;
     }
 

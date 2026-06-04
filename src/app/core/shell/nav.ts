@@ -14,6 +14,7 @@ export interface NavItem {
 
 export const NAV_DESTINATIONS: readonly NavItem[] = [
   { path: '/', label: 'Overview', icon: 'dashboard', exact: true, keywords: ['home', 'dashboard', 'kpi'] },
+  { path: '/analytics', label: 'Analytics', icon: 'insights', exact: false, keywords: ['portfolio', 'metrics', 'trends', 'kpi'] },
   { path: '/actions', label: 'Actions', icon: 'notifications', exact: false, keywords: ['alerts', 'attention', 'overdue'] },
   { path: '/audits', label: 'Audits', icon: 'folder_open', exact: false, keywords: ['select', 'create'] },
   { path: '/audit', label: 'Audit', icon: 'event', exact: false, keywords: ['meeting', 'opening', 'closing'] },

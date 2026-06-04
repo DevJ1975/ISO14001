@@ -45,6 +45,11 @@ export const routes: Routes = [
         title: 'Overview',
       },
       {
+        path: 'analytics',
+        loadComponent: () => import('./features/analytics/analytics.component').then((m) => m.AnalyticsComponent),
+        title: 'Portfolio analytics',
+      },
+      {
         path: 'actions',
         loadComponent: () => import('./features/actions/actions.component').then((m) => m.ActionsComponent),
         title: 'Actions & alerts',
