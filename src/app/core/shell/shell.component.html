@@ -19,7 +19,7 @@
           [routerLinkActiveOptions]="{ exact: item.exact }"
         >
           <mat-icon aria-hidden="true">{{ item.icon }}</mat-icon>
-          {{ item.label }}
+          {{ item.labelKey | t }}
           @if (item.path === '/actions' && alertBadge() > 0) {
             <span class="nav-badge">{{ alertBadge() }}</span>
           }
@@ -47,7 +47,7 @@
       @if (store.outboxCount() > 0 && store.online()) {
         <button mat-flat-button color="primary" type="button" (click)="sync()">
           <mat-icon aria-hidden="true">sync</mat-icon>
-          Sync now
+          {{ 'shell.syncNow' | t }}
         </button>
       }
     </div>
@@ -99,11 +99,11 @@
         </div>
       </div>
 
-      <button class="icon-btn" type="button" (click)="palette.openPalette()" aria-label="Search sections" title="Search (⌘K)">
+      <button class="icon-btn" type="button" (click)="palette.openPalette()" [attr.aria-label]="'shell.search' | t" title="Search (⌘K)">
         <mat-icon aria-hidden="true">search</mat-icon>
       </button>
 
-      <button class="icon-btn" type="button" (click)="takeTour()" aria-label="Take a guided tour" title="Take a tour">
+      <button class="icon-btn" type="button" (click)="takeTour()" [attr.aria-label]="'shell.tour' | t" title="Take a tour">
         <mat-icon aria-hidden="true">tips_and_updates</mat-icon>
       </button>
 
@@ -163,17 +163,19 @@
         }
       </div>
 
+      <app-locale-switcher />
+
       <button
         class="icon-btn"
         type="button"
         (click)="toggleTheme()"
-        [attr.aria-label]="theme.resolved() === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'"
+        [attr.aria-label]="(theme.resolved() === 'dark' ? 'shell.theme.toLight' : 'shell.theme.toDark') | t"
       >
         <mat-icon aria-hidden="true">{{ theme.resolved() === 'dark' ? 'light_mode' : 'dark_mode' }}</mat-icon>
       </button>
 
       @if (auth.user()) {
-        <button class="icon-btn" type="button" (click)="logout()" aria-label="Sign out">
+        <button class="icon-btn" type="button" (click)="logout()" [attr.aria-label]="'shell.signOut' | t">
           <mat-icon aria-hidden="true">logout</mat-icon>
         </button>
       }
@@ -192,7 +194,7 @@
           [routerLinkActiveOptions]="{ exact: item.exact }"
         >
           <mat-icon aria-hidden="true">{{ item.icon }}</mat-icon>
-          <span>{{ item.label }}</span>
+          <span>{{ item.labelKey | t }}</span>
           @if (item.path === '/actions' && alertBadge() > 0) {
             <span class="nav-badge tab-badge">{{ alertBadge() }}</span>
           }

@@ -117,8 +117,12 @@
       <div class="reg">
         <div class="reg-head">
           <h2>Compliance obligations &amp; evaluation</h2>
-          <button mat-flat-button color="primary" type="button" (click)="store.addObligation()"><mat-icon aria-hidden="true">add</mat-icon>Add</button>
+          <button mat-flat-button color="primary" type="button" (click)="store.addObligation()"><mat-icon aria-hidden="true">add</mat-icon>{{ 'common.add' | t }}</button>
         </div>
+        <p class="jurisdiction-hint">
+          <mat-icon aria-hidden="true">public</mat-icon>
+          <span><strong>{{ 'registers.compliance.framingPrefix' | t }}</strong> {{ jurisdiction.complianceFraming() }}</span>
+        </p>
         @for (row of store.obligations(); track row.id) {
           <article class="tile row">
             <label class="fld"><span>Obligation</span><input [value]="row.obligation" (change)="store.updateObligation(row.id, { obligation: $any($event.target).value })" /></label>

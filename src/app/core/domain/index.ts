@@ -39,6 +39,7 @@ export * from './reports-capa.js';
 export * from './report-draft.js';
 export * from './retention.js';
 export * from './finding-draft.js';
+export * from './jurisdiction.js';
 export * from './client-tailoring.js';
 export * from './enterprise-auth.js';
 export * from './totp.js';

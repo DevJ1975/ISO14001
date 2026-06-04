@@ -6,6 +6,8 @@ import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
 import { APP_CONFIG } from '../../core/config/app-config';
 import { FieldAuditStore } from '../../core/field/field-audit-store';
+import { I18nService } from '../../core/i18n/i18n.service';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
 
 /** Same lightweight shape check used elsewhere (e.g. user invites). */
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
@@ -13,7 +15,7 @@ const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [MatButtonModule, MatIconModule, RouterLink],
+  imports: [MatButtonModule, MatIconModule, RouterLink, TranslatePipe],
   templateUrl: './login.component.html',
   styleUrl: './login.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -23,6 +25,7 @@ export class LoginComponent {
   private readonly store = inject(FieldAuditStore);
   private readonly router = inject(Router);
   protected readonly config = inject(APP_CONFIG);
+  private readonly i18n = inject(I18nService);
 
   protected readonly email = signal(this.config.demo.email);
   protected readonly password = signal(this.config.demo.password);
@@ -45,10 +48,10 @@ export class LoginComponent {
   protected readonly passwordTouched = signal(false);
 
   protected readonly emailError = computed(() =>
-    this.emailTouched() && !EMAIL_RE.test(this.email().trim()) ? 'Enter a valid email address.' : null,
+    this.emailTouched() && !EMAIL_RE.test(this.email().trim()) ? this.i18n.t('login.emailInvalid') : null,
   );
   protected readonly passwordError = computed(() =>
-    this.passwordTouched() && this.password().length === 0 ? 'Enter your password.' : null,
+    this.passwordTouched() && this.password().length === 0 ? this.i18n.t('login.passwordRequired') : null,
   );
   protected readonly canSubmit = computed(() => EMAIL_RE.test(this.email().trim()) && this.password().length > 0);
 
@@ -72,7 +75,7 @@ export class LoginComponent {
       }
       await this.enterWorkspace();
     } catch {
-      this.error.set('Sign-in failed. Check the credentials, or that the backend (MongoDB + JWT_SECRET) is configured.');
+      this.error.set(this.i18n.t('login.failed'));
     } finally {
       this.busy.set(false);
     }
