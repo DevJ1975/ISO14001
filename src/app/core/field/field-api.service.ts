@@ -4,7 +4,7 @@ import { firstValueFrom } from 'rxjs';
 
 import { AuthService } from '../auth/auth.service';
 import { APP_CONFIG } from '../config/app-config';
-import type { AuditAgenda, AuditAgendaInput, ClauseAnswer, FindingDraft, FindingDraftInput, MeetingScripts, ReportDraft, ReportDraftInput } from '../domain';
+import type { AuditAgenda, AuditAgendaInput, ClauseAnswer, FindingDraft, FindingDraftInput, MeetingScripts, PhotoAnalysisFindingType, ReportDraft, ReportDraftInput } from '../domain';
 import { AuditSelectionService } from './audit-selection.service';
 import type {
   AuditConclusion,
@@ -81,6 +81,19 @@ export interface FieldStatePayload {
   changes?: Array<Omit<ManagementOfChangeRecord, 'sync'>>;
   reportMeta?: Omit<ReportMeta, 'sync'> | null;
   changeLog?: ChangeLogEntry[];
+}
+
+/** Raw shape the photo-analyze route returns: a review-ready candidate with a
+ *  `needsAuditorReview` status. Strings are normalized client-side before use. */
+export interface PhotoAnalysisApiResponse {
+  status: 'needsAuditorReview';
+  observations?: string[];
+  hazardTags?: string[];
+  suggestedClauseId?: string;
+  suggestedFindingStatement?: string;
+  suggestedType?: PhotoAnalysisFindingType;
+  provider?: string;
+  generatedAt?: string;
 }
 
 /** Thin client over the tenant-scoped field-audit endpoints. The bearer token is
@@ -170,6 +183,23 @@ export class FieldApiService {
     } catch {
       return null;
     }
+  }
+
+  /**
+   * Request server-side AI (vision) analysis of a captured photo. Returns a
+   * review-ready candidate (observations / hazard tags / suggested clause +
+   * finding). Rejects with a 501 when the model/key are unconfigured so the
+   * store can show the graceful "needs the server/key" state, mirroring
+   * draftReport(). The route looks up the stored evidence image server-side, so
+   * no body is required.
+   */
+  requestPhotoAnalysis(evidenceId: string): Promise<PhotoAnalysisApiResponse> {
+    return firstValueFrom(
+      this.http.post<PhotoAnalysisApiResponse>(
+        `${this.base()}/evidence/${encodeURIComponent(evidenceId)}/analyze`,
+        {},
+      ),
+    );
   }
 
   upsertFinding(body: Omit<FieldFinding, 'sync'>): Promise<unknown> {

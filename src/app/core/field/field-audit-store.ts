@@ -6,17 +6,20 @@ import {
   FindingDraft,
   FindingDraftInput,
   MeetingScripts,
+  PhotoAnalysisResult,
   ReportDraft,
   ReportDraftInput,
   ReportSignature,
   SignableReport,
   StandardChecklistRow,
   StandardEdition,
+  analysisCandidateToFinding,
   composeAuditAgenda,
   composeFindingDraft,
   composeMeetingScripts,
   composeReportDraft,
   editionFromCriteria,
+  normalizePhotoAnalysisPayload,
   reportContentHash,
   standardChecklist,
 } from '../domain';
@@ -591,6 +594,7 @@ interface PersistedState {
   reportSignature?: ReportSignature | null;
   auditAgenda?: AuditAgenda | null;
   meetingScripts?: MeetingScripts | null;
+  photoAnalysis?: Record<string, PhotoAnalysisResult>;
 }
 
 const AUDIT_STATUS_ORDER: AuditStatus[] = ['draft', 'planned', 'fieldwork', 'reporting', 'followUp', 'closed', 'archived'];
@@ -993,6 +997,13 @@ export class FieldAuditStore {
   readonly agendaDraftInfo = signal<{ source: 'ai' | 'ruleBased'; generatedAt: string } | null>(null);
   /** Per-finding provenance of the last generated finding draft (findingId → source/time), for the "review before issuing" note. */
   readonly findingDraftInfo = signal<Record<string, { source: 'ai' | 'ruleBased'; generatedAt: string }>>({});
+  /**
+   * Per-photo AI analysis state, keyed by evidenceId. Holds the review-gate
+   * status (processing / needsAuditorReview / accepted / rejected / failed /
+   * aiNotConfigured) and the candidate the auditor reviews. Nothing here becomes
+   * a finding without an explicit acceptAnalysis() call.
+   */
+  readonly photoAnalysis = signal<Record<string, PhotoAnalysisResult>>({});
   readonly online = signal(typeof navigator === 'undefined' ? true : navigator.onLine);
   readonly source = signal<DataSource>('local');
 
@@ -1266,6 +1277,105 @@ export class FieldAuditStore {
     this.findings.update((list) => [finding, ...list]);
     this.persist();
     this.autoFlush();
+  }
+
+  private setAnalysis(evidenceId: string, result: PhotoAnalysisResult): void {
+    this.photoAnalysis.update((map) => ({ ...map, [evidenceId]: result }));
+    this.persist();
+  }
+
+  /**
+   * Request AI (vision) analysis of a captured photo. Tries the live server; on a
+   * 501 (key/model unset) or offline it sets a clear `aiNotConfigured` status so
+   * the UI explains AI analysis needs the server/key. On success the candidate is
+   * stored in `needsAuditorReview` for the auditor to accept or reject — nothing
+   * is auto-applied.
+   */
+  async requestAnalysis(evidenceId: string): Promise<PhotoAnalysisResult['status']> {
+    const record = this.evidence().find((entry) => entry.id === evidenceId);
+    if (!record || record.kind !== 'photo') return 'failed';
+
+    const requestedAt = new Date().toISOString();
+    const notConfigured = (): PhotoAnalysisResult['status'] => {
+      this.setAnalysis(evidenceId, { status: 'aiNotConfigured', provider: 'anthropicClaude', requestedAt });
+      return 'aiNotConfigured';
+    };
+
+    // Offline or local-demo mode: AI needs the server, so degrade gracefully.
+    if (this.source() !== 'live' || !this.online()) return notConfigured();
+
+    this.setAnalysis(evidenceId, { status: 'processing', provider: 'anthropicClaude', requestedAt });
+    try {
+      const response = await this.api.requestPhotoAnalysis(evidenceId);
+      const candidate = normalizePhotoAnalysisPayload(response);
+      this.setAnalysis(evidenceId, {
+        status: 'needsAuditorReview',
+        candidate,
+        provider: 'anthropicClaude',
+        requestedAt,
+      });
+      return 'needsAuditorReview';
+    } catch (error) {
+      // A 501 means the model/key are unconfigured — the inert scaffold path.
+      if ((error as { status?: number })?.status === 501) return notConfigured();
+      this.setAnalysis(evidenceId, {
+        status: 'failed',
+        provider: 'anthropicClaude',
+        requestedAt,
+        failureReason: 'AI photo analysis could not be completed. Try again when connected.',
+      });
+      return 'failed';
+    }
+  }
+
+  /**
+   * Auditor accepts an AI candidate: promotes it to a finding via the existing
+   * finding path and marks the analysis accepted (with review attribution). This
+   * is the only way an AI suggestion becomes a finding.
+   */
+  acceptAnalysis(evidenceId: string): FieldFinding | null {
+    const analysis = this.photoAnalysis()[evidenceId];
+    if (!analysis || analysis.status !== 'needsAuditorReview' || !analysis.candidate) return null;
+    const draft = analysisCandidateToFinding(analysis.candidate);
+    const clauseTitle = this.items().find((item) => item.clauseId === draft.clauseId)?.clauseTitle ?? draft.clauseId;
+    const finding: FieldFinding = {
+      id: uid('finding'),
+      clauseId: draft.clauseId,
+      clauseTitle,
+      type: draft.type,
+      description: draft.description,
+      requirementSummary: `Clause ${draft.clauseId} — ${clauseTitle}`,
+      objectiveEvidence: analysis.candidate.hazardTags.length
+        ? `Hazard tags: ${analysis.candidate.hazardTags.join(', ')}.`
+        : '',
+      evidenceIds: [evidenceId],
+      status: 'open',
+      createdByName: AUDITOR,
+      createdAt: new Date().toISOString(),
+      sync: 'queued',
+    };
+    this.findings.update((list) => [finding, ...list]);
+    this.setAnalysis(evidenceId, {
+      ...analysis,
+      status: 'accepted',
+      reviewedByName: AUDITOR,
+      reviewedAt: new Date().toISOString(),
+    });
+    this.autoFlush();
+    return finding;
+  }
+
+  /** Auditor rejects an AI candidate: nothing is applied; the analysis is marked rejected. */
+  rejectAnalysis(evidenceId: string): void {
+    const analysis = this.photoAnalysis()[evidenceId];
+    if (!analysis) return;
+    this.setAnalysis(evidenceId, {
+      ...analysis,
+      status: 'rejected',
+      candidate: undefined,
+      reviewedByName: AUDITOR,
+      reviewedAt: new Date().toISOString(),
+    });
   }
 
   /** Lead-auditor grades the nonconformity and records the rationale. */
@@ -2108,6 +2218,7 @@ export class FieldAuditStore {
     this.auditAgenda.set(null);
     this.meetingScripts.set(null);
     this.agendaDraftInfo.set(null);
+    this.photoAnalysis.set({});
     await idbDelete('meta', META_KEY);
   }
 
@@ -2615,6 +2726,7 @@ export class FieldAuditStore {
       reportSignature: this.reportSignature(),
       auditAgenda: this.auditAgenda(),
       meetingScripts: this.meetingScripts(),
+      photoAnalysis: this.photoAnalysis(),
     };
     void idbSet('meta', META_KEY, snapshot);
   }
@@ -2722,6 +2834,7 @@ export class FieldAuditStore {
           ? { source: saved.meetingScripts.source, generatedAt: saved.meetingScripts.generatedAt }
           : null,
     );
+    this.photoAnalysis.set(saved.photoAnalysis ?? {});
     const restored = await Promise.all(
       saved.evidence.map(async (record) => {
         if (record.kind !== 'photo' || !record.blobKey || typeof URL === 'undefined') return record;
