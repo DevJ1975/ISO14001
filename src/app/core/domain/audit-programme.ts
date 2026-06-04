@@ -37,6 +37,38 @@ export const auditProgrammeSchema = z.object({
 });
 export type AuditProgramme = z.infer<typeof auditProgrammeSchema>;
 
+/**
+ * ISO 45001 cl. 9.2 — the auditee's own internal-audit programme. Distinct from the
+ * certification/surveillance schedule above: a risk-based plan covering the whole OH&S
+ * system, run by competent and impartial internal auditors, with findings followed up.
+ */
+export const internalAuditStatusSchema = z.enum(['planned', 'inProgress', 'completed', 'overdue']);
+export type InternalAuditStatus = z.infer<typeof internalAuditStatusSchema>;
+
+export const internalAuditSchema = z.object({
+  id: z.string().min(1),
+  scopeArea: z.string().max(300).default(''),
+  plannedDate: z.string().max(40).default(''),
+  status: internalAuditStatusSchema.default('planned'),
+  auditorName: z.string().max(200).optional(),
+  impartialityConfirmed: z.boolean().optional(),
+  findingsSummary: z.string().max(2000).optional(),
+  notes: z.string().max(2000).optional(),
+});
+export type InternalAudit = z.infer<typeof internalAuditSchema>;
+
+/** True when a not-yet-completed internal audit is past its planned date. */
+export function isInternalAuditOverdue(
+  item: { status: InternalAuditStatus; plannedDate?: string | Date },
+  now: string | Date = new Date(),
+): boolean {
+  if (item.status === 'completed') return false;
+  if (!item.plannedDate) return false;
+  const planned = new Date(item.plannedDate).getTime();
+  if (Number.isNaN(planned)) return false;
+  return planned < new Date(now).getTime();
+}
+
 export const auditorCompetenceSchema = z.object({
   id: z.string().min(1),
   tenantId: z.string().min(1),

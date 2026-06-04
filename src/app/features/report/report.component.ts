@@ -3,8 +3,9 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { RouterLink } from '@angular/router';
 
-import { shortFingerprint, verifyReportSignature } from '../../core/domain';
+import { buildWorkingPapers, shortFingerprint, verifyReportSignature, workingPapersFindingRows } from '../../core/domain';
 import { AuthService } from '../../core/auth/auth.service';
+import { WorkingPapersExportService } from '../../core/export/working-papers-export.service';
 import { AuditType, FieldAuditStore, Recommendation } from '../../core/field/field-audit-store';
 import { ToastService } from '../../core/ui/toast.service';
 
@@ -20,8 +21,11 @@ export class ReportComponent {
   protected readonly store = inject(FieldAuditStore);
   private readonly auth = inject(AuthService);
   private readonly toast = inject(ToastService);
+  private readonly workingPapers = inject(WorkingPapersExportService);
 
   protected readonly isLead = computed(() => this.auth.user()?.role === 'leadAuditor');
+  /** Any auditor-side role may export the working-papers archive (not the auditee portal). */
+  protected readonly isAuditor = this.auth.isAuditor;
   protected readonly conclusion = computed(() => this.store.conclusion());
   protected readonly signError = signal<string | null>(null);
   protected readonly generating = signal(false);
@@ -159,6 +163,73 @@ export class ReportComponent {
     this.verifyState.set('checking');
     const ok = await verifyReportSignature(sig, this.store.signableReport());
     this.verifyState.set(ok ? 'valid' : 'tampered');
+  }
+
+  /**
+   * Gather the audit's data from the store, build the self-contained
+   * working-papers pack and download it as JSON (plus a flat findings CSV).
+   * Evidence metadata only — never the photo blobs.
+   */
+  protected exportWorkingPapers(): void {
+    const store = this.store;
+    const sig = this.signature();
+    const pack = buildWorkingPapers({
+      auditee: store.auditee(),
+      criteria: store.criteria(),
+      reportMeta: store.reportMeta(),
+      status: store.auditStatus(),
+      signedAt: store.reportSignedAt(),
+      signatureFingerprint: sig ? shortFingerprint(sig.contentHash) : null,
+      items: store.items(),
+      findings: store.findings(),
+      capas: store.capas(),
+      evidence: store.evidence(),
+      evidenceRequests: store.evidenceRequests(),
+      meetings: store.meetings(),
+      conclusion: store.conclusion(),
+      changeLog: store.changeLog(),
+      registers: {
+        aspects: store.aspects(),
+        obligations: store.obligations(),
+        emergencyRecords: store.emergencyRecords(),
+        interestedParties: store.interestedParties(),
+        objectives: store.objectives(),
+        communications: store.communications(),
+        managementReviews: store.managementReviews(),
+        workerConsultations: store.workerConsultations(),
+        risksOpportunities: store.risksOpportunities(),
+        resources: store.resources(),
+        competence: store.competence(),
+        workers: store.workers(),
+        sites: store.sites(),
+        awareness: store.awareness(),
+        documentedInfo: store.documentedInfo(),
+        performanceMetrics: store.performanceMetrics(),
+        permits: store.permits(),
+        incidents: store.incidents(),
+        hira: store.hira(),
+        calibration: store.calibration(),
+        training: store.training(),
+        suppliers: store.suppliers(),
+        changes: store.changes(),
+      },
+    });
+    const auditee = store.auditee();
+    this.workingPapers.download(pack, auditee);
+    if (pack.findings.length) {
+      this.workingPapers.csvExport.download(`${auditee} working papers findings`, workingPapersFindingRows(pack), [
+        { header: 'Clause', value: (r) => r.clauseId },
+        { header: 'Clause title', value: (r) => r.clauseTitle },
+        { header: 'Grade', value: (r) => r.type },
+        { header: 'Status', value: (r) => r.status },
+        { header: 'Finding', value: (r) => r.description },
+        { header: 'Systemic', value: (r) => r.systemic },
+        { header: 'Evidence items', value: (r) => r.evidenceCount },
+        { header: 'Raised by', value: (r) => r.createdByName },
+        { header: 'Raised at', value: (r) => r.createdAt },
+      ]);
+    }
+    this.toast.saved('Working papers exported');
   }
 
   protected formatTime(iso: string): string {

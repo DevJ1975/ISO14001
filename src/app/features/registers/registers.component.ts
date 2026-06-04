@@ -25,7 +25,7 @@ import {
   trainingStatus,
 } from '../../core/domain';
 import { CsvExportService } from '../../core/export/csv-export.service';
-import { ComplianceEvaluation, Hazard, FieldAuditStore, HiraEntry, Permit, RegisterResult } from '../../core/field/field-audit-store';
+import { ComplianceEvaluation, Hazard, FieldAuditStore, HiraEntry, OperationalControl, Permit, RegisterResult } from '../../core/field/field-audit-store';
 import { ConfirmService } from '../../core/ui/confirm.service';
 import { ToastService } from '../../core/ui/toast.service';
 import {
@@ -36,6 +36,7 @@ import {
   hazardColumns,
   hiraColumns,
   incidentColumns,
+  operationalControlColumns,
   permitColumns,
   supplierColumns,
   trainingColumns,
@@ -62,6 +63,7 @@ type Tab =
   | 'training'
   | 'suppliers'
   | 'changes'
+  | 'opcontrols'
   | 'review';
 type Tone = 'positive' | 'progress' | 'critical' | 'neutral';
 
@@ -118,6 +120,7 @@ export class RegistersComponent {
     training: '7.2',
     suppliers: '8.1.4',
     changes: '8.1.3',
+    opcontrols: '8.1.2',
     review: '9.3',
   };
 
@@ -145,6 +148,7 @@ export class RegistersComponent {
     { value: 'training', label: 'Training', icon: 'workspace_premium' },
     { value: 'suppliers', label: 'Contractors', icon: 'engineering' },
     { value: 'changes', label: 'Change (MoC)', icon: 'published_with_changes' },
+    { value: 'opcontrols', label: 'Operational controls', icon: 'rule' },
     { value: 'review', label: 'Mgmt review', icon: 'fact_check' },
   ];
 
@@ -195,6 +199,17 @@ export class RegistersComponent {
     if (ok) this.store.removeHira(row.id);
   }
 
+  /** Confirm before removing an operational-control row (destructive, no undo). */
+  protected async confirmRemoveOperationalControl(row: OperationalControl): Promise<void> {
+    const ok = await this.confirm.ask({
+      title: 'Remove operational control?',
+      message: `"${row.activity || 'This control'}" will be removed from the register.`,
+      confirmLabel: 'Remove',
+      danger: true,
+    });
+    if (ok) this.store.removeOperationalControl(row.id);
+  }
+
   /**
    * Resolve the active tab to a CSV export spec (label + rows + columns), or null
    * for registers without a structured exporter. Keeps the template a single call.
@@ -213,6 +228,8 @@ export class RegistersComponent {
         return { label: 'Contractor evaluation', rows: this.store.suppliers(), columns: supplierColumns };
       case 'changes':
         return { label: 'Management of change', rows: this.store.changes(), columns: changeColumns };
+      case 'opcontrols':
+        return { label: 'Operational controls register', rows: this.store.operationalControls(), columns: operationalControlColumns };
       case 'incidents':
         return { label: 'Incident register', rows: this.store.incidents(), columns: incidentColumns };
       case 'hira':

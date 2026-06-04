@@ -14,9 +14,12 @@ import {
   type ComplaintAppeal,
   type ComplaintKind,
   type ComplaintStatus,
+  type InternalAudit,
+  type InternalAuditStatus,
   CERTIFICATE_TRANSITIONS,
   calculateAuditDuration,
   isComplaintOverdue,
+  isInternalAuditOverdue,
   recertificationDue,
   sampleSiteCount,
   selectSampleSites,
@@ -122,6 +125,35 @@ export class ProgrammeComponent {
     if (type === 'surveillance') return surveillanceDue(now).slice(0, 10);
     if (type === 'recertification') return recertificationDue(now).slice(0, 10);
     return now.slice(0, 10);
+  }
+
+  // --- Internal-audit programme (ISO 45001 cl. 9.2) ---
+
+  protected readonly internalStatuses: InternalAuditStatus[] = ['planned', 'inProgress', 'completed', 'overdue'];
+
+  protected addInternalAudit(): void {
+    this.store.addInternalAudit();
+  }
+
+  protected internalOverdue(item: InternalAudit): boolean {
+    return item.status === 'overdue' || isInternalAuditOverdue(item);
+  }
+
+  protected internalTone(item: InternalAudit): 'positive' | 'progress' | 'critical' | 'neutral' {
+    if (item.status === 'completed') return 'positive';
+    if (this.internalOverdue(item)) return 'critical';
+    if (item.status === 'inProgress') return 'progress';
+    return 'neutral';
+  }
+
+  protected async confirmRemoveInternalAudit(id: string): Promise<void> {
+    const ok = await this.confirm.ask({
+      title: 'Remove internal audit?',
+      message: 'This internal-audit entry will be removed from the programme. This cannot be undone.',
+      confirmLabel: 'Remove',
+      danger: true,
+    });
+    if (ok) this.store.removeInternalAudit(id);
   }
 
   // --- Planning aids (IAF MD 5 audit time / MD 1 √N sampling) ---

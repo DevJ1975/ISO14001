@@ -7,6 +7,7 @@ import type {
   HiraEntry,
   Incident,
   ManagementOfChangeRecord,
+  OperationalControl,
   Permit,
   SupplierRecord,
   TrainingRecord,
@@ -64,6 +65,17 @@ export const changeColumns: CsvColumn<ManagementOfChangeRecord>[] = [
   { header: 'Target date', value: (r) => r.targetDate },
   { header: 'Implemented', value: (r) => r.implementedAt },
   { header: 'Controls', value: (r) => r.controls },
+  { header: 'Result', value: (r) => r.result },
+];
+
+export const operationalControlColumns: CsvColumn<OperationalControl>[] = [
+  { header: 'Activity / process', value: (r) => r.activity },
+  { header: 'Control', value: (r) => r.controlDescription },
+  { header: 'Control type', value: (r) => r.controlType },
+  { header: 'Procedure / permit ref', value: (r) => r.procedureRef },
+  { header: 'Verified in use', value: (r) => (r.verified ? 'yes' : 'no') },
+  { header: 'Effectiveness', value: (r) => r.effectiveness },
+  { header: 'Related clause', value: (r) => r.relatedClause },
   { header: 'Result', value: (r) => r.result },
 ];
 

@@ -50,6 +50,32 @@
   border-radius: 11px;
 }
 
+.report-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.report-actions button {
+  min-height: 44px;
+  border-radius: 11px;
+}
+
+.wp-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: -4px 0 0;
+}
+
+.wp-note mat-icon {
+  flex: 0 0 auto;
+  font-size: 17px;
+  width: 17px;
+  height: 17px;
+}
+
 .checks {
   display: grid;
   gap: 10px;

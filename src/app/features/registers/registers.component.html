@@ -858,6 +858,43 @@
         }
       </div>
     }
+    @case ('opcontrols') {
+      <div class="reg">
+        <div class="reg-head">
+          <h2>Operational controls &amp; safe systems of work</h2>
+          <button mat-flat-button color="primary" type="button" (click)="store.addOperationalControl()"><mat-icon aria-hidden="true">add</mat-icon>Add</button>
+        </div>
+        @for (row of store.operationalControls(); track row.id) {
+          <article class="tile row">
+            <label class="fld"><span>Activity / process</span><input [value]="row.activity" placeholder="Working at height, hot work, forklift movement…" (change)="store.updateOperationalControl(row.id, { activity: $any($event.target).value })" /></label>
+            <label class="fld"><span>Control description</span><input [value]="row.controlDescription || ''" (change)="store.updateOperationalControl(row.id, { controlDescription: $any($event.target).value })" /></label>
+            <div class="grid3">
+              <label class="fld"><span>Control type (hierarchy)</span>
+                <select [value]="row.controlType" (change)="store.updateOperationalControl(row.id, { controlType: $any($event.target).value })">
+                  <option value="elimination">Elimination</option><option value="substitution">Substitution</option><option value="engineering">Engineering</option><option value="administrative">Administrative</option><option value="ppe">PPE</option>
+                </select>
+              </label>
+              <label class="fld"><span>Effectiveness</span>
+                <select [value]="row.effectiveness" (change)="store.updateOperationalControl(row.id, { effectiveness: $any($event.target).value })">
+                  <option value="notEvaluated">Not evaluated</option><option value="effective">Effective</option><option value="partial">Partial</option><option value="ineffective">Ineffective</option>
+                </select>
+              </label>
+              <label class="fld"><span>Related clause</span><input [value]="row.relatedClause || ''" placeholder="8.1.2" (change)="store.updateOperationalControl(row.id, { relatedClause: $any($event.target).value })" /></label>
+            </div>
+            <label class="fld"><span>Safe system of work / permit reference</span><input [value]="row.procedureRef || ''" placeholder="SSOW-WAH-02, PTW-HOT-07…" (change)="store.updateOperationalControl(row.id, { procedureRef: $any($event.target).value })" /></label>
+            <label class="chk2"><input type="checkbox" [checked]="row.verified || false" (change)="store.updateOperationalControl(row.id, { verified: $any($event.target).checked })" /> Control seen in use during the audit</label>
+            <div class="results">
+              @for (r of results; track r.value) {
+                <button type="button" class="rp {{ r.tone }}" [class.on]="row.result === r.value" (click)="store.updateOperationalControl(row.id, { result: r.value })">{{ r.label }}</button>
+              }
+              <button type="button" class="att-del" aria-label="Remove operational control" (click)="confirmRemoveOperationalControl(row)"><mat-icon aria-hidden="true">delete</mat-icon></button>
+            </div>
+          </article>
+        } @empty {
+          <div class="panel empty"><mat-icon aria-hidden="true">rule</mat-icon><strong>No operational controls yet</strong><span>Record the controls that keep significant-risk operations safe, rank each against the hierarchy of controls, reference its safe system of work / permit, and verify it is effective and in use (cl. 8.1.1 / 8.1.2).</span></div>
+        }
+      </div>
+    }
     @case ('consultation') {
       <div class="reg">
         <div class="reg-head">

@@ -33,6 +33,7 @@ import type {
   InterestedParty,
   ManagementOfChangeRecord,
   ManagementReviewRecord,
+  OperationalControl,
   PerformanceMetric,
   Permit,
   ResourceRecord,
@@ -85,6 +86,7 @@ export interface FieldStatePayload {
   training?: Array<Omit<TrainingRecord, 'sync'>>;
   suppliers?: Array<Omit<SupplierRecord, 'sync'>>;
   changes?: Array<Omit<ManagementOfChangeRecord, 'sync'>>;
+  operationalControls?: Array<Omit<OperationalControl, 'sync'>>;
   reportMeta?: Omit<ReportMeta, 'sync'> | null;
   changeLog?: ChangeLogEntry[];
 }
@@ -359,6 +361,10 @@ export class FieldApiService {
 
   upsertChange(body: Omit<ManagementOfChangeRecord, 'sync'>): Promise<unknown> {
     return firstValueFrom(this.http.put(`${this.base()}/changes/${encodeURIComponent(body.id)}`, body));
+  }
+
+  upsertOperationalControl(body: Omit<OperationalControl, 'sync'>): Promise<unknown> {
+    return firstValueFrom(this.http.put(`${this.base()}/operational-controls/${encodeURIComponent(body.id)}`, body));
   }
 
   private tenantBase(): string {

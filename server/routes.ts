@@ -719,6 +719,18 @@ const changeUpsertCommandSchema = z.object({
   result: registerResultSchema.default('notStarted'),
 });
 
+const operationalControlUpsertCommandSchema = z.object({
+  id: z.string().min(1),
+  activity: z.string().max(300).default(''),
+  controlDescription: z.string().max(2000).optional(),
+  controlType: z.enum(['elimination', 'substitution', 'engineering', 'administrative', 'ppe']).default('administrative'),
+  procedureRef: z.string().max(200).optional(),
+  verified: z.boolean().optional(),
+  effectiveness: z.enum(['effective', 'partial', 'ineffective', 'notEvaluated']).default('notEvaluated'),
+  relatedClause: z.string().max(40).optional(),
+  result: registerResultSchema.default('notStarted'),
+});
+
 const programmeUpsertSchema = z.object({
   cycleYear: z.number().int(),
   criteria: z.string().min(1),
@@ -729,6 +741,20 @@ const programmeUpsertSchema = z.object({
         type: z.enum(['internal', 'certificationStage1', 'certificationStage2', 'surveillance', 'recertification', 'special']),
         dueDate: z.string(),
         status: z.enum(['planned', 'inProgress', 'completed', 'cancelled']).default('planned'),
+      }),
+    )
+    .default([]),
+  internalAudits: z
+    .array(
+      z.object({
+        id: z.string().min(1),
+        scopeArea: z.string().max(300).default(''),
+        plannedDate: z.string().max(40).default(''),
+        status: z.enum(['planned', 'inProgress', 'completed', 'overdue']).default('planned'),
+        auditorName: z.string().max(200).optional(),
+        impartialityConfirmed: z.boolean().optional(),
+        findingsSummary: z.string().max(2000).optional(),
+        notes: z.string().max(2000).optional(),
       }),
     )
     .default([]),
@@ -1610,6 +1636,10 @@ export async function handleApiRequest(
         .collection(mongoCollections.changes)
         .find({ tenantId, auditId }, { projection: { _id: 0 } })
         .toArray();
+      const operationalControls = await dependencies.db
+        .collection(mongoCollections.operationalControls)
+        .find({ tenantId, auditId }, { projection: { _id: 0 } })
+        .toArray();
       const workerConsultations = await dependencies.db
         .collection(mongoCollections.workerConsultations)
         .find({ tenantId, auditId }, { projection: { _id: 0 } })
@@ -1669,6 +1699,7 @@ export async function handleApiRequest(
           training,
           suppliers,
           changes,
+          operationalControls,
           workerConsultations,
           reportMeta,
           changeLog,
@@ -2823,6 +2854,25 @@ export async function handleApiRequest(
         .collection(mongoCollections.changes)
         .updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
       sendJson(response, 200, { change: record }, corsOrigin);
+      return;
+    }
+
+    const operationalControlMatch = matchPath(
+      new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/operational-controls/([^/]+)$`),
+      url.pathname,
+      ['tenantId', 'auditId', 'id'],
+    );
+    if (request.method === 'PUT' && operationalControlMatch && actor) {
+      const tenantId = operationalControlMatch.params['tenantId']!;
+      const auditId = operationalControlMatch.params['auditId']!;
+      requireTenant(actor, tenantId);
+      requireAnyRole(actor, ['leadAuditor', 'auditor']);
+      const command = await readJson(request, operationalControlUpsertCommandSchema);
+      const record = { ...command, tenantId, auditId, updatedAt: new Date().toISOString() };
+      await dependencies.db
+        .collection(mongoCollections.operationalControls)
+        .updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
+      sendJson(response, 200, { operationalControl: record }, corsOrigin);
       return;
     }
 
