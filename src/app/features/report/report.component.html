@@ -4,11 +4,28 @@
       <h1>Report</h1>
       <p>{{ store.auditee() }} · {{ store.criteria() }}</p>
     </div>
-    <a mat-flat-button color="primary" routerLink="/report/print">
-      <mat-icon aria-hidden="true">picture_as_pdf</mat-icon>
-      Generate PDF
-    </a>
+    <div class="report-actions">
+      @if (isAuditor()) {
+        <button mat-stroked-button type="button" (click)="exportWorkingPapers()">
+          <mat-icon aria-hidden="true">inventory_2</mat-icon>
+          Export working papers
+        </button>
+      }
+      <a mat-flat-button color="primary" routerLink="/report/print">
+        <mat-icon aria-hidden="true">picture_as_pdf</mat-icon>
+        Generate PDF
+      </a>
+    </div>
   </header>
+
+  @if (isAuditor()) {
+    <p class="muted small wp-note">
+      <mat-icon aria-hidden="true">info</mat-icon>
+      Export working papers downloads the retained working-papers archive (JSON + findings CSV): audit metadata, checklist
+      results, findings &amp; CAPA, registers, evidence index, meetings, conclusion and the change-log — evidence metadata
+      only, not the photos.
+    </p>
+  }
 
   <div class="stat-grid stagger">
     <div class="stat"><strong>{{ store.progress().percent }}%</strong><span>Complete</span></div>
