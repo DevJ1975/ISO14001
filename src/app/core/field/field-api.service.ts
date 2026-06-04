@@ -4,7 +4,7 @@ import { firstValueFrom } from 'rxjs';
 
 import { AuthService } from '../auth/auth.service';
 import { APP_CONFIG } from '../config/app-config';
-import type { AuditAgenda, AuditAgendaInput, MeetingScripts, ReportDraft, ReportDraftInput } from '../domain';
+import type { AuditAgenda, AuditAgendaInput, ClauseAnswer, MeetingScripts, ReportDraft, ReportDraftInput } from '../domain';
 import { AuditSelectionService } from './audit-selection.service';
 import type {
   AuditConclusion,
@@ -213,6 +213,11 @@ export class FieldApiService {
     return firstValueFrom(
       this.http.post<{ agenda: AuditAgenda; scripts: MeetingScripts }>(`${this.base()}/agenda-draft`, body),
     );
+  }
+
+  /** Ask the standard via the server-side AI copilot. Rejects when unavailable so the client falls back to the field guide. */
+  askCopilot(question: string): Promise<ClauseAnswer> {
+    return firstValueFrom(this.http.post<ClauseAnswer>(`${this.base()}/copilot/ask`, { question }));
   }
 
   signReport(body: { attestation: string; contentHash?: string }): Promise<{ signedAt?: string }> {

@@ -1,0 +1,61 @@
+<section class="screen copilot">
+  <header class="screen-head">
+    <h1>Auditor copilot</h1>
+    <p>Ask about any ISO 45001 clause — what to look for, the evidence to request, how to grade a finding. Answers come from the in-app field guide (offline) or the AI when configured. Guidance only — verify against the standard and your own judgement.</p>
+  </header>
+
+  <div class="thread">
+    @for (turn of turns(); track $index) {
+      <div class="turn {{ turn.role }}">
+        @if (turn.role === 'assistant') {
+          <mat-icon class="avatar" aria-hidden="true">smart_toy</mat-icon>
+        }
+        <div class="bubble">
+          <p>{{ turn.text }}</p>
+          @if (turn.clauseRefs?.length) {
+            <div class="refs">
+              @for (ref of turn.clauseRefs; track ref.clauseId) {
+                <a class="ref" routerLink="/guide" [fragment]="'clause-' + ref.clauseId">
+                  <mat-icon aria-hidden="true">menu_book</mat-icon>{{ ref.clauseId }} · {{ ref.title }}
+                </a>
+              }
+            </div>
+          }
+          @if (turn.source) {
+            <span class="src" [attr.data-src]="turn.source">{{ turn.source === 'ai' ? 'AI' : 'Field guide' }}</span>
+          }
+        </div>
+      </div>
+    } @empty {
+      <div class="empty">
+        <mat-icon aria-hidden="true">forum</mat-icon>
+        <strong>Ask the standard</strong>
+        <span>Try one of these to get started:</span>
+        <div class="suggestions">
+          @for (s of suggestions; track s) {
+            <button type="button" class="chip" (click)="ask(s)">{{ s }}</button>
+          }
+        </div>
+      </div>
+    }
+    @if (pending()) {
+      <div class="turn assistant">
+        <mat-icon class="avatar" aria-hidden="true">smart_toy</mat-icon>
+        <div class="bubble thinking">Thinking…</div>
+      </div>
+    }
+  </div>
+
+  <div class="composer">
+    <input
+      #q
+      type="text"
+      aria-label="Ask the copilot a question"
+      placeholder="Ask about a clause, evidence, or grading…"
+      (keydown.enter)="$event.preventDefault(); ask(q.value); q.value = ''"
+    />
+    <button mat-flat-button color="primary" type="button" aria-label="Send" [disabled]="pending()" (click)="ask(q.value); q.value = ''">
+      <mat-icon aria-hidden="true">send</mat-icon>
+    </button>
+  </div>
+</section>
