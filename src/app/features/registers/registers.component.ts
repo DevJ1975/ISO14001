@@ -26,6 +26,8 @@ import {
   trainingStatus,
 } from '../../core/domain';
 import { CsvExportService } from '../../core/export/csv-export.service';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { JurisdictionService } from '../../core/jurisdiction/jurisdiction.service';
 import { ComplianceEvaluation, ContextItem, EnvironmentalAspect, EnvironmentalObjective, EnvironmentalObligation, Hazard, FieldAuditStore, HiraEntry, Interview, LeadershipItem, OperationalControl, Permit, RegisterResult } from '../../core/field/field-audit-store';
 import { ConfirmService } from '../../core/ui/confirm.service';
 import { ToastService } from '../../core/ui/toast.service';
@@ -83,13 +85,14 @@ type Tone = 'positive' | 'progress' | 'critical' | 'neutral';
 @Component({
   selector: 'app-registers',
   standalone: true,
-  imports: [DatePipe, MatButtonModule, MatIconModule, RouterLink],
+  imports: [DatePipe, MatButtonModule, MatIconModule, RouterLink, TranslatePipe],
   templateUrl: './registers.component.html',
   styleUrl: './registers.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class RegistersComponent {
   protected readonly store = inject(FieldAuditStore);
+  protected readonly jurisdiction = inject(JurisdictionService);
   private readonly csv = inject(CsvExportService);
   private readonly route = inject(ActivatedRoute);
   private readonly confirm = inject(ConfirmService);

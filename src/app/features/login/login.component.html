@@ -8,11 +8,11 @@
       </div>
     </div>
 
-    <h1>Sign in</h1>
-    <p class="lead">Authenticate to load the live audit workspace.</p>
+    <h1>{{ 'login.signIn' | t }}</h1>
+    <p class="lead">{{ 'login.lead' | t }}</p>
 
     <label class="field">
-      <span>Email</span>
+      <span>{{ 'login.email' | t }}</span>
       <input
         #emailEl
         type="email"
@@ -30,7 +30,7 @@
     </label>
 
     <label class="field">
-      <span>Password</span>
+      <span>{{ 'login.password' | t }}</span>
       <input
         #passwordEl
         type="password"
@@ -53,7 +53,7 @@
 
     <button mat-flat-button color="primary" type="submit" [disabled]="busy() || !canSubmit() || mfaChallenge()">
       <mat-icon aria-hidden="true">login</mat-icon>
-      {{ busy() ? 'Signing in…' : 'Sign in' }}
+      {{ (busy() ? 'login.signingIn' : 'login.signIn') | t }}
     </button>
 
     @if (mfaChallenge()) {
@@ -87,23 +87,23 @@
 
     <div class="sso-step">
       <label class="field">
-        <span>Single sign-on (SSO)</span>
+        <span>{{ 'login.sso' | t }}</span>
         <input #ssoEl type="text" placeholder="Workspace ID" autocomplete="off" />
       </label>
       <button mat-stroked-button type="button" class="offline-btn" [disabled]="ssoBusy()" (click)="signInWithSso(ssoEl.value)">
         <mat-icon aria-hidden="true">vpn_key</mat-icon>
-        {{ ssoBusy() ? 'Redirecting…' : 'Sign in with SSO' }}
+        {{ (ssoBusy() ? 'login.ssoRedirecting' : 'login.ssoSubmit') | t }}
       </button>
     </div>
 
     <div class="demo-roles">
       <button mat-stroked-button type="button" class="offline-btn" (click)="continueOffline()">
         <mat-icon aria-hidden="true">badge</mat-icon>
-        Demo as auditor
+        {{ 'login.demoAuditor' | t }}
       </button>
       <button mat-stroked-button type="button" class="offline-btn" (click)="continueAsClient()">
         <mat-icon aria-hidden="true">handshake</mat-icon>
-        Demo as client (auditee)
+        {{ 'login.demoClient' | t }}
       </button>
     </div>
 

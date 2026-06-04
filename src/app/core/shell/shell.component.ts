@@ -6,6 +6,9 @@ import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/rou
 import { AlertsService } from '../alerts/alerts.service';
 import { AuthService } from '../auth/auth.service';
 import { ConditionsService } from '../conditions/conditions.service';
+import { I18nService } from '../i18n/i18n.service';
+import { LocaleSwitcherComponent } from '../i18n/locale-switcher.component';
+import { TranslatePipe } from '../i18n/translate.pipe';
 import { FieldAuditStore } from '../field/field-audit-store';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ThemeService } from '../theme/theme.service';
@@ -33,6 +36,8 @@ import { NAV_DESTINATIONS, NavItem } from './nav';
     CommandPaletteComponent,
     WelcomeHostComponent,
     TourHostComponent,
+    LocaleSwitcherComponent,
+    TranslatePipe,
   ],
   templateUrl: './shell.component.html',
   styleUrl: './shell.component.css',
@@ -40,6 +45,7 @@ import { NAV_DESTINATIONS, NavItem } from './nav';
 })
 export class ShellComponent {
   protected readonly theme = inject(ThemeService);
+  protected readonly i18n = inject(I18nService);
   protected readonly conditions = inject(ConditionsService);
   protected readonly store = inject(FieldAuditStore);
   protected readonly auth = inject(AuthService);
@@ -100,14 +106,18 @@ export class ShellComponent {
 
   protected readonly sourceLabel = computed(() => {
     const state = this.sourceState();
-    return state === 'live' ? 'Live' : state === 'offline' ? 'Offline' : 'Local';
+    this.i18n.locale(); // re-evaluate on locale change
+    if (state === 'live') return this.i18n.t('shell.source.live');
+    if (state === 'offline') return this.i18n.t('shell.source.offline');
+    return this.i18n.t('shell.source.local');
   });
 
   protected readonly sourceHint = computed(() => {
     const state = this.sourceState();
-    if (state === 'live') return 'Connected to the live backend';
-    if (state === 'offline') return 'Offline — changes are queued on this device';
-    return 'Local store — backend not connected';
+    this.i18n.locale(); // re-evaluate on locale change
+    if (state === 'live') return this.i18n.t('shell.source.hint.live');
+    if (state === 'offline') return this.i18n.t('shell.source.hint.offline');
+    return this.i18n.t('shell.source.hint.local');
   });
 
   protected readonly nav: readonly NavItem[] = NAV_DESTINATIONS;
