@@ -752,6 +752,8 @@ const programmeUpsertSchema = z.object({
         type: z.enum(['internal', 'certificationStage1', 'certificationStage2', 'surveillance', 'recertification', 'special']),
         dueDate: z.string(),
         status: z.enum(['planned', 'inProgress', 'completed', 'cancelled']).default('planned'),
+        plannedDays: z.number().min(0).max(1000).optional(),
+        actualDays: z.number().min(0).max(1000).optional(),
       }),
     )
     .default([]),
