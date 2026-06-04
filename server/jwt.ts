@@ -8,6 +8,8 @@ export interface JwtClaims {
   role: string;
   platform: boolean;
   tenantId?: string;
+  /** Marks a short-lived MFA challenge token (not a session token). */
+  mfa?: boolean;
   iat: number;
   exp: number;
 }
@@ -17,7 +19,7 @@ function encodeSegment(value: unknown): string {
 }
 
 export function signJwt(
-  payload: { sub: string; role: string; platform: boolean; tenantId?: string },
+  payload: { sub: string; role: string; platform: boolean; tenantId?: string; mfa?: boolean },
   secret: string,
   ttlSeconds: number,
 ): string {

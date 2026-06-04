@@ -51,10 +51,50 @@
       <p class="error" role="alert"><mat-icon aria-hidden="true">error</mat-icon>{{ message }}</p>
     }
 
-    <button mat-flat-button color="primary" type="submit" [disabled]="busy() || !canSubmit()">
+    <button mat-flat-button color="primary" type="submit" [disabled]="busy() || !canSubmit() || mfaChallenge()">
       <mat-icon aria-hidden="true">login</mat-icon>
       {{ busy() ? 'Signing in…' : 'Sign in' }}
     </button>
+
+    @if (mfaChallenge()) {
+      <fieldset class="mfa-step">
+        <legend><mat-icon aria-hidden="true">phonelink_lock</mat-icon> Two-factor verification</legend>
+        <p class="lead">Enter the 6-digit code from your authenticator app.</p>
+        <label class="field">
+          <span>Authentication code</span>
+          <input
+            #mfaEl
+            type="text"
+            inputmode="numeric"
+            autocomplete="one-time-code"
+            maxlength="6"
+            [value]="mfaCode()"
+            (input)="mfaCode.set(mfaEl.value)"
+          />
+        </label>
+        @if (mfaError(); as message) {
+          <small class="field-err" role="alert"><mat-icon aria-hidden="true">error</mat-icon>{{ message }}</small>
+        }
+        <div class="mfa-actions">
+          <button mat-flat-button color="primary" type="button" [disabled]="busy()" (click)="submitMfa($event)">
+            <mat-icon aria-hidden="true">check</mat-icon>
+            {{ busy() ? 'Verifying…' : 'Verify code' }}
+          </button>
+          <button mat-stroked-button type="button" [disabled]="busy()" (click)="cancelMfa()">Cancel</button>
+        </div>
+      </fieldset>
+    }
+
+    <div class="sso-step">
+      <label class="field">
+        <span>Single sign-on (SSO)</span>
+        <input #ssoEl type="text" placeholder="Workspace ID" autocomplete="off" />
+      </label>
+      <button mat-stroked-button type="button" class="offline-btn" [disabled]="ssoBusy()" (click)="signInWithSso(ssoEl.value)">
+        <mat-icon aria-hidden="true">vpn_key</mat-icon>
+        {{ ssoBusy() ? 'Redirecting…' : 'Sign in with SSO' }}
+      </button>
+    </div>
 
     <div class="demo-roles">
       <button mat-stroked-button type="button" class="offline-btn" (click)="continueOffline()">

@@ -19,6 +19,21 @@ interface LoginResponse {
   user: AuthUser;
 }
 
+/** Login may resolve to a session OR an MFA challenge that needs a second step. */
+interface MfaChallengeResponse {
+  mfaRequired: true;
+  challengeToken: string;
+}
+
+type AuthResponse = LoginResponse | MfaChallengeResponse;
+
+function isMfaChallenge(response: AuthResponse): response is MfaChallengeResponse {
+  return (response as MfaChallengeResponse).mfaRequired === true;
+}
+
+/** Result of a login attempt: either complete, or awaiting the TOTP second factor. */
+export type LoginResult = { status: 'complete' } | { status: 'mfaRequired'; challengeToken: string };
+
 const TOKEN_KEY = 'trainovate-token';
 const USER_KEY = 'trainovate-user';
 const OFFLINE_KEY = 'trainovate-offline';
@@ -45,19 +60,42 @@ export class AuthService {
     return role !== undefined && role !== 'clientViewer' && role !== 'platformSuperadmin';
   });
 
-  async login(email: string, password: string): Promise<void> {
-    await this.authenticate('/auth/login', email, password);
+  async login(email: string, password: string): Promise<LoginResult> {
+    return this.authenticate('/auth/login', email, password);
   }
 
   /** Dedicated platform-superadmin sign-in (separate screen, separate endpoint). */
-  async superadminLogin(email: string, password: string): Promise<void> {
-    await this.authenticate('/auth/superadmin-login', email, password);
+  async superadminLogin(email: string, password: string): Promise<LoginResult> {
+    return this.authenticate('/auth/superadmin-login', email, password);
   }
 
-  private async authenticate(path: string, email: string, password: string): Promise<void> {
-    const response = await firstValueFrom(
-      this.http.post<LoginResponse>(`${this.config.apiBaseUrl}${path}`, { email: email.trim(), password }),
+  /** Begin an OIDC sign-in: the server returns the IdP authorization URL + state. */
+  async ssoInitiate(tenantId: string): Promise<{ authorizationUrl: string; state: string }> {
+    return firstValueFrom(
+      this.http.post<{ authorizationUrl: string; state: string }>(`${this.config.apiBaseUrl}/auth/sso/initiate`, { tenantId }),
     );
+  }
+
+  /** Complete an MFA-gated login: exchange the challenge + TOTP code for a session. */
+  async completeMfaLogin(challengeToken: string, code: string): Promise<void> {
+    const response = await firstValueFrom(
+      this.http.post<LoginResponse>(`${this.config.apiBaseUrl}/auth/mfa/login`, { challengeToken, code }),
+    );
+    this.applySession(response);
+  }
+
+  private async authenticate(path: string, email: string, password: string): Promise<LoginResult> {
+    const response = await firstValueFrom(
+      this.http.post<AuthResponse>(`${this.config.apiBaseUrl}${path}`, { email: email.trim(), password }),
+    );
+    if (isMfaChallenge(response)) {
+      return { status: 'mfaRequired', challengeToken: response.challengeToken };
+    }
+    this.applySession(response);
+    return { status: 'complete' };
+  }
+
+  private applySession(response: LoginResponse): void {
     this.token.set(response.token);
     this.user.set(response.user);
     this.offline.set(false);

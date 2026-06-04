@@ -145,6 +145,25 @@ export class FieldApiService {
     return firstValueFrom(this.http.post(`${this.config.apiBaseUrl}/auth/change-password`, { currentPassword, newPassword }));
   }
 
+  // --- TOTP MFA (self-service for the signed-in member) ---
+  mfaStatus(): Promise<{ enabled: boolean }> {
+    return firstValueFrom(this.http.get<{ enabled: boolean }>(`${this.tenantBase()}/mfa`));
+  }
+
+  mfaEnroll(): Promise<{ secret: string; otpauthUri: string; account: string; issuer: string }> {
+    return firstValueFrom(
+      this.http.post<{ secret: string; otpauthUri: string; account: string; issuer: string }>(`${this.tenantBase()}/mfa/enroll`, {}),
+    );
+  }
+
+  mfaActivate(code: string): Promise<{ enabled: boolean }> {
+    return firstValueFrom(this.http.post<{ enabled: boolean }>(`${this.tenantBase()}/mfa/activate`, { code }));
+  }
+
+  mfaDisable(code: string): Promise<{ enabled: boolean }> {
+    return firstValueFrom(this.http.post<{ enabled: boolean }>(`${this.tenantBase()}/mfa/disable`, { code }));
+  }
+
   createAudit(body: { auditee: string; scope: string; criteria: string }): Promise<AuditSummary> {
     return firstValueFrom(
       this.http.post<{ audit: AuditSummary }>(`${this.tenantBase()}/audits`, body),

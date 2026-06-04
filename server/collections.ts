@@ -49,6 +49,9 @@ export const mongoCollections = {
   capaReminders: 'capaReminders',
   backendJobs: 'backendJobs',
   observabilityEvents: 'observabilityEvents',
+  // Enterprise auth: tenant SSO (OIDC) config + tenant SCIM provisioning tokens.
+  ssoConfigs: 'ssoConfigs',
+  provisioningTokens: 'provisioningTokens',
 } as const;
 
 export type MongoCollectionName = (typeof mongoCollections)[keyof typeof mongoCollections];
@@ -111,5 +114,8 @@ export async function ensureMongoIndexes(db: Db): Promise<void> {
     db.collection(mongoCollections.backendJobs).createIndex({ idempotencyKey: 1 }, { unique: true }),
     db.collection(mongoCollections.backendJobs).createIndex({ tenantId: 1, callableName: 1, status: 1, createdAt: -1 }),
     db.collection(mongoCollections.observabilityEvents).createIndex({ tenantId: 1, auditId: 1, occurredAt: -1 }),
+    db.collection(mongoCollections.ssoConfigs).createIndex({ tenantId: 1 }, { unique: true }),
+    db.collection(mongoCollections.provisioningTokens).createIndex({ tokenHash: 1 }, { unique: true }),
+    db.collection(mongoCollections.provisioningTokens).createIndex({ tenantId: 1 }),
   ]);
 }
