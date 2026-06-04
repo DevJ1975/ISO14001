@@ -108,6 +108,12 @@ verbatim ISO requirement text.
 
 ## Docs
 
+- **[User Manual](docs/user-manual/README.md)** — complete, living guide for
+  every user
+  - [Getting started](docs/user-manual/getting-started.md)
+  - [Auditor guide](docs/user-manual/auditor-guide.md)
+  - [Auditee guide (Client portal)](docs/user-manual/auditee-guide.md)
+  - [Administrator guide](docs/user-manual/administrator-guide.md)
 - [Phase 0 Plan](docs/phase-0-plan.md)
 - [Phase 1 Plan](docs/phase-1-plan.md)
 - [Phase 2 Plan](docs/phase-2-plan.md)
