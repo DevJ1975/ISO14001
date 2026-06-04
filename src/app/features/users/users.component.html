@@ -135,4 +135,47 @@
       <mat-icon aria-hidden="true">lock_reset</mat-icon>{{ changingPw() ? 'Updating…' : 'Update password' }}
     </button>
   </article>
+
+  @if (mfaEnabled() !== null) {
+    <article class="panel form self">
+      <h2>Two-factor authentication (TOTP)</h2>
+      @if (mfaEnabled()) {
+        <p class="ok"><mat-icon aria-hidden="true">verified_user</mat-icon>Enabled — a code from your authenticator is required at sign-in.</p>
+        <p>To turn it off, enter a current 6-digit code.</p>
+        <label class="fld"><span>Authentication code</span>
+          <input #offCode type="text" inputmode="numeric" maxlength="6" autocomplete="one-time-code"
+            [value]="mfaCode()" (input)="mfaCode.set(offCode.value)" /></label>
+        @if (mfaError(); as err) { <p class="err"><mat-icon aria-hidden="true">error</mat-icon>{{ err }}</p> }
+        @if (mfaMessage(); as msg) { <p class="ok"><mat-icon aria-hidden="true">check_circle</mat-icon>{{ msg }}</p> }
+        <button mat-stroked-button type="button" [disabled]="mfaBusy()" (click)="disableMfa()">
+          <mat-icon aria-hidden="true">lock_open</mat-icon>{{ mfaBusy() ? 'Working…' : 'Disable MFA' }}
+        </button>
+      } @else if (mfaEnrolling() && mfaEnrollment(); as enrol) {
+        <p>Add this account to an authenticator app (Google Authenticator, 1Password, etc.), then enter the 6-digit code it shows.</p>
+        <label class="fld"><span>Secret key</span>
+          <input type="text" readonly [value]="enrol.secret" /></label>
+        <button mat-stroked-button type="button" (click)="copy(enrol.secret)"><mat-icon aria-hidden="true">content_copy</mat-icon>Copy secret</button>
+        <label class="fld"><span>Setup URI (otpauth)</span>
+          <input type="text" readonly [value]="enrol.otpauthUri" /></label>
+        <button mat-stroked-button type="button" (click)="copy(enrol.otpauthUri)"><mat-icon aria-hidden="true">content_copy</mat-icon>Copy URI</button>
+        <label class="fld"><span>Authentication code</span>
+          <input #onCode type="text" inputmode="numeric" maxlength="6" autocomplete="one-time-code"
+            [value]="mfaCode()" (input)="mfaCode.set(onCode.value)" /></label>
+        @if (mfaError(); as err) { <p class="err"><mat-icon aria-hidden="true">error</mat-icon>{{ err }}</p> }
+        <div class="mfa-actions">
+          <button mat-flat-button color="primary" type="button" [disabled]="mfaBusy()" (click)="activateMfa()">
+            <mat-icon aria-hidden="true">check</mat-icon>{{ mfaBusy() ? 'Verifying…' : 'Verify & enable' }}
+          </button>
+          <button mat-stroked-button type="button" [disabled]="mfaBusy()" (click)="cancelMfaEnroll()">Cancel</button>
+        </div>
+      } @else {
+        <p>Add a second factor to protect your account. Disabled by default.</p>
+        @if (mfaMessage(); as msg) { <p class="ok"><mat-icon aria-hidden="true">check_circle</mat-icon>{{ msg }}</p> }
+        @if (mfaError(); as err) { <p class="err"><mat-icon aria-hidden="true">error</mat-icon>{{ err }}</p> }
+        <button mat-flat-button color="primary" type="button" [disabled]="mfaBusy()" (click)="startMfaEnroll()">
+          <mat-icon aria-hidden="true">phonelink_lock</mat-icon>{{ mfaBusy() ? 'Working…' : 'Enable MFA' }}
+        </button>
+      }
+    </article>
+  }
 </section>

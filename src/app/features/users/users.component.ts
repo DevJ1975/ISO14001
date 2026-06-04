@@ -48,8 +48,93 @@ export class UsersComponent {
   protected readonly pwMessage = signal<string | null>(null);
   protected readonly pwError = signal<string | null>(null);
 
+  // --- TOTP MFA self-service (the signed-in user's own account) ---
+  protected readonly mfaEnabled = signal<boolean | null>(null);
+  protected readonly mfaEnrolling = signal(false);
+  /** The secret + otpauth URI shown once during enrolment (added to an authenticator). */
+  protected readonly mfaEnrollment = signal<{ secret: string; otpauthUri: string } | null>(null);
+  protected readonly mfaCode = signal('');
+  protected readonly mfaBusy = signal(false);
+  protected readonly mfaError = signal<string | null>(null);
+  protected readonly mfaMessage = signal<string | null>(null);
+
   constructor() {
     void this.load();
+    void this.loadMfa();
+  }
+
+  private async loadMfa(): Promise<void> {
+    try {
+      this.mfaEnabled.set((await this.api.mfaStatus()).enabled);
+    } catch {
+      // Offline/local mode or not signed in to the live backend — hide the MFA card.
+      this.mfaEnabled.set(null);
+    }
+  }
+
+  /** Begin enrolment: fetch a fresh secret + otpauth URI to add to an authenticator. */
+  protected async startMfaEnroll(): Promise<void> {
+    this.mfaError.set(null);
+    this.mfaMessage.set(null);
+    this.mfaBusy.set(true);
+    try {
+      const result = await this.api.mfaEnroll();
+      this.mfaEnrollment.set({ secret: result.secret, otpauthUri: result.otpauthUri });
+      this.mfaEnrolling.set(true);
+    } catch (err: unknown) {
+      this.mfaError.set(this.messageFrom(err, 'Could not start MFA enrolment.'));
+    } finally {
+      this.mfaBusy.set(false);
+    }
+  }
+
+  /** Verify the first code to activate MFA. */
+  protected async activateMfa(): Promise<void> {
+    this.mfaError.set(null);
+    if (!/^[0-9]{6}$/.test(this.mfaCode().trim())) {
+      this.mfaError.set('Enter the 6-digit code from your authenticator app.');
+      return;
+    }
+    this.mfaBusy.set(true);
+    try {
+      const result = await this.api.mfaActivate(this.mfaCode().trim());
+      this.mfaEnabled.set(result.enabled);
+      this.mfaEnrolling.set(false);
+      this.mfaEnrollment.set(null);
+      this.mfaCode.set('');
+      this.mfaMessage.set('Two-factor authentication is on.');
+    } catch (err: unknown) {
+      this.mfaError.set(this.messageFrom(err, 'That code did not match. Try again.'));
+    } finally {
+      this.mfaBusy.set(false);
+    }
+  }
+
+  /** Disable MFA (requires a current valid code). */
+  protected async disableMfa(): Promise<void> {
+    this.mfaError.set(null);
+    if (!/^[0-9]{6}$/.test(this.mfaCode().trim())) {
+      this.mfaError.set('Enter a current 6-digit code to turn MFA off.');
+      return;
+    }
+    this.mfaBusy.set(true);
+    try {
+      const result = await this.api.mfaDisable(this.mfaCode().trim());
+      this.mfaEnabled.set(result.enabled);
+      this.mfaCode.set('');
+      this.mfaMessage.set('Two-factor authentication is off.');
+    } catch (err: unknown) {
+      this.mfaError.set(this.messageFrom(err, 'Could not disable MFA.'));
+    } finally {
+      this.mfaBusy.set(false);
+    }
+  }
+
+  protected cancelMfaEnroll(): void {
+    this.mfaEnrolling.set(false);
+    this.mfaEnrollment.set(null);
+    this.mfaCode.set('');
+    this.mfaError.set(null);
   }
 
   private async load(): Promise<void> {
