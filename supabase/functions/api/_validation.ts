@@ -92,8 +92,9 @@ export function cleanRegister(body: Record<string, unknown>, id: string): Record
       // finite numbers, not stringified, so the deployed store holds real data.
       out[key] = Number.isFinite(value) ? value : 0;
     } else if (Array.isArray(value)) {
-      // Bounded arrays (e.g. document attachments) are preserved: object items
-      // are shallow-cleaned to vetted scalar fields; scalar items are stringified.
+      // Bounded arrays (e.g. document attachments, obligation compliance-evaluation
+      // history) are preserved: object items are shallow-cleaned to vetted scalar
+      // fields; scalar items are stringified.
       out[key] = value.slice(0, 50).map((item) => cleanArrayItem(item));
     } else {
       out[key] = str(value, 2000, key);

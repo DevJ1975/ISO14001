@@ -428,6 +428,15 @@ const aspectUpsertCommandSchema = z.object({
   result: registerResultSchema.default('notStarted'),
 });
 
+/** One timestamped compliance evaluation in an obligation's history (cl. 9.1.2). */
+const complianceEvaluationSchema = z.object({
+  id: z.string().min(1),
+  evaluatedAt: z.string(),
+  complianceStatus: z.enum(['compliant', 'nonCompliant', 'toVerify']),
+  evaluatedBy: z.string().max(200).optional(),
+  note: z.string().max(2000).optional(),
+});
+
 const obligationUpsertCommandSchema = z.object({
   id: z.string().min(1),
   obligation: z.string().max(300).default(''),
@@ -435,6 +444,7 @@ const obligationUpsertCommandSchema = z.object({
   requirement: z.string().max(2000).default(''),
   complianceStatus: z.enum(['compliant', 'nonCompliant', 'toVerify']).default('toVerify'),
   lastEvaluatedAt: z.string().optional(),
+  evaluations: z.array(complianceEvaluationSchema).max(200).default([]),
   result: registerResultSchema.default('notStarted'),
 });
 
