@@ -8,6 +8,7 @@ import type { Db } from 'mongodb';
 import { loadServerConfig } from '../server/config';
 import { hashPassword } from '../server/password';
 import { handleApiRequest } from '../server/routes';
+import { issueSetPasswordToken } from '../server/set-password';
 
 const config = loadServerConfig({
   MONGODB_URI: 'mongodb://localhost:27017',
@@ -318,5 +319,36 @@ describe('delegated lead-auditor member management', () => {
 
     const cross = await call({ db }, { method: 'POST', url: '/api/tenants/t/members/u9/password', headers: leadHeaders('other-tenant') });
     assert.equal(cross.statusCode, 401);
+  });
+});
+
+describe('superadmin invite + set-password (tenant-less account)', () => {
+  it('lets an invited superadmin choose a password, flags the platform account, and signs in', async () => {
+    const { db, store } = createFakeDb();
+    store.set('members', [
+      { uid: 'uid-superadmin', tenantId: null, role: 'platformSuperadmin', status: 'invited', profile: { email: 'jamil@trainovations.com', displayName: 'Jamil Jones' } },
+    ]);
+    const { token } = await issueSetPasswordToken(
+      db,
+      { uid: 'uid-superadmin', tenantId: null, email: 'jamil@trainovations.com', purpose: 'invite' },
+      config,
+    );
+
+    // The set-password page learns it's a platform account (so it routes to /admin/login).
+    const info = await call({ db }, { method: 'GET', url: `/api/auth/set-password/${encodeURIComponent(token)}` });
+    const desc = JSON.parse(info.body) as { valid: boolean; platform?: boolean; email?: string };
+    assert.equal(desc.valid, true);
+    assert.equal(desc.platform, true);
+    assert.equal(desc.email, 'jamil@trainovations.com');
+
+    const set = await call({ db }, { method: 'POST', url: '/api/auth/set-password', body: { token, password: 'superSecret12' } });
+    assert.equal(set.statusCode, 200);
+    const member = (store.get('members') ?? [])[0]!;
+    assert.equal(member['status'], 'active');
+    assert.equal(typeof member['passwordHash'], 'string');
+
+    const login = await call({ db }, { method: 'POST', url: '/api/auth/superadmin-login', body: { email: 'jamil@trainovations.com', password: 'superSecret12' } });
+    assert.equal(login.statusCode, 200);
+    assert.equal(JSON.parse(login.body).user.role, 'platformSuperadmin');
   });
 });
