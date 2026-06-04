@@ -8,31 +8,50 @@ import { z, ZodError, ZodType } from 'zod';
 import {
   addTenantUserCommandSchema,
   backendJobSchema,
+  buildAuthorizationUrl,
   buildEvidenceMetadataPath,
   buildPhotoEvidenceStorageRef,
   capaReminderScheduleCommandSchema,
   evidenceRequestSchema,
   evidenceUploadIntentCommandSchema,
   evidenceUploadIntentSchema,
+  mfaCodeCommandSchema,
   memberClaimsAssignmentCommandSchema,
   memberStatusUpdateCommandSchema,
   photoAnalysisRequestCommandSchema,
   provisionClientCommandSchema,
   reportPdfGenerationCommandSchema,
+  scimResolveDisplayName,
+  scimResolveEmail,
+  scimUserCommandSchema,
   setPasswordCommandSchema,
+  ssoConfigCommandSchema,
+  ssoConfigSchema,
   superadminLoginCommandSchema,
   tenantMemberInviteCommandSchema,
   tenantOnboardingCommandSchema,
+  toScimUser,
+  toSsoConfigView,
+  type SsoConfig,
 } from '../src/app/core/domain/index.js';
 import {
   ApiAuthError,
   authenticateRequest,
   issueMemberToken,
+  issueMfaChallengeToken,
   issuePlatformToken,
   requireAnyRole,
   requireSuperadmin,
   requireTenant,
+  verifyMfaChallengeToken,
 } from './auth.js';
+import { generateMfaSecret, mfaOtpAuthUri, MFA_ISSUER, verifyMfaCode } from './mfa.js';
+import {
+  hasProvisioningToken,
+  issueProvisioningToken,
+  resolveProvisioningToken,
+  revokeProvisioningTokens,
+} from './provisioning-token.js';
 import { mongoCollections } from './collections.js';
 import { ServerConfig } from './config.js';
 import { LoggingMailer, Mailer, setPasswordEmail } from './mailer.js';
@@ -128,7 +147,7 @@ function sendJson(response: ServerResponse, statusCode: number, body: unknown, c
     ...jsonContentType,
     'access-control-allow-origin': corsOrigin,
     'access-control-allow-headers': 'authorization,content-type,x-iso-actor-uid,x-iso-platform,x-iso-role,x-iso-tenant-id',
-    'access-control-allow-methods': 'GET,POST,PUT,OPTIONS',
+    'access-control-allow-methods': 'GET,POST,PUT,DELETE,OPTIONS',
   });
   response.end(JSON.stringify(body));
 }
@@ -764,6 +783,40 @@ const interviewUpsertCommandSchema = z.object({
   result: registerResultSchema.default('notStarted'),
 });
 
+// ISO 14001:2015 environmental registers.
+const environmentalAspectUpsertCommandSchema = z.object({
+  id: z.string().min(1),
+  activity: z.string().max(300).default(''),
+  aspect: z.string().max(300).default(''),
+  impact: z.string().max(300).default(''),
+  significance: z.enum(['low', 'medium', 'high']).default('medium'),
+  lifecycleStage: z.enum(['rawMaterials', 'manufacturing', 'distribution', 'use', 'endOfLife', 'notAssessed']).default('notAssessed'),
+  relatedClauseId: z.string().max(40).optional(),
+  result: registerResultSchema.default('notStarted'),
+});
+
+const environmentalObligationUpsertCommandSchema = z.object({
+  id: z.string().min(1),
+  obligation: z.string().max(300).default(''),
+  obligationType: z.enum(['legal', 'other']).default('legal'),
+  reference: z.string().max(300).optional(),
+  applicability: z.string().max(2000).optional(),
+  evaluationStatus: z.enum(['compliant', 'nonCompliant', 'toEvaluate']).default('toEvaluate'),
+  relatedClauseId: z.string().max(40).optional(),
+  result: registerResultSchema.default('notStarted'),
+});
+
+const environmentalObjectiveUpsertCommandSchema = z.object({
+  id: z.string().min(1),
+  objective: z.string().max(300).default(''),
+  target: z.string().max(1000).optional(),
+  metric: z.string().max(300).optional(),
+  dueDate: z.string().max(40).optional(),
+  status: z.enum(['notStarted', 'onTrack', 'atRisk', 'achieved']).default('notStarted'),
+  relatedClauseId: z.string().max(40).optional(),
+  result: registerResultSchema.default('notStarted'),
+});
+
 const programmeUpsertSchema = z.object({
   cycleYear: z.number().int(),
   criteria: z.string().min(1),
@@ -937,9 +990,18 @@ export async function handleApiRequest(
     const isPublic =
       (request.method === 'GET' && url.pathname === '/api/health') ||
       (request.method === 'POST' && url.pathname === '/api/auth/login') ||
+      (request.method === 'POST' && url.pathname === '/api/auth/mfa/login') ||
       (request.method === 'POST' && url.pathname === '/api/auth/superadmin-login') ||
       (request.method === 'POST' && url.pathname === '/api/auth/set-password') ||
-      (request.method === 'GET' && url.pathname.startsWith('/api/auth/set-password/'));
+      (request.method === 'GET' && url.pathname.startsWith('/api/auth/set-password/')) ||
+      // SSO: the public config (for the login screen) + the OIDC initiate/callback
+      // are unauthenticated by design — they bootstrap a session, like login.
+      (request.method === 'GET' && /^\/api\/tenants\/[^/]+\/sso\/public$/.test(url.pathname)) ||
+      (request.method === 'POST' && url.pathname === '/api/auth/sso/initiate') ||
+      (request.method === 'GET' && url.pathname === '/api/auth/sso/callback') ||
+      // SCIM endpoints authenticate with a tenant provisioning bearer token, not
+      // a member JWT, so they bypass the member-token gate and check it inline.
+      url.pathname.startsWith('/api/scim/v2/');
     const actor = isPublic ? null : authenticateRequest(request, dependencies.config);
 
     if (request.method === 'GET' && url.pathname === '/api/health') {
@@ -967,6 +1029,17 @@ export async function handleApiRequest(
       }
       clearLoginFailures(rateKey);
       const profile = member['profile'] as { displayName?: string; email?: string } | undefined;
+      // Opt-in TOTP MFA: if enabled, return a short-lived challenge instead of a
+      // session token. The client completes the second factor at /auth/mfa/login.
+      const mfa = member['mfa'] as { enabled?: boolean } | undefined;
+      if (mfa?.enabled === true) {
+        const challengeToken = issueMfaChallengeToken(
+          { uid: String(member['uid']), tenantId: String(member['tenantId']), role: String(member['role']) },
+          dependencies.config,
+        );
+        sendJson(response, 200, { mfaRequired: true, challengeToken }, corsOrigin);
+        return;
+      }
       const { token, expiresAt } = issueMemberToken(
         { uid: String(member['uid']), tenantId: String(member['tenantId']), role: String(member['role']) },
         dependencies.config,
@@ -983,6 +1056,45 @@ export async function handleApiRequest(
             role: member['role'],
             displayName: profile?.displayName ?? '',
             email: profile?.email ?? command.email,
+          },
+        },
+        corsOrigin,
+      );
+      return;
+    }
+
+    // Step 2 of MFA login: exchange the challenge token + a valid TOTP code for a
+    // real session token. Public route (no actor) — the challenge token is the credential.
+    if (request.method === 'POST' && url.pathname === '/api/auth/mfa/login') {
+      const command = await readJson(
+        request,
+        z.object({ challengeToken: z.string().min(1) }).merge(mfaCodeCommandSchema),
+      );
+      const pending = verifyMfaChallengeToken(command.challengeToken, dependencies.config);
+      const member = await dependencies.db
+        .collection(mongoCollections.members)
+        .findOne({ tenantId: pending.tenantId, uid: pending.uid, status: 'active' });
+      const mfa = member?.['mfa'] as { enabled?: boolean; secret?: string } | undefined;
+      if (!member || !mfa?.enabled || typeof mfa.secret !== 'string' || !verifyMfaCode(mfa.secret, command.code)) {
+        throw new ApiAuthError('Invalid authentication code.');
+      }
+      const profile = member['profile'] as { displayName?: string; email?: string } | undefined;
+      const { token, expiresAt } = issueMemberToken(
+        { uid: String(member['uid']), tenantId: String(member['tenantId']), role: String(member['role']) },
+        dependencies.config,
+      );
+      sendJson(
+        response,
+        200,
+        {
+          token,
+          expiresAt,
+          user: {
+            uid: member['uid'],
+            tenantId: member['tenantId'],
+            role: member['role'],
+            displayName: profile?.displayName ?? '',
+            email: profile?.email ?? '',
           },
         },
         corsOrigin,
@@ -1471,6 +1583,300 @@ export async function handleApiRequest(
       return;
     }
 
+    // --- TOTP MFA self-service (any signed-in member, for their own account) ---
+    // Begin enrolment: generate a secret + otpauth URI. Stored as enabled:false
+    // until the member verifies a code, so a half-finished enrolment can't lock
+    // them out. SECURITY: the secret is returned exactly once here and never logged.
+    const mfaEnrollMatch = matchPath(new RegExp(`^/api/tenants/${tenantPath}/mfa/enroll$`), url.pathname, ['tenantId']);
+    if (request.method === 'POST' && mfaEnrollMatch && actor) {
+      const tenantId = mfaEnrollMatch.params['tenantId']!;
+      requireTenant(actor, tenantId);
+      const member = await dependencies.db.collection(mongoCollections.members).findOne({ tenantId, uid: actor.uid });
+      if (!member) throw new ApiAuthError('User not found.');
+      const profile = member['profile'] as { email?: string } | undefined;
+      const account = profile?.email ?? actor.uid;
+      const secret = generateMfaSecret();
+      await dependencies.db
+        .collection(mongoCollections.members)
+        .updateOne({ tenantId, uid: actor.uid }, { $set: { mfa: { enabled: false, secret }, updatedAt: new Date().toISOString() } });
+      sendJson(
+        response,
+        200,
+        { secret, otpauthUri: mfaOtpAuthUri(secret, account, MFA_ISSUER), account, issuer: MFA_ISSUER },
+        corsOrigin,
+      );
+      return;
+    }
+
+    // Verify-and-activate: confirm the member can produce a valid code, then flip on.
+    const mfaActivateMatch = matchPath(new RegExp(`^/api/tenants/${tenantPath}/mfa/activate$`), url.pathname, ['tenantId']);
+    if (request.method === 'POST' && mfaActivateMatch && actor) {
+      const tenantId = mfaActivateMatch.params['tenantId']!;
+      requireTenant(actor, tenantId);
+      const command = await readJson(request, mfaCodeCommandSchema);
+      const member = await dependencies.db.collection(mongoCollections.members).findOne({ tenantId, uid: actor.uid });
+      const mfa = member?.['mfa'] as { secret?: string } | undefined;
+      if (!member || typeof mfa?.secret !== 'string') {
+        throw new ApiAuthError('Start MFA enrolment first.');
+      }
+      if (!verifyMfaCode(mfa.secret, command.code)) {
+        sendJson(response, 400, { error: 'That code did not match. Check the time on your device and try again.' }, corsOrigin);
+        return;
+      }
+      await dependencies.db
+        .collection(mongoCollections.members)
+        .updateOne(
+          { tenantId, uid: actor.uid },
+          { $set: { mfa: { enabled: true, secret: mfa.secret, enrolledAt: new Date().toISOString() }, updatedAt: new Date().toISOString() } },
+        );
+      await recordChange(dependencies.db, { tenantId, actorUid: actor.uid, action: 'mfa.enable', target: 'member', targetId: actor.uid });
+      sendJson(response, 200, { enabled: true }, corsOrigin);
+      return;
+    }
+
+    // Disable MFA for the member's own account (requires a current valid code).
+    const mfaDisableMatch = matchPath(new RegExp(`^/api/tenants/${tenantPath}/mfa/disable$`), url.pathname, ['tenantId']);
+    if (request.method === 'POST' && mfaDisableMatch && actor) {
+      const tenantId = mfaDisableMatch.params['tenantId']!;
+      requireTenant(actor, tenantId);
+      const command = await readJson(request, mfaCodeCommandSchema);
+      const member = await dependencies.db.collection(mongoCollections.members).findOne({ tenantId, uid: actor.uid });
+      const mfa = member?.['mfa'] as { enabled?: boolean; secret?: string } | undefined;
+      if (!member || !mfa?.enabled || typeof mfa.secret !== 'string') {
+        sendJson(response, 200, { enabled: false }, corsOrigin);
+        return;
+      }
+      if (!verifyMfaCode(mfa.secret, command.code)) {
+        sendJson(response, 400, { error: 'That code did not match.' }, corsOrigin);
+        return;
+      }
+      await dependencies.db
+        .collection(mongoCollections.members)
+        .updateOne({ tenantId, uid: actor.uid }, { $set: { mfa: { enabled: false }, updatedAt: new Date().toISOString() } });
+      await recordChange(dependencies.db, { tenantId, actorUid: actor.uid, action: 'mfa.disable', target: 'member', targetId: actor.uid });
+      sendJson(response, 200, { enabled: false }, corsOrigin);
+      return;
+    }
+
+    // Report the member's own MFA status (no secret) so the account UI can render.
+    const mfaStatusMatch = matchPath(new RegExp(`^/api/tenants/${tenantPath}/mfa$`), url.pathname, ['tenantId']);
+    if (request.method === 'GET' && mfaStatusMatch && actor) {
+      const tenantId = mfaStatusMatch.params['tenantId']!;
+      requireTenant(actor, tenantId);
+      const member = await dependencies.db.collection(mongoCollections.members).findOne({ tenantId, uid: actor.uid });
+      const mfa = member?.['mfa'] as { enabled?: boolean } | undefined;
+      sendJson(response, 200, { enabled: mfa?.enabled === true }, corsOrigin);
+      return;
+    }
+
+    // --- Tenant SSO (OIDC) config -------------------------------------------
+    // Public, secret-free config for the login screen (used to show "Sign in with SSO").
+    const ssoPublicMatch = matchPath(new RegExp(`^/api/tenants/${tenantPath}/sso/public$`), url.pathname, ['tenantId']);
+    if (request.method === 'GET' && ssoPublicMatch) {
+      const tenantId = ssoPublicMatch.params['tenantId']!;
+      const doc = (await dependencies.db.collection(mongoCollections.ssoConfigs).findOne({ tenantId })) as
+        | (SsoConfig & { tenantId: string })
+        | null;
+      if (!doc || !doc.enabled) {
+        sendJson(response, 200, { enabled: false }, corsOrigin);
+        return;
+      }
+      sendJson(response, 200, { enabled: true, displayName: doc.displayName }, corsOrigin);
+      return;
+    }
+
+    // Admin CRUD for the tenant SSO config (tenantAdmin only). Stores no client secret.
+    const ssoMatch = matchPath(new RegExp(`^/api/tenants/${tenantPath}/sso$`), url.pathname, ['tenantId']);
+    if (ssoMatch && actor) {
+      const tenantId = ssoMatch.params['tenantId']!;
+      requireTenant(actor, tenantId);
+      if (request.method === 'GET') {
+        requireAnyRole(actor, ['tenantAdmin']);
+        const doc = (await dependencies.db.collection(mongoCollections.ssoConfigs).findOne({ tenantId })) as
+          | (SsoConfig & { tenantId: string })
+          | null;
+        sendJson(response, 200, { sso: doc ? toSsoConfigView(doc) : null }, corsOrigin);
+        return;
+      }
+      if (request.method === 'PUT') {
+        requireAnyRole(actor, ['tenantAdmin']);
+        const command = await readJson(request, ssoConfigCommandSchema);
+        const now = new Date().toISOString();
+        const doc = ssoConfigSchema.parse({ ...command, updatedAt: now });
+        await dependencies.db
+          .collection(mongoCollections.ssoConfigs)
+          .updateOne({ tenantId }, { $set: { ...doc, tenantId } }, { upsert: true });
+        await recordChange(dependencies.db, { tenantId, actorUid: actor.uid, action: 'sso.configure', target: 'tenant', targetId: tenantId });
+        sendJson(response, 200, { sso: toSsoConfigView(doc) }, corsOrigin);
+        return;
+      }
+    }
+
+    // Initiate an OIDC sign-in: build the spec-correct authorization-redirect URL
+    // and an opaque `state`/`nonce` the client echoes back. This is REAL; only the
+    // token exchange on callback is gated behind ssoLiveExchange.
+    if (request.method === 'POST' && url.pathname === '/api/auth/sso/initiate') {
+      const command = await readJson(request, z.object({ tenantId: z.string().min(1) }));
+      const doc = (await dependencies.db.collection(mongoCollections.ssoConfigs).findOne({ tenantId: command.tenantId })) as
+        | (SsoConfig & { tenantId: string })
+        | null;
+      if (!doc || !doc.enabled) {
+        sendJson(response, 404, { error: 'SSO is not configured for this tenant.' }, corsOrigin);
+        return;
+      }
+      const state = `${command.tenantId}.${randomUUID()}`;
+      const nonce = randomUUID();
+      const redirectUri = `${dependencies.config.ssoCallbackBaseUrl.replace(/\/$/, '')}/auth/sso/callback`;
+      const authorizationUrl = buildAuthorizationUrl({ config: doc, redirectUri, state, nonce });
+      sendJson(response, 200, { authorizationUrl, state }, corsOrigin);
+      return;
+    }
+
+    // OIDC callback. SCAFFOLDED: the live IdP code→token exchange + claim
+    // verification is gated behind SSO_LIVE_EXCHANGE. When off (default) we
+    // return 501 with a clear, typed shape rather than fabricating a session —
+    // we never issue a token without a verified IdP assertion.
+    if (request.method === 'GET' && url.pathname === '/api/auth/sso/callback') {
+      const code = url.searchParams.get('code');
+      const state = url.searchParams.get('state');
+      if (!code || !state) {
+        sendJson(response, 400, { error: 'Missing code or state.' }, corsOrigin);
+        return;
+      }
+      if (!dependencies.config.ssoLiveExchange) {
+        sendJson(
+          response,
+          501,
+          {
+            error: 'sso_exchange_not_enabled',
+            detail:
+              'OIDC redirect/initiate is live; the IdP token exchange is gated. Set SSO_LIVE_EXCHANGE=true and provide the per-tenant client secret via env to enable it.',
+          },
+          corsOrigin,
+        );
+        return;
+      }
+      // Live exchange would: validate state, POST code to the token endpoint with
+      // the env-supplied client secret, verify the id_token signature/nonce/claims,
+      // map the email to a member, and issue a session token. Intentionally not
+      // implemented here so no insecure shortcut can ship.
+      sendJson(response, 501, { error: 'sso_exchange_not_implemented' }, corsOrigin);
+      return;
+    }
+
+    // --- SCIM provisioning token management (tenantAdmin) --------------------
+    const scimTokenMatch = matchPath(new RegExp(`^/api/tenants/${tenantPath}/scim-token$`), url.pathname, ['tenantId']);
+    if (scimTokenMatch && actor) {
+      const tenantId = scimTokenMatch.params['tenantId']!;
+      requireTenant(actor, tenantId);
+      requireAnyRole(actor, ['tenantAdmin']);
+      if (request.method === 'GET') {
+        sendJson(response, 200, { configured: await hasProvisioningToken(dependencies.db, tenantId) }, corsOrigin);
+        return;
+      }
+      if (request.method === 'POST') {
+        const { token, createdAt } = await issueProvisioningToken(dependencies.db, { tenantId, createdByUid: actor.uid });
+        await recordChange(dependencies.db, { tenantId, actorUid: actor.uid, action: 'scim.token.issue', target: 'tenant', targetId: tenantId });
+        // The raw token is shown exactly once; only its hash is stored.
+        sendJson(response, 201, { token, createdAt }, corsOrigin);
+        return;
+      }
+      if (request.method === 'PUT') {
+        await revokeProvisioningTokens(dependencies.db, tenantId);
+        await recordChange(dependencies.db, { tenantId, actorUid: actor.uid, action: 'scim.token.revoke', target: 'tenant', targetId: tenantId });
+        sendJson(response, 200, { configured: false }, corsOrigin);
+        return;
+      }
+    }
+
+    // --- SCIM v2 Users (provisioning-token authenticated) -------------------
+    // Minimal SCIM: create a member by externalId, and deactivate by externalId.
+    // Authenticated by the tenant provisioning bearer token, NOT a member JWT.
+    if (url.pathname.startsWith('/api/scim/v2/Users')) {
+      const bearer = (() => {
+        const h = request.headers.authorization;
+        const value = Array.isArray(h) ? h[0] : h;
+        return value?.startsWith('Bearer ') ? value.slice('Bearer '.length).trim() : '';
+      })();
+      const grant = await resolveProvisioningToken(dependencies.db, bearer);
+      if (!grant) {
+        sendJson(response, 401, { schemas: ['urn:ietf:params:scim:api:messages:2.0:Error'], status: '401', detail: 'Invalid provisioning token.' }, corsOrigin);
+        return;
+      }
+      const tenantId = grant.tenantId;
+
+      // POST /Users — create or reactivate a member for an external identity.
+      if (request.method === 'POST' && url.pathname === '/api/scim/v2/Users') {
+        const command = await readJson(request, scimUserCommandSchema);
+        const email = scimResolveEmail(command);
+        if (!email) {
+          sendJson(response, 400, { schemas: ['urn:ietf:params:scim:api:messages:2.0:Error'], status: '400', detail: 'A valid email (userName or primary email) is required.' }, corsOrigin);
+          return;
+        }
+        const members = dependencies.db.collection(mongoCollections.members);
+        const existing = await members.findOne({ 'profile.email': email });
+        if (existing) {
+          // Idempotent: reactivate + (re)link the externalId, but never move a
+          // member across tenants via SCIM.
+          if (existing['tenantId'] !== tenantId) {
+            sendJson(response, 409, { schemas: ['urn:ietf:params:scim:api:messages:2.0:Error'], status: '409', detail: 'That email belongs to another tenant.' }, corsOrigin);
+            return;
+          }
+          await members.updateOne(
+            { uid: existing['uid'] },
+            { $set: { status: command.active ? 'active' : 'disabled', externalId: command.externalId, updatedAt: new Date().toISOString() } },
+          );
+          const profile = existing['profile'] as { email?: string; displayName?: string } | undefined;
+          sendJson(
+            response,
+            200,
+            toScimUser({ uid: String(existing['uid']), externalId: command.externalId, email, displayName: profile?.displayName ?? email, active: command.active }),
+            corsOrigin,
+          );
+          return;
+        }
+        const displayName = scimResolveDisplayName(command, email);
+        const uid = `uid-${randomUUID()}`;
+        const now = new Date().toISOString();
+        // SCIM-created members are provisioned active with no password; they sign
+        // in via SSO or a password-reset link (additive to the invite flow).
+        await members.insertOne({
+          uid,
+          tenantId,
+          role: command.role ?? 'auditor',
+          status: command.active ? 'active' : 'disabled',
+          externalId: command.externalId,
+          provisionedVia: 'scim',
+          profile: { email, displayName },
+          createdAt: now,
+        });
+        await recordChange(dependencies.db, { tenantId, actorUid: 'scim', action: 'member.provision', target: 'member', targetId: uid });
+        sendJson(
+          response,
+          201,
+          toScimUser({ uid, externalId: command.externalId, email, displayName, active: command.active }),
+          corsOrigin,
+        );
+        return;
+      }
+
+      // DELETE /Users/:externalId — deactivate (soft) the member (SCIM deprovision).
+      const scimUserMatch = matchPath(/^\/api\/scim\/v2\/Users\/([^/]+)$/, url.pathname, ['externalId']);
+      if (request.method === 'DELETE' && scimUserMatch) {
+        const externalId = scimUserMatch.params['externalId']!;
+        const result = await dependencies.db
+          .collection(mongoCollections.members)
+          .updateOne({ tenantId, externalId }, { $set: { status: 'disabled', updatedAt: new Date().toISOString() } });
+        if (result.matchedCount === 0) {
+          sendJson(response, 404, { schemas: ['urn:ietf:params:scim:api:messages:2.0:Error'], status: '404', detail: 'User not found.' }, corsOrigin);
+          return;
+        }
+        await recordChange(dependencies.db, { tenantId, actorUid: 'scim', action: 'member.deprovision', target: 'member', targetId: externalId });
+        sendJson(response, 204, null, corsOrigin);
+        return;
+      }
+    }
+
     const uploadMatch = matchPath(
       new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/evidence/upload-intents$`),
       url.pathname,
@@ -1687,6 +2093,18 @@ export async function handleApiRequest(
         .collection(mongoCollections.interviews)
         .find({ tenantId, auditId }, { projection: { _id: 0 } })
         .toArray();
+      const envAspects = await dependencies.db
+        .collection(mongoCollections.envAspects)
+        .find({ tenantId, auditId }, { projection: { _id: 0 } })
+        .toArray();
+      const envObligations = await dependencies.db
+        .collection(mongoCollections.envObligations)
+        .find({ tenantId, auditId }, { projection: { _id: 0 } })
+        .toArray();
+      const envObjectives = await dependencies.db
+        .collection(mongoCollections.envObjectives)
+        .find({ tenantId, auditId }, { projection: { _id: 0 } })
+        .toArray();
       const workerConsultations = await dependencies.db
         .collection(mongoCollections.workerConsultations)
         .find({ tenantId, auditId }, { projection: { _id: 0 } })
@@ -1750,6 +2168,9 @@ export async function handleApiRequest(
           leadership,
           context,
           interviews,
+          envAspects,
+          envObligations,
+          envObjectives,
           workerConsultations,
           reportMeta,
           changeLog,
@@ -2526,6 +2947,82 @@ export async function handleApiRequest(
       }
     }
 
+    // AI corrective-action (CAPA) assistant (server-side). Inert until
+    // ANTHROPIC_API_KEY + ANTHROPIC_MODEL are set; the client falls back to its
+    // offline deterministic composer on any non-2xx. The prompt forbids verbatim
+    // ISO requirement text and the word "shall" (copyright guardrail).
+    const correctiveActionMatch = matchPath(
+      new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/corrective-action$`),
+      url.pathname,
+      ['tenantId', 'auditId'],
+    );
+    if (request.method === 'POST' && correctiveActionMatch && actor) {
+      const tenantId = correctiveActionMatch.params['tenantId']!;
+      requireTenant(actor, tenantId);
+      requireAnyRole(actor, ['leadAuditor', 'auditor']);
+      const input = await readJson(request, z.object({}).passthrough());
+      const apiKey = process.env['ANTHROPIC_API_KEY'];
+      const model = process.env['ANTHROPIC_MODEL'];
+      if (!apiKey || !model) {
+        sendJson(response, 501, { error: 'ai_not_configured' }, corsOrigin);
+        return;
+      }
+      const system =
+        'You are an ISO 45001 lead auditor assistant suggesting a root-cause analysis and a draft corrective-action plan for a single finding (nonconformity or opportunity for improvement). Use ONLY the finding data provided (clause id/title, type, title, description, systemic flag, related register context) and ISO 45001 clause numbers and short titles. Do NOT quote or paraphrase verbatim ISO requirement text; never use the word "shall". Frame root causes as hypotheses to test, not conclusions. Respond with a strict JSON object only, with keys rootCauseHypotheses, correctiveActions, containment, summary. "rootCauseHypotheses" is an array of short strings. "correctiveActions" is an array of { action, owner, why } where owner is a suggested role and why is a short rationale. "containment" is a short string (or omit it for an opportunity for improvement). "summary" is a one-line string.';
+      try {
+        const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+          body: JSON.stringify({
+            model,
+            max_tokens: 1600,
+            system,
+            messages: [{ role: 'user', content: `Finding data:\n${JSON.stringify(input)}` }],
+          }),
+        });
+        if (!aiRes.ok) {
+          sendJson(response, 502, { error: 'ai_upstream' }, corsOrigin);
+          return;
+        }
+        const payload = (await aiRes.json()) as { content?: { text?: string }[] };
+        const text = (payload.content ?? []).map((part) => part.text ?? '').join('');
+        const found = text.match(/\{[\s\S]*\}/);
+        const parsed = found ? (JSON.parse(found[0]) as Record<string, unknown>) : null;
+        if (!parsed) {
+          sendJson(response, 502, { error: 'ai_parse' }, corsOrigin);
+          return;
+        }
+        const strArr = (v: unknown): string[] =>
+          Array.isArray(v) ? v.map((x) => String(x ?? '')).filter((x) => x.length > 0) : [];
+        const correctiveActions = Array.isArray(parsed['correctiveActions'])
+          ? (parsed['correctiveActions'] as Record<string, unknown>[]).map((step) => ({
+              action: String(step?.['action'] ?? ''),
+              owner: step?.['owner'] !== undefined ? String(step['owner']) : undefined,
+              why: String(step?.['why'] ?? ''),
+            }))
+          : [];
+        const containmentRaw = parsed['containment'];
+        sendJson(
+          response,
+          200,
+          {
+            rootCauseHypotheses: strArr(parsed['rootCauseHypotheses']),
+            correctiveActions,
+            containment:
+              typeof containmentRaw === 'string' && containmentRaw.length > 0 ? containmentRaw : undefined,
+            summary: String(parsed['summary'] ?? ''),
+            source: 'ai',
+            generatedAt: new Date().toISOString(),
+          },
+          corsOrigin,
+        );
+        return;
+      } catch {
+        sendJson(response, 502, { error: 'ai_failed' }, corsOrigin);
+        return;
+      }
+    }
+
     const signoffMatch = matchPath(
       new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/reports/signoff$`),
       url.pathname,
@@ -3054,6 +3551,63 @@ export async function handleApiRequest(
         .collection(mongoCollections.interviews)
         .updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
       sendJson(response, 200, { interview: record }, corsOrigin);
+      return;
+    }
+
+    const environmentalAspectMatch = matchPath(
+      new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/environmental-aspects/([^/]+)$`),
+      url.pathname,
+      ['tenantId', 'auditId', 'id'],
+    );
+    if (request.method === 'PUT' && environmentalAspectMatch && actor) {
+      const tenantId = environmentalAspectMatch.params['tenantId']!;
+      const auditId = environmentalAspectMatch.params['auditId']!;
+      requireTenant(actor, tenantId);
+      requireAnyRole(actor, ['leadAuditor', 'auditor']);
+      const command = await readJson(request, environmentalAspectUpsertCommandSchema);
+      const record = { ...command, tenantId, auditId, updatedAt: new Date().toISOString() };
+      await dependencies.db
+        .collection(mongoCollections.envAspects)
+        .updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
+      sendJson(response, 200, { envAspect: record }, corsOrigin);
+      return;
+    }
+
+    const environmentalObligationMatch = matchPath(
+      new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/environmental-obligations/([^/]+)$`),
+      url.pathname,
+      ['tenantId', 'auditId', 'id'],
+    );
+    if (request.method === 'PUT' && environmentalObligationMatch && actor) {
+      const tenantId = environmentalObligationMatch.params['tenantId']!;
+      const auditId = environmentalObligationMatch.params['auditId']!;
+      requireTenant(actor, tenantId);
+      requireAnyRole(actor, ['leadAuditor', 'auditor']);
+      const command = await readJson(request, environmentalObligationUpsertCommandSchema);
+      const record = { ...command, tenantId, auditId, updatedAt: new Date().toISOString() };
+      await dependencies.db
+        .collection(mongoCollections.envObligations)
+        .updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
+      sendJson(response, 200, { envObligation: record }, corsOrigin);
+      return;
+    }
+
+    const environmentalObjectiveMatch = matchPath(
+      new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/environmental-objectives/([^/]+)$`),
+      url.pathname,
+      ['tenantId', 'auditId', 'id'],
+    );
+    if (request.method === 'PUT' && environmentalObjectiveMatch && actor) {
+      const tenantId = environmentalObjectiveMatch.params['tenantId']!;
+      const auditId = environmentalObjectiveMatch.params['auditId']!;
+      requireTenant(actor, tenantId);
+      requireAnyRole(actor, ['leadAuditor', 'auditor']);
+      const command = await readJson(request, environmentalObjectiveUpsertCommandSchema);
+      const record = { ...command, tenantId, auditId, updatedAt: new Date().toISOString() };
+      await dependencies.db
+        .collection(mongoCollections.envObjectives)
+        .updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
+      sendJson(response, 200, { envObjective: record }, corsOrigin);
       return;
     }
 

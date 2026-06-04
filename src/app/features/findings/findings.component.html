@@ -40,6 +40,48 @@
                 }
               </div>
             }
+            @if (canDraft() && finding.type !== 'conformity') {
+              <div class="ai-draft capa-suggest">
+                <button mat-stroked-button type="button" [disabled]="isSuggesting(finding.id)" (click)="suggestCorrectiveAction(finding)">
+                  <mat-icon aria-hidden="true">psychology</mat-icon>{{ isSuggesting(finding.id) ? 'Suggesting…' : 'Suggest corrective action' }}
+                </button>
+                @if (correctiveAction(finding.id); as ca) {
+                  @if (correctiveActionInfo(finding.id); as info) {
+                    <p class="ai-note">
+                      <span class="src-badge" [attr.data-tone]="info.source === 'ai' ? 'progress' : 'neutral'">{{ info.source === 'ai' ? 'AI' : 'rule-based' }}</span>
+                      Suggested from this finding's data ({{ formatTime(info.generatedAt) }}) — review and adapt before committing.
+                    </p>
+                  }
+                  <p class="ca-summary">{{ ca.summary }}</p>
+                  @if (ca.containment) {
+                    <div class="ca-section">
+                      <span class="lbl">Immediate containment</span>
+                      <p class="ro">{{ ca.containment }}</p>
+                    </div>
+                  }
+                  <div class="ca-section">
+                    <span class="lbl">Likely root causes to test</span>
+                    <ul class="ca-list">
+                      @for (rc of ca.rootCauseHypotheses; track $index) { <li>{{ rc }}</li> }
+                    </ul>
+                  </div>
+                  <div class="ca-section">
+                    <span class="lbl">Draft corrective-action plan</span>
+                    <ol class="ca-plan">
+                      @for (step of ca.correctiveActions; track $index) {
+                        <li>
+                          <strong>{{ step.action }}</strong>
+                          @if (step.owner) { <span class="ca-owner">Owner: {{ step.owner }}</span> }
+                          <span class="ca-why">{{ step.why }}</span>
+                        </li>
+                      }
+                    </ol>
+                  </div>
+                } @else {
+                  <p class="ai-hint">Draft a likely root-cause analysis and corrective-action plan from this finding's data, then review and adapt before committing.</p>
+                }
+              </div>
+            }
             <div class="fld"><span>Requirement</span><div class="ro">{{ finding.requirementSummary || '—' }}</div></div>
             <label class="fld">
               <span>Nonconformity statement</span>

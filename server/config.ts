@@ -33,6 +33,14 @@ export const serverConfigSchema = z.object({
   // Optional first-superadmin bootstrap, seeded by `npm run mongo:init`.
   superadminEmail: z.string().email().optional(),
   superadminPassword: z.string().min(8).optional(),
+  // Enterprise auth (all optional / default-off):
+  // Where the IdP returns the user after an OIDC sign-in. The initiate route
+  // builds redirect_uri as `${ssoCallbackBaseUrl}/auth/sso/callback`.
+  ssoCallbackBaseUrl: z.string().min(1).default('http://127.0.0.1:4200'),
+  // Feature flag: when false (default) the OIDC callback returns 501 instead of
+  // attempting a live token exchange. The redirect/initiate plumbing is always
+  // real; the IdP handshake is gated until a real provider is wired per tenant.
+  ssoLiveExchange: booleanFlagSchema,
 });
 
 export type ServerConfig = z.infer<typeof serverConfigSchema>;
@@ -78,5 +86,7 @@ export function loadServerConfig(env: Record<string, string | undefined> = { ...
     exposeSetPasswordLink: env['EXPOSE_SET_PASSWORD_LINK'],
     superadminEmail: env['SUPERADMIN_EMAIL'],
     superadminPassword: env['SUPERADMIN_PASSWORD'],
+    ssoCallbackBaseUrl: env['SSO_CALLBACK_BASE_URL'] ?? env['APP_PUBLIC_URL'],
+    ssoLiveExchange: env['SSO_LIVE_EXCHANGE'],
   });
 }

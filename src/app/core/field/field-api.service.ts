@@ -4,7 +4,7 @@ import { firstValueFrom } from 'rxjs';
 
 import { AuthService } from '../auth/auth.service';
 import { APP_CONFIG } from '../config/app-config';
-import type { AuditAgenda, AuditAgendaInput, ClauseAnswer, ClientTailoring, ClientTailoringInput, FindingDraft, FindingDraftInput, MeetingScripts, PhotoAnalysisFindingType, ReportDraft, ReportDraftInput } from '../domain';
+import type { AuditAgenda, AuditAgendaInput, ClauseAnswer, ClientTailoring, ClientTailoringInput, CorrectiveActionDraft, CorrectiveActionInput, FindingDraft, FindingDraftInput, MeetingScripts, PhotoAnalysisFindingType, ReportDraft, ReportDraftInput } from '../domain';
 import { AuditSelectionService } from './audit-selection.service';
 import type {
   AuditConclusion,
@@ -20,6 +20,9 @@ import type {
   ComplianceObligation,
   DocumentedInfoRecord,
   EmergencyRecord,
+  EnvironmentalAspect,
+  EnvironmentalObjective,
+  EnvironmentalObligation,
   Hazard,
   HiraEntry,
   Incident,
@@ -93,6 +96,9 @@ export interface FieldStatePayload {
   leadership?: Array<Omit<LeadershipItem, 'sync'>>;
   context?: Array<Omit<ContextItem, 'sync'>>;
   interviews?: Array<Omit<Interview, 'sync'>>;
+  envAspects?: Array<Omit<EnvironmentalAspect, 'sync'>>;
+  envObligations?: Array<Omit<EnvironmentalObligation, 'sync'>>;
+  envObjectives?: Array<Omit<EnvironmentalObjective, 'sync'>>;
   reportMeta?: Omit<ReportMeta, 'sync'> | null;
   changeLog?: ChangeLogEntry[];
 }
@@ -143,6 +149,25 @@ export class FieldApiService {
 
   changeOwnPassword(currentPassword: string, newPassword: string): Promise<unknown> {
     return firstValueFrom(this.http.post(`${this.config.apiBaseUrl}/auth/change-password`, { currentPassword, newPassword }));
+  }
+
+  // --- TOTP MFA (self-service for the signed-in member) ---
+  mfaStatus(): Promise<{ enabled: boolean }> {
+    return firstValueFrom(this.http.get<{ enabled: boolean }>(`${this.tenantBase()}/mfa`));
+  }
+
+  mfaEnroll(): Promise<{ secret: string; otpauthUri: string; account: string; issuer: string }> {
+    return firstValueFrom(
+      this.http.post<{ secret: string; otpauthUri: string; account: string; issuer: string }>(`${this.tenantBase()}/mfa/enroll`, {}),
+    );
+  }
+
+  mfaActivate(code: string): Promise<{ enabled: boolean }> {
+    return firstValueFrom(this.http.post<{ enabled: boolean }>(`${this.tenantBase()}/mfa/activate`, { code }));
+  }
+
+  mfaDisable(code: string): Promise<{ enabled: boolean }> {
+    return firstValueFrom(this.http.post<{ enabled: boolean }>(`${this.tenantBase()}/mfa/disable`, { code }));
   }
 
   createAudit(body: { auditee: string; scope: string; criteria: string }): Promise<AuditSummary> {
@@ -259,6 +284,11 @@ export class FieldApiService {
   /** Generate tailored audit emphasis (prioritised clauses + focus prompts) from client context server-side (AI). Rejects when unavailable so the client falls back. */
   draftClientTailoring(body: ClientTailoringInput): Promise<ClientTailoring> {
     return firstValueFrom(this.http.post<ClientTailoring>(`${this.base()}/client-tailoring`, body));
+  }
+
+  /** Suggest a root-cause analysis + draft corrective-action plan for a finding server-side (AI). Rejects when unavailable so the client falls back. */
+  draftCorrectiveAction(body: CorrectiveActionInput): Promise<CorrectiveActionDraft> {
+    return firstValueFrom(this.http.post<CorrectiveActionDraft>(`${this.base()}/corrective-action`, body));
   }
 
   /** Generate the audit agenda + opening/closing meeting scripts server-side (AI). Rejects when unavailable so the client falls back. */
@@ -388,6 +418,18 @@ export class FieldApiService {
 
   upsertInterview(body: Omit<Interview, 'sync'>): Promise<unknown> {
     return firstValueFrom(this.http.put(`${this.base()}/interviews/${encodeURIComponent(body.id)}`, body));
+  }
+
+  upsertEnvironmentalAspect(body: Omit<EnvironmentalAspect, 'sync'>): Promise<unknown> {
+    return firstValueFrom(this.http.put(`${this.base()}/environmental-aspects/${encodeURIComponent(body.id)}`, body));
+  }
+
+  upsertEnvironmentalObligation(body: Omit<EnvironmentalObligation, 'sync'>): Promise<unknown> {
+    return firstValueFrom(this.http.put(`${this.base()}/environmental-obligations/${encodeURIComponent(body.id)}`, body));
+  }
+
+  upsertEnvironmentalObjective(body: Omit<EnvironmentalObjective, 'sync'>): Promise<unknown> {
+    return firstValueFrom(this.http.put(`${this.base()}/environmental-objectives/${encodeURIComponent(body.id)}`, body));
   }
 
   private tenantBase(): string {

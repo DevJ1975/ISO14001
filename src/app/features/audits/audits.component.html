@@ -24,6 +24,7 @@
         <select [value]="criteria()" (change)="criteria.set($any($event.target).value)">
           <option value="ISO 45001:2018">ISO 45001:2018</option>
           <option value="ISO 45001:2026">ISO 45001:2026</option>
+          <option value="ISO 14001:2015">ISO 14001:2015</option>
         </select></label>
       @if (error(); as err) { <p class="err"><mat-icon aria-hidden="true">error</mat-icon>{{ err }}</p> }
       <button mat-flat-button color="primary" type="button" [disabled]="creating()" (click)="create(auditee.value, scope.value)">

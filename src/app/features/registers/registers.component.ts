@@ -11,6 +11,7 @@ import {
   CalibrationStatus,
   calibrationStatus,
   clauseGuideFor,
+  editionFromCriteria,
   DocumentReviewStatus,
   documentReviewStatus,
   evaluateRiskRating,
@@ -25,7 +26,7 @@ import {
   trainingStatus,
 } from '../../core/domain';
 import { CsvExportService } from '../../core/export/csv-export.service';
-import { ComplianceEvaluation, ContextItem, Hazard, FieldAuditStore, HiraEntry, Interview, LeadershipItem, OperationalControl, Permit, RegisterResult } from '../../core/field/field-audit-store';
+import { ComplianceEvaluation, ContextItem, EnvironmentalAspect, EnvironmentalObjective, EnvironmentalObligation, Hazard, FieldAuditStore, HiraEntry, Interview, LeadershipItem, OperationalControl, Permit, RegisterResult } from '../../core/field/field-audit-store';
 import { ConfirmService } from '../../core/ui/confirm.service';
 import { ToastService } from '../../core/ui/toast.service';
 import {
@@ -34,6 +35,9 @@ import {
   consultationColumns,
   contextColumns,
   documentColumns,
+  envAspectColumns,
+  envObjectiveColumns,
+  envObligationColumns,
   hazardColumns,
   hiraColumns,
   incidentColumns,
@@ -70,6 +74,9 @@ type Tab =
   | 'leadership'
   | 'context'
   | 'interviews'
+  | 'envAspects'
+  | 'envObligations'
+  | 'envObjectives'
   | 'review';
 type Tone = 'positive' | 'progress' | 'critical' | 'neutral';
 
@@ -130,11 +137,26 @@ export class RegistersComponent {
     leadership: '5.1',
     context: '4.1',
     interviews: '9.2',
+    envAspects: '6.1.2',
+    envObligations: '6.1.3',
+    envObjectives: '6.2',
     review: '9.3',
   };
 
-  /** Field-guide entry ("what to look for") for the active register's clause. */
-  protected readonly guide = computed<ClauseGuide | undefined>(() => clauseGuideFor(this.tabClause[this.tab()]));
+  /** ISO 14001 editions select the environmental field-guide for contextual help. */
+  protected readonly criteria = this.store.criteria;
+
+  /**
+   * Field-guide entry ("what to look for") for the active register's clause,
+   * resolved against the audit's edition so an ISO 14001 audit gets the
+   * environmental guidance (and the environmental register tabs always do).
+   */
+  protected readonly guide = computed<ClauseGuide | undefined>(() => {
+    const tab = this.tab();
+    const isEnvTab = tab === 'envAspects' || tab === 'envObligations' || tab === 'envObjectives';
+    const edition = isEnvTab ? 'ISO_14001_2015' : editionFromCriteria(this.criteria());
+    return clauseGuideFor(this.tabClause[tab], edition);
+  });
 
   protected readonly tabs: { value: Tab; label: string; icon: string }[] = [
     { value: 'aspects', label: 'Hazards & risk', icon: 'health_and_safety' },
@@ -161,6 +183,9 @@ export class RegistersComponent {
     { value: 'leadership', label: 'Leadership & policy', icon: 'supervisor_account' },
     { value: 'context', label: 'Context & scope', icon: 'travel_explore' },
     { value: 'interviews', label: 'Interviews', icon: 'record_voice_over' },
+    { value: 'envAspects', label: 'Env. aspects (14001)', icon: 'eco' },
+    { value: 'envObligations', label: 'Compliance obligations (14001)', icon: 'verified' },
+    { value: 'envObjectives', label: 'Env. objectives (14001)', icon: 'flag' },
     { value: 'review', label: 'Mgmt review', icon: 'fact_check' },
   ];
 
@@ -265,6 +290,39 @@ export class RegistersComponent {
     if (ok) this.store.removeInterview(row.id);
   }
 
+  /** Confirm before removing an environmental aspect row (ISO 14001 cl. 6.1.2; destructive, no undo). */
+  protected async confirmRemoveEnvironmentalAspect(row: EnvironmentalAspect): Promise<void> {
+    const ok = await this.confirm.ask({
+      title: 'Remove environmental aspect?',
+      message: `"${row.aspect || row.activity || 'This aspect'}" will be removed from the register.`,
+      confirmLabel: 'Remove',
+      danger: true,
+    });
+    if (ok) this.store.removeEnvironmentalAspect(row.id);
+  }
+
+  /** Confirm before removing a compliance-obligation row (ISO 14001 cl. 6.1.3; destructive, no undo). */
+  protected async confirmRemoveEnvironmentalObligation(row: EnvironmentalObligation): Promise<void> {
+    const ok = await this.confirm.ask({
+      title: 'Remove compliance obligation?',
+      message: `"${row.obligation || 'This obligation'}" will be removed from the register.`,
+      confirmLabel: 'Remove',
+      danger: true,
+    });
+    if (ok) this.store.removeEnvironmentalObligation(row.id);
+  }
+
+  /** Confirm before removing an environmental objective row (ISO 14001 cl. 6.2; destructive, no undo). */
+  protected async confirmRemoveEnvironmentalObjective(row: EnvironmentalObjective): Promise<void> {
+    const ok = await this.confirm.ask({
+      title: 'Remove environmental objective?',
+      message: `"${row.objective || 'This objective'}" will be removed from the register.`,
+      confirmLabel: 'Remove',
+      danger: true,
+    });
+    if (ok) this.store.removeEnvironmentalObjective(row.id);
+  }
+
   /**
    * Resolve the active tab to a CSV export spec (label + rows + columns), or null
    * for registers without a structured exporter. Keeps the template a single call.
@@ -291,6 +349,12 @@ export class RegistersComponent {
         return { label: 'Context & scope register', rows: this.store.context(), columns: contextColumns };
       case 'interviews':
         return { label: 'Interview register', rows: this.store.interviews(), columns: interviewColumns };
+      case 'envAspects':
+        return { label: 'Environmental aspects & impacts', rows: this.store.envAspects(), columns: envAspectColumns };
+      case 'envObligations':
+        return { label: 'Compliance obligations', rows: this.store.envObligations(), columns: envObligationColumns };
+      case 'envObjectives':
+        return { label: 'Environmental objectives & targets', rows: this.store.envObjectives(), columns: envObjectiveColumns };
       case 'incidents':
         return { label: 'Incident register', rows: this.store.incidents(), columns: incidentColumns };
       case 'hira':

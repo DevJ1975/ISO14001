@@ -129,6 +129,98 @@ async function hashPassword(password) {
 function tempPassword() {
   return b64url(crypto.getRandomValues(new Uint8Array(9)));
 }
+
+// --- Enterprise auth: TOTP (RFC 6238) over Web Crypto HMAC-SHA1 -------------
+// Mirrors src/app/core/domain/totp.ts. Kept inline because edge functions can't
+// import the Node-built domain bundle, but the algorithm + vectors are identical.
+const BASE32 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+function base32Encode(bytes) {
+  let bits = 0, value = 0, out = '';
+  for (const byte of bytes) {
+    value = (value << 8) | byte; bits += 8;
+    while (bits >= 5) { out += BASE32[(value >>> (bits - 5)) & 31]; bits -= 5; }
+  }
+  if (bits > 0) out += BASE32[(value << (5 - bits)) & 31];
+  return out;
+}
+function base32Decode(input) {
+  const cleaned = String(input).toUpperCase().replace(/=+$/, '').replace(/\s+/g, '');
+  let bits = 0, value = 0; const out = [];
+  for (const ch of cleaned) {
+    const idx = BASE32.indexOf(ch);
+    if (idx === -1) throw new Error('bad base32');
+    value = (value << 5) | idx; bits += 5;
+    if (bits >= 8) { out.push((value >>> (bits - 8)) & 0xff); bits -= 8; }
+  }
+  return Uint8Array.from(out);
+}
+function counterBytes(counter) {
+  const bytes = new Uint8Array(8); let v = Math.floor(counter);
+  for (let i = 7; i >= 0; i--) { bytes[i] = v & 0xff; v = Math.floor(v / 256); }
+  return bytes;
+}
+async function hmacSha1(keyBytes, msg) {
+  const key = await crypto.subtle.importKey('raw', keyBytes, { name: 'HMAC', hash: 'SHA-1' }, false, ['sign']);
+  return new Uint8Array(await crypto.subtle.sign('HMAC', key, msg));
+}
+function truncate(digest, digits = 6) {
+  const offset = digest[digest.length - 1] & 0x0f;
+  const bin = ((digest[offset] & 0x7f) << 24) | ((digest[offset + 1] & 0xff) << 16) | ((digest[offset + 2] & 0xff) << 8) | (digest[offset + 3] & 0xff);
+  return (bin % 10 ** digits).toString().padStart(digits, '0');
+}
+function generateMfaSecret() {
+  return base32Encode(crypto.getRandomValues(new Uint8Array(20)));
+}
+function mfaOtpAuthUri(secretBase32, account, issuer = 'ISO Audit') {
+  const label = encodeURIComponent(`${issuer}:${account}`);
+  const params = new URLSearchParams({ secret: secretBase32, issuer, algorithm: 'SHA1', digits: '6', period: '30' });
+  return `otpauth://totp/${label}?${params.toString()}`;
+}
+async function verifyMfaCode(secretBase32, code) {
+  const normalized = String(code ?? '').trim();
+  if (!/^[0-9]{6}$/.test(normalized)) return false;
+  let secret;
+  try { secret = base32Decode(secretBase32); } catch { return false; }
+  const counter = Math.floor(Date.now() / 1000 / 30);
+  for (let drift = -1; drift <= 1; drift++) {
+    const digest = await hmacSha1(secret, counterBytes(counter + drift));
+    if (timingSafeEqual(enc.encode(truncate(digest)), enc.encode(normalized))) return true;
+  }
+  return false;
+}
+
+// A short-lived (5-minute) MFA challenge token: a session-shaped JWT marked mfa:true.
+async function signMfaChallenge(member) {
+  if (!isAuthConfigured(JWT_SECRET)) throw new AuthError('Auth is not configured (APP_JWT_SECRET missing).');
+  const nowSec = Math.floor(Date.now() / 1000);
+  const exp = nowSec + 300;
+  const header = b64url(enc.encode(JSON.stringify({ alg: 'HS256', typ: 'JWT' })));
+  const body = b64url(enc.encode(JSON.stringify({ sub: member.uid, tenantId: member.tenant_id, role: member.role, platform: false, mfa: true, iat: nowSec, exp })));
+  const data = `${header}.${body}`;
+  const sig = new Uint8Array(await crypto.subtle.sign('HMAC', await hmacKey(JWT_SECRET), enc.encode(data)));
+  return `${data}.${b64url(sig)}`;
+}
+
+function sha256Hex(input) {
+  return crypto.subtle.digest('SHA-256', enc.encode(input)).then((buf) => bytesToHex(new Uint8Array(buf)));
+}
+
+// Spec-correct OIDC authorization-redirect URL (mirrors buildAuthorizationUrl).
+function buildAuthorizationUrl(doc, redirectUri, state, nonce) {
+  const base = doc.authorizationEndpoint ?? `${String(doc.issuer).replace(/\/$/, '')}/authorize`;
+  const params = new URLSearchParams({
+    response_type: 'code',
+    client_id: doc.clientId,
+    redirect_uri: redirectUri,
+    scope: doc.scopes || 'openid email profile',
+    state,
+    nonce,
+  });
+  return `${base}?${params.toString()}`;
+}
+
+const SSO_CALLBACK_BASE_URL = Deno.env.get('SSO_CALLBACK_BASE_URL') ?? (ALLOWED_ORIGINS[0] ?? '');
+const SSO_LIVE_EXCHANGE = (Deno.env.get('SSO_LIVE_EXCHANGE') ?? '') === 'true';
 // Public shape of a member — never leaks the password hash.
 function toMember(row) {
   return {
@@ -270,12 +362,46 @@ Deno.serve(async (req) => {
         return json(401, { error: 'Invalid email or password.' }, req);
       }
       loginAttempts.delete(rateKey);
+      // Opt-in TOTP MFA: when enabled, return a short-lived challenge instead of a token.
+      const mfa = member.mfa ?? {};
+      if (mfa.enabled === true) {
+        const challengeToken = await signMfaChallenge(member);
+        return json(200, { mfaRequired: true, challengeToken }, req);
+      }
       const { token, exp } = await signJwt({ sub: member.uid, tenantId: member.tenant_id, role: member.role, platform: false });
       return json(200, {
         token,
         expiresAt: new Date(exp * 1000).toISOString(),
         user: { uid: member.uid, tenantId: member.tenant_id, role: member.role, displayName: member.display_name, email: member.email },
       });
+    }
+
+    // Step 2 of MFA login: exchange the challenge token + a valid TOTP code for a real token.
+    if (method === 'POST' && seg[0] === 'auth' && seg[1] === 'mfa' && seg[2] === 'login') {
+      const body = await readJson(req);
+      let claims;
+      try {
+        claims = await verifyJwt(String(body.challengeToken ?? ''));
+      } catch {
+        return json(401, { error: 'Invalid or expired MFA challenge.' }, req);
+      }
+      if (claims.mfa !== true) return json(401, { error: 'Invalid MFA challenge.' }, req);
+      const { data: member } = await db
+        .from('members')
+        .select('*')
+        .eq('tenant_id', String(claims.tenantId ?? ''))
+        .eq('uid', String(claims.sub ?? ''))
+        .maybeSingle();
+      const mfa = member?.mfa ?? {};
+      if (!member || member.status !== 'active' || mfa.enabled !== true || typeof mfa.secret !== 'string' || !(await verifyMfaCode(mfa.secret, body.code))) {
+        return json(401, { error: 'Invalid authentication code.' }, req);
+      }
+      const { token, exp } = await signJwt({ sub: member.uid, tenantId: member.tenant_id, role: member.role, platform: false });
+      return json(200, {
+        token,
+        expiresAt: new Date(exp * 1000).toISOString(),
+        user: { uid: member.uid, tenantId: member.tenant_id, role: member.role, displayName: member.display_name, email: member.email },
+      }, req);
     }
 
     // Any signed-in user can change their own password (needs the current one).
@@ -296,6 +422,169 @@ Deno.serve(async (req) => {
       }
       await db.from('members').update({ password_hash: await hashPassword(next) }).eq('tenant_id', actor.tenantId).eq('uid', actor.uid);
       return json(200, { ok: true });
+    }
+
+    // --- TOTP MFA self-service (signed-in member, own account) ---------------
+    if (seg[0] === 'tenants' && seg[2] === 'mfa') {
+      const tenantId = seg[1];
+      const actor = await getActor(req);
+      requireTenant(actor, tenantId);
+      const { data: member } = await db.from('members').select('*').eq('tenant_id', tenantId).eq('uid', actor.uid).maybeSingle();
+      if (!member) return json(404, { error: 'User not found.' }, req);
+      const mfa = member.mfa ?? {};
+
+      if (method === 'GET' && !seg[3]) {
+        return json(200, { enabled: mfa.enabled === true }, req);
+      }
+      // Begin enrolment: generate a secret + otpauth URI; stays enabled:false until verified.
+      if (method === 'POST' && seg[3] === 'enroll') {
+        const account = member.email ?? actor.uid;
+        const secret = generateMfaSecret();
+        await db.from('members').update({ mfa: { enabled: false, secret } }).eq('tenant_id', tenantId).eq('uid', actor.uid);
+        return json(200, { secret, otpauthUri: mfaOtpAuthUri(secret, account), account, issuer: 'ISO Audit' }, req);
+      }
+      // Verify-and-activate.
+      if (method === 'POST' && seg[3] === 'activate') {
+        const body = await readJson(req);
+        if (typeof mfa.secret !== 'string') return json(400, { error: 'Start MFA enrolment first.' }, req);
+        if (!(await verifyMfaCode(mfa.secret, body.code))) return json(400, { error: 'That code did not match. Check your device time and try again.' }, req);
+        await db.from('members').update({ mfa: { enabled: true, secret: mfa.secret, enrolledAt: new Date().toISOString() } }).eq('tenant_id', tenantId).eq('uid', actor.uid);
+        return json(200, { enabled: true }, req);
+      }
+      // Disable (requires a current valid code).
+      if (method === 'POST' && seg[3] === 'disable') {
+        const body = await readJson(req);
+        if (mfa.enabled !== true || typeof mfa.secret !== 'string') return json(200, { enabled: false }, req);
+        if (!(await verifyMfaCode(mfa.secret, body.code))) return json(400, { error: 'That code did not match.' }, req);
+        await db.from('members').update({ mfa: { enabled: false } }).eq('tenant_id', tenantId).eq('uid', actor.uid);
+        return json(200, { enabled: false }, req);
+      }
+    }
+
+    // --- Tenant SSO (OIDC) ---------------------------------------------------
+    // Public, secret-free config for the login screen.
+    if (method === 'GET' && seg[0] === 'tenants' && seg[2] === 'sso' && seg[3] === 'public') {
+      const { data } = await db.from('sso_configs').select('doc').eq('tenant_id', seg[1]).maybeSingle();
+      const doc = data?.doc;
+      if (!doc || doc.enabled !== true) return json(200, { enabled: false }, req);
+      return json(200, { enabled: true, displayName: doc.displayName ?? 'SSO' }, req);
+    }
+    // Admin CRUD for SSO config (tenantAdmin). No client secret is stored.
+    if (seg[0] === 'tenants' && seg[2] === 'sso' && !seg[3]) {
+      const tenantId = seg[1];
+      const actor = await getActor(req);
+      requireTenant(actor, tenantId);
+      requireRole(actor, ['tenantAdmin']);
+      if (method === 'GET') {
+        const { data } = await db.from('sso_configs').select('doc').eq('tenant_id', tenantId).maybeSingle();
+        return json(200, { sso: data?.doc ?? null }, req);
+      }
+      if (method === 'PUT') {
+        const body = await readJson(req);
+        if (!/^https?:\/\//.test(String(body.issuer ?? ''))) return json(400, { error: 'Issuer must be a full https URL.' }, req);
+        if (!String(body.clientId ?? '')) return json(400, { error: 'Client id is required.' }, req);
+        const doc = {
+          enabled: body.enabled === true,
+          provider: 'oidc',
+          displayName: String(body.displayName ?? 'SSO').slice(0, 120),
+          issuer: String(body.issuer),
+          clientId: String(body.clientId).slice(0, 400),
+          authorizationEndpoint: body.authorizationEndpoint ? String(body.authorizationEndpoint) : undefined,
+          tokenEndpoint: body.tokenEndpoint ? String(body.tokenEndpoint) : undefined,
+          scopes: String(body.scopes ?? 'openid email profile').slice(0, 200),
+          updatedAt: new Date().toISOString(),
+        };
+        await db.from('sso_configs').upsert({ tenant_id: tenantId, doc, updated_at: doc.updatedAt }, { onConflict: 'tenant_id' });
+        return json(200, { sso: doc }, req);
+      }
+    }
+    // Initiate OIDC sign-in (public): build the spec-correct redirect + state.
+    if (method === 'POST' && seg[0] === 'auth' && seg[1] === 'sso' && seg[2] === 'initiate') {
+      const body = await readJson(req);
+      const tenantId = String(body.tenantId ?? '');
+      const { data } = await db.from('sso_configs').select('doc').eq('tenant_id', tenantId).maybeSingle();
+      const doc = data?.doc;
+      if (!doc || doc.enabled !== true) return json(404, { error: 'SSO is not configured for this tenant.' }, req);
+      const state = `${tenantId}.${crypto.randomUUID()}`;
+      const nonce = crypto.randomUUID();
+      const redirectUri = `${String(SSO_CALLBACK_BASE_URL).replace(/\/$/, '')}/auth/sso/callback`;
+      return json(200, { authorizationUrl: buildAuthorizationUrl(doc, redirectUri, state, nonce), state }, req);
+    }
+    // OIDC callback. SCAFFOLDED: the live IdP token exchange is gated by
+    // SSO_LIVE_EXCHANGE. We never mint a session without a verified IdP assertion.
+    if (method === 'GET' && seg[0] === 'auth' && seg[1] === 'sso' && seg[2] === 'callback') {
+      const code = url.searchParams.get('code');
+      const state = url.searchParams.get('state');
+      if (!code || !state) return json(400, { error: 'Missing code or state.' }, req);
+      if (!SSO_LIVE_EXCHANGE) {
+        return json(501, { error: 'sso_exchange_not_enabled', detail: 'OIDC redirect/initiate is live; the IdP token exchange is gated. Set SSO_LIVE_EXCHANGE=true and provide the per-tenant client secret as a function secret to enable it.' }, req);
+      }
+      return json(501, { error: 'sso_exchange_not_implemented' }, req);
+    }
+
+    // --- SCIM provisioning token management (tenantAdmin) --------------------
+    if (seg[0] === 'tenants' && seg[2] === 'scim-token') {
+      const tenantId = seg[1];
+      const actor = await getActor(req);
+      requireTenant(actor, tenantId);
+      requireRole(actor, ['tenantAdmin']);
+      if (method === 'GET') {
+        const { data } = await db.from('provisioning_tokens').select('id').eq('tenant_id', tenantId).is('revoked_at', null).limit(1);
+        return json(200, { configured: (data ?? []).length > 0 }, req);
+      }
+      if (method === 'POST') {
+        const now = new Date().toISOString();
+        await db.from('provisioning_tokens').update({ revoked_at: now }).eq('tenant_id', tenantId).is('revoked_at', null);
+        const token = `scim_${b64url(crypto.getRandomValues(new Uint8Array(32)))}`;
+        await db.from('provisioning_tokens').insert({ id: `pvt-${crypto.randomUUID()}`, tenant_id: tenantId, token_hash: await sha256Hex(token), created_at: now, created_by_uid: actor.uid, revoked_at: null, last_used_at: null });
+        return json(201, { token, createdAt: now }, req);
+      }
+      if (method === 'PUT') {
+        await db.from('provisioning_tokens').update({ revoked_at: new Date().toISOString() }).eq('tenant_id', tenantId).is('revoked_at', null);
+        return json(200, { configured: false }, req);
+      }
+    }
+
+    // --- SCIM v2 Users (provisioning-token authenticated) -------------------
+    if (seg[0] === 'scim' && seg[1] === 'v2' && seg[2] === 'Users') {
+      const authz = req.headers.get('authorization') ?? '';
+      const bearer = authz.startsWith('Bearer ') ? authz.slice(7).trim() : '';
+      const errSchemas = ['urn:ietf:params:scim:api:messages:2.0:Error'];
+      if (!bearer) return json(401, { schemas: errSchemas, status: '401', detail: 'Missing provisioning token.' }, req);
+      const { data: grant } = await db.from('provisioning_tokens').select('tenant_id').eq('token_hash', await sha256Hex(bearer)).is('revoked_at', null).maybeSingle();
+      if (!grant) return json(401, { schemas: errSchemas, status: '401', detail: 'Invalid provisioning token.' }, req);
+      const tenantId = grant.tenant_id;
+      await db.from('provisioning_tokens').update({ last_used_at: new Date().toISOString() }).eq('token_hash', await sha256Hex(bearer));
+
+      if (method === 'POST' && !seg[3]) {
+        const body = await readJson(req);
+        const externalId = String(body.externalId ?? '');
+        const emailRaw = (Array.isArray(body.emails) ? (body.emails.find((e) => e.primary) ?? body.emails[0])?.value : null) ?? body.userName ?? '';
+        const email = String(emailRaw).toLowerCase().trim();
+        if (!externalId || !EMAIL_RE.test(email)) return json(400, { schemas: errSchemas, status: '400', detail: 'externalId and a valid email are required.' }, req);
+        const role = TENANT_ROLES.includes(body.role) ? body.role : 'auditor';
+        const active = body.active !== false;
+        const fromName = body.name?.formatted ?? [body.name?.givenName, body.name?.familyName].filter(Boolean).join(' ').trim();
+        const displayName = String(body.displayName ?? (fromName || '') ?? '').trim() || email.split('@')[0];
+        const { data: existing } = await db.from('members').select('*').ilike('email', email).maybeSingle();
+        if (existing) {
+          if (existing.tenant_id !== tenantId) return json(409, { schemas: errSchemas, status: '409', detail: 'That email belongs to another tenant.' }, req);
+          await db.from('members').update({ status: active ? 'active' : 'disabled', external_id: externalId }).eq('uid', existing.uid);
+          return json(200, { schemas: ['urn:ietf:params:scim:schemas:core:2.0:User'], id: existing.uid, externalId, userName: email, displayName: existing.display_name ?? displayName, active, emails: [{ value: email, primary: true }] }, req);
+        }
+        const uid = `uid-${crypto.randomUUID()}`;
+        const { error } = await db.from('members').insert({ tenant_id: tenantId, uid, email, role, display_name: displayName, status: active ? 'active' : 'disabled', external_id: externalId, provisioned_via: 'scim' });
+        if (error) return json(500, { schemas: errSchemas, status: '500', detail: 'Could not provision the user.' }, req);
+        return json(201, { schemas: ['urn:ietf:params:scim:schemas:core:2.0:User'], id: uid, externalId, userName: email, displayName, active, emails: [{ value: email, primary: true }] }, req);
+      }
+
+      if (method === 'DELETE' && seg[3]) {
+        const externalId = seg[3];
+        const { data: target } = await db.from('members').select('uid').eq('tenant_id', tenantId).eq('external_id', externalId).maybeSingle();
+        if (!target) return json(404, { schemas: errSchemas, status: '404', detail: 'User not found.' }, req);
+        await db.from('members').update({ status: 'disabled' }).eq('tenant_id', tenantId).eq('external_id', externalId);
+        return new Response(null, { status: 204, headers: corsHeaders(req) });
+      }
     }
 
     // Member management — tenantAdmin or leadAuditor. Guardrails below prevent
@@ -495,6 +784,9 @@ Deno.serve(async (req) => {
           leadership: byKind('leadership'),
           context: byKind('context'),
           interviews: byKind('interview'),
+          envAspects: byKind('envAspect'),
+          envObligations: byKind('envObligation'),
+          envObjectives: byKind('envObjective'),
           workerConsultations: byKind('consultation'),
           meetings: byKind('meeting'),
           conclusion: single('conclusion'),
@@ -980,6 +1272,64 @@ Deno.serve(async (req) => {
         }
       }
 
+      // AI corrective-action (CAPA) assistant (server-side). Inert until
+      // ANTHROPIC_API_KEY + ANTHROPIC_MODEL are set as function secrets; the
+      // client falls back to its offline deterministic composer on any non-2xx,
+      // so the feature still works without a key. The prompt forbids verbatim ISO
+      // requirement text and the word "shall" (copyright guardrail).
+      if (method === 'POST' && rest[0] === 'corrective-action') {
+        requireRole(actor, ['leadAuditor', 'auditor']);
+        const input = await readJson(req);
+        const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
+        const model = Deno.env.get('ANTHROPIC_MODEL');
+        if (!apiKey || !model) return json(501, { error: 'ai_not_configured' }, req);
+        const system =
+          'You are an ISO 45001 lead auditor assistant suggesting a root-cause analysis and a draft corrective-action plan for a single finding (nonconformity or opportunity for improvement). Use ONLY the finding data provided (clause id/title, type, title, description, systemic flag, related register context) and ISO 45001 clause numbers and short titles. Do NOT quote or paraphrase verbatim ISO requirement text; never use the word "shall". Frame root causes as hypotheses to test, not conclusions. Respond with a strict JSON object only, with keys rootCauseHypotheses, correctiveActions, containment, summary. "rootCauseHypotheses" is an array of short strings. "correctiveActions" is an array of { action, owner, why } where owner is a suggested role and why is a short rationale. "containment" is a short string (or omit it for an opportunity for improvement). "summary" is a one-line string.';
+        try {
+          const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+            body: JSON.stringify({
+              model,
+              max_tokens: 1600,
+              system,
+              messages: [{ role: 'user', content: `Finding data:\n${JSON.stringify(input)}` }],
+            }),
+          });
+          if (!aiRes.ok) return json(502, { error: 'ai_upstream' }, req);
+          const payload = await aiRes.json();
+          const text = (payload?.content ?? []).map((part: { text?: string }) => part?.text ?? '').join('');
+          const found = text.match(/\{[\s\S]*\}/);
+          if (!found) return json(502, { error: 'ai_parse' }, req);
+          const parsed = JSON.parse(found[0]);
+          const strArr = (v: unknown): string[] =>
+            Array.isArray(v) ? v.map((x) => String(x ?? '')).filter((x: string) => x.length > 0) : [];
+          const correctiveActions = Array.isArray(parsed.correctiveActions)
+            ? parsed.correctiveActions.map((step: Record<string, unknown>) => ({
+                action: String(step?.action ?? ''),
+                owner: step?.owner !== undefined ? String(step.owner) : undefined,
+                why: String(step?.why ?? ''),
+              }))
+            : [];
+          const containmentRaw = parsed.containment;
+          return json(
+            200,
+            {
+              rootCauseHypotheses: strArr(parsed.rootCauseHypotheses),
+              correctiveActions,
+              containment:
+                typeof containmentRaw === 'string' && containmentRaw.length > 0 ? containmentRaw : undefined,
+              summary: String(parsed.summary ?? ''),
+              source: 'ai',
+              generatedAt: new Date().toISOString(),
+            },
+            req,
+          );
+        } catch {
+          return json(502, { error: 'ai_failed' }, req);
+        }
+      }
+
       if (method === 'POST' && rest[0] === 'reports' && rest[1] === 'signoff') {
         requireRole(actor, ['leadAuditor']);
         const body = await readJson(req);
@@ -1019,6 +1369,9 @@ Deno.serve(async (req) => {
         leadership: 'leadership',
         context: 'context',
         interviews: 'interview',
+        'environmental-aspects': 'envAspect',
+        'environmental-obligations': 'envObligation',
+        'environmental-objectives': 'envObjective',
         'worker-consultations': 'consultation',
       };
       if (method === 'PUT' && registerKinds[rest[0]] && rest[1]) {

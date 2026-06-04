@@ -101,6 +101,31 @@ export function issuePlatformToken(
   return { token, expiresAt: new Date(Date.now() + config.jwtTtlSeconds * 1000).toISOString() };
 }
 
+/**
+ * Mint a short-lived MFA challenge token issued after a correct password when
+ * the account has TOTP enabled. It carries `mfa: true` and the pending member's
+ * identity but is NOT a session token: routes reject it everywhere except the
+ * /auth/mfa/login step that exchanges it (plus a valid code) for a real token.
+ */
+export function issueMfaChallengeToken(member: { uid: string; tenantId: string; role: string }, config: ServerConfig): string {
+  // 5-minute window to complete the second factor.
+  return signJwt({ sub: member.uid, role: member.role, platform: false, tenantId: member.tenantId, mfa: true }, config.jwtSecret, 300);
+}
+
+/** Verify an MFA challenge token; returns the pending identity or throws. */
+export function verifyMfaChallengeToken(token: string, config: ServerConfig): { uid: string; tenantId: string; role: string } {
+  let claims;
+  try {
+    claims = verifyJwt(token, config.jwtSecret);
+  } catch {
+    throw new ApiAuthError('Invalid or expired MFA challenge.');
+  }
+  if (claims.mfa !== true || typeof claims.tenantId !== 'string') {
+    throw new ApiAuthError('Invalid MFA challenge.');
+  }
+  return { uid: claims.sub, tenantId: claims.tenantId, role: claims.role };
+}
+
 /** Gate for the /api/admin/* surface. Tenant routes must keep using requireTenant. */
 export function requireSuperadmin(actor: ActorContext): void {
   if (!actor.platform) {
