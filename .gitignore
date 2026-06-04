@@ -12,3 +12,4 @@ ui-debug.log
 *.local
 .DS_Store
 .vercel
+.claude/

@@ -20,6 +20,13 @@ export class FindingsComponent {
   private readonly auth = inject(AuthService);
 
   protected readonly isLead = computed(() => this.auth.user()?.role === 'leadAuditor');
+  /** Lead & auditor may draft a finding with AI assistance (mirrors the report draft gate). */
+  protected readonly canDraft = computed(() => {
+    const role = this.auth.user()?.role;
+    return role === 'leadAuditor' || role === 'auditor';
+  });
+  /** IDs of findings whose draft is currently generating, for the button's busy state. */
+  protected readonly drafting = signal<ReadonlySet<string>>(new Set());
   protected readonly selectedId = signal<string | null>(null);
   protected readonly selected = computed(() => this.store.findings().find((f) => f.id === this.selectedId()) ?? null);
   protected readonly selectedCapa = computed<FieldCapa | null>(() => {
@@ -44,6 +51,33 @@ export class FindingsComponent {
 
   protected saveStatement(finding: FieldFinding, statement: string): void {
     this.store.editFinding(finding.id, { description: statement.trim() });
+  }
+
+  /** Auto-draft this finding (statement, requirement, evidence, grade) — AI when live, deterministic offline. */
+  protected async draftFinding(finding: FieldFinding): Promise<void> {
+    if (this.drafting().has(finding.id)) return;
+    this.drafting.update((set) => new Set(set).add(finding.id));
+    try {
+      await this.store.generateFindingDraft(finding.id);
+    } finally {
+      this.drafting.update((set) => {
+        const next = new Set(set);
+        next.delete(finding.id);
+        return next;
+      });
+    }
+  }
+
+  protected isDrafting(id: string): boolean {
+    return this.drafting().has(id);
+  }
+
+  protected draftInfo(id: string): { source: 'ai' | 'ruleBased'; generatedAt: string } | null {
+    return this.store.findingDraftInfo()[id] ?? null;
+  }
+
+  protected formatTime(iso: string): string {
+    return new Date(iso).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
   }
 
   protected saveObjectiveEvidence(finding: FieldFinding, text: string): void {

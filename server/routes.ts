@@ -507,6 +507,23 @@ const incidentUpsertCommandSchema = z.object({
   result: registerResultSchema.default('notStarted'),
 });
 
+const hiraUpsertCommandSchema = z.object({
+  id: z.string().min(1),
+  activity: z.string().max(300).default(''),
+  routineness: z.enum(['routine', 'nonRoutine', 'emergency']).default('routine'),
+  hazard: z.string().max(300).default(''),
+  whoAtHarm: z.string().max(300).optional(),
+  existingControls: z.string().max(2000).optional(),
+  severity: z.number().int().min(1).max(5).optional(),
+  likelihood: z.number().int().min(1).max(5).optional(),
+  additionalControls: z.string().max(2000).optional(),
+  controlType: z.enum(['elimination', 'substitution', 'engineering', 'administrative', 'ppe']).optional(),
+  residualSeverity: z.number().int().min(1).max(5).optional(),
+  residualLikelihood: z.number().int().min(1).max(5).optional(),
+  relatedClauseId: z.string().max(40).optional(),
+  result: registerResultSchema.default('notStarted'),
+});
+
 const calibrationUpsertCommandSchema = z.object({
   id: z.string().min(1),
   equipment: z.string().max(300).default(''),
@@ -1056,9 +1073,10 @@ export async function handleApiRequest(
         dependencies.db.collection(mongoCollections.documentedInfo).find({ tenantId, auditId }, { projection: { _id: 0 } }).toArray(),
         dependencies.db.collection(mongoCollections.performanceMetrics).find({ tenantId, auditId }, { projection: { _id: 0 } }).toArray(),
       ]);
-      const [permits, incidents] = await Promise.all([
+      const [permits, incidents, hira] = await Promise.all([
         dependencies.db.collection(mongoCollections.permits).find({ tenantId, auditId }, { projection: { _id: 0 } }).toArray(),
         dependencies.db.collection(mongoCollections.incidents).find({ tenantId, auditId }, { projection: { _id: 0 } }).toArray(),
+        dependencies.db.collection(mongoCollections.hira).find({ tenantId, auditId }, { projection: { _id: 0 } }).toArray(),
       ]);
       const calibration = await dependencies.db
         .collection(mongoCollections.calibration)
@@ -1114,6 +1132,7 @@ export async function handleApiRequest(
           performanceMetrics,
           permits,
           incidents,
+          hira,
           calibration,
           training,
           suppliers,
@@ -1170,6 +1189,107 @@ export async function handleApiRequest(
       }
       sendJson(response, 201, { evidence: record }, corsOrigin);
       return;
+    }
+
+    // AI photo-evidence analysis (server-side vision). Inert until ANTHROPIC_API_KEY
+    // + a vision model (ANTHROPIC_VISION_MODEL or ANTHROPIC_MODEL) are set → 501
+    // ai_not_configured, so the client shows the graceful "needs the server/key"
+    // state. Returns a candidate (observations / hazard tags / suggested clause +
+    // finding) with status needsAuditorReview — the auditor accepts/rejects; nothing
+    // is auto-applied. The prompt forbids verbatim ISO requirement text (copyright).
+    const photoAnalyzeMatch = matchPath(
+      new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/evidence/([^/]+)/analyze$`),
+      url.pathname,
+      ['tenantId', 'auditId', 'evidenceId'],
+    );
+    if (request.method === 'POST' && photoAnalyzeMatch && actor) {
+      const tenantId = photoAnalyzeMatch.params['tenantId']!;
+      const auditId = photoAnalyzeMatch.params['auditId']!;
+      const evidenceId = photoAnalyzeMatch.params['evidenceId']!;
+      requireTenant(actor, tenantId);
+      requireAnyRole(actor, ['leadAuditor', 'auditor']);
+      const body = await readJson(request, z.object({ imageBase64: z.string().optional(), mimeType: z.string().optional() }).passthrough());
+      const apiKey = process.env['ANTHROPIC_API_KEY'];
+      const model = process.env['ANTHROPIC_VISION_MODEL'] ?? process.env['ANTHROPIC_MODEL'];
+      if (!apiKey || !model) {
+        sendJson(response, 501, { error: 'ai_not_configured' }, corsOrigin);
+        return;
+      }
+      // Prefer image bytes supplied in the body; otherwise look up the stored evidence.
+      let imageBase64 = typeof body['imageBase64'] === 'string' ? (body['imageBase64'] as string) : undefined;
+      let mimeType = typeof body['mimeType'] === 'string' ? (body['mimeType'] as string) : 'image/jpeg';
+      if (!imageBase64) {
+        const evidence = await dependencies.db
+          .collection(mongoCollections.evidence)
+          .findOne({ tenantId, auditId, id: evidenceId });
+        const stored = evidence as { imageBase64?: string; media?: { mimeType?: string } } | null;
+        if (stored?.imageBase64) {
+          imageBase64 = stored.imageBase64;
+          mimeType = stored.media?.mimeType ?? mimeType;
+        }
+      }
+      if (!imageBase64) {
+        sendJson(response, 422, { error: 'no_image' }, corsOrigin);
+        return;
+      }
+      const system =
+        'You are an ISO 45001 occupational health & safety auditor assistant reviewing a single site photo. Suggest only what is visible. Use ISO 45001 clause numbers and short titles only; do NOT quote or paraphrase verbatim ISO requirement text. Respond with a strict JSON object only with keys: observations (string[]), hazardTags (string[]), suggestedClauseId (string), suggestedFindingStatement (string), suggestedType (one of minorNc, majorNc, ofi, conformity). Every suggestion is a candidate for an auditor to review; do not assert conclusions.';
+      try {
+        const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+          body: JSON.stringify({
+            model,
+            max_tokens: 1024,
+            system,
+            messages: [
+              {
+                role: 'user',
+                content: [
+                  { type: 'image', source: { type: 'base64', media_type: mimeType, data: imageBase64 } },
+                  { type: 'text', text: 'Analyze this OH&S site photo and return the JSON object.' },
+                ],
+              },
+            ],
+          }),
+        });
+        if (!aiRes.ok) {
+          sendJson(response, 502, { error: 'ai_upstream' }, corsOrigin);
+          return;
+        }
+        const payload = (await aiRes.json()) as { content?: { text?: string }[] };
+        const text = (payload.content ?? []).map((part) => part.text ?? '').join('');
+        const found = text.match(/\{[\s\S]*\}/);
+        const parsed = found ? (JSON.parse(found[0]) as Record<string, unknown>) : null;
+        if (!parsed) {
+          sendJson(response, 502, { error: 'ai_parse' }, corsOrigin);
+          return;
+        }
+        const types = ['minorNc', 'majorNc', 'ofi', 'conformity'];
+        const rawType = parsed['suggestedType'];
+        const stringList = (value: unknown): string[] =>
+          Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : [];
+        sendJson(
+          response,
+          200,
+          {
+            status: 'needsAuditorReview',
+            observations: stringList(parsed['observations']),
+            hazardTags: stringList(parsed['hazardTags']),
+            suggestedClauseId: typeof parsed['suggestedClauseId'] === 'string' ? parsed['suggestedClauseId'] : undefined,
+            suggestedFindingStatement:
+              typeof parsed['suggestedFindingStatement'] === 'string' ? parsed['suggestedFindingStatement'] : undefined,
+            suggestedType: typeof rawType === 'string' && types.includes(rawType) ? rawType : 'ofi',
+            provider: 'anthropicClaude',
+            generatedAt: new Date().toISOString(),
+          },
+          corsOrigin,
+        );
+        return;
+      } catch {
+        sendJson(response, 502, { error: 'ai_failed' }, corsOrigin);
+        return;
+      }
     }
 
     const findingConfirmMatch = matchPath(
@@ -1437,6 +1557,222 @@ export async function handleApiRequest(
             emsEffectivenessOpinion: String(parsed['emsEffectivenessOpinion'] ?? ''),
             criteriaMetStatement: String(parsed['criteriaMetStatement'] ?? ''),
             recommendation,
+            source: 'ai',
+            generatedAt: new Date().toISOString(),
+          },
+          corsOrigin,
+        );
+        return;
+      } catch {
+        sendJson(response, 502, { error: 'ai_failed' }, corsOrigin);
+        return;
+      }
+    }
+
+    // AI audit agenda + opening/closing meeting scripts (server-side). Inert until
+    // ANTHROPIC_API_KEY + ANTHROPIC_MODEL are set; the client falls back to its
+    // offline rule-based composer on any non-2xx. The prompt forbids verbatim ISO
+    // requirement text (copyright guardrail).
+    const agendaDraftMatch = matchPath(
+      new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/agenda-draft$`),
+      url.pathname,
+      ['tenantId', 'auditId'],
+    );
+    if (request.method === 'POST' && agendaDraftMatch && actor) {
+      const tenantId = agendaDraftMatch.params['tenantId']!;
+      requireTenant(actor, tenantId);
+      requireAnyRole(actor, ['leadAuditor', 'auditor']);
+      const input = await readJson(request, z.object({}).passthrough());
+      const apiKey = process.env['ANTHROPIC_API_KEY'];
+      const model = process.env['ANTHROPIC_MODEL'];
+      if (!apiKey || !model) {
+        sendJson(response, 501, { error: 'ai_not_configured' }, corsOrigin);
+        return;
+      }
+      const system =
+        'You are an ISO 45001 lead auditor assistant drafting (a) a tailored audit agenda and (b) opening- and closing-meeting talking-point scripts. Use ONLY the audit data provided and ISO 45001 clause numbers and short titles. Do NOT quote or paraphrase verbatim ISO requirement text. Respond with a strict JSON object only, with two keys: "agenda" and "scripts". "agenda" has keys title, scope, criteria, objectives (string array), itinerary (array of {clause, title, duration, focus}) and samplingNotes (string array). "scripts" has keys opening and closing, each an object with heading and talkingPoints (string array). The opening script covers introductions, confidentiality, safety induction/PPE/permits, scope+criteria+methods, the sampling caveat, how findings are graded and communicated, and closing-meeting arrangements. The closing script covers a findings summary by grade, agreed correction timelines (major ~30 days, minor ~90 days), auditee acknowledgement, and the recommendation plus next steps.';
+      try {
+        const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+          body: JSON.stringify({
+            model,
+            max_tokens: 2000,
+            system,
+            messages: [{ role: 'user', content: `Audit data:\n${JSON.stringify(input)}` }],
+          }),
+        });
+        if (!aiRes.ok) {
+          sendJson(response, 502, { error: 'ai_upstream' }, corsOrigin);
+          return;
+        }
+        const payload = (await aiRes.json()) as { content?: { text?: string }[] };
+        const text = (payload.content ?? []).map((part) => part.text ?? '').join('');
+        const found = text.match(/\{[\s\S]*\}/);
+        const parsed = found ? (JSON.parse(found[0]) as Record<string, unknown>) : null;
+        if (!parsed) {
+          sendJson(response, 502, { error: 'ai_parse' }, corsOrigin);
+          return;
+        }
+        const generatedAt = new Date().toISOString();
+        const strArr = (v: unknown): string[] => (Array.isArray(v) ? v.map((x) => String(x ?? '')) : []);
+        const agendaIn = (parsed['agenda'] ?? {}) as Record<string, unknown>;
+        const scriptsIn = (parsed['scripts'] ?? {}) as Record<string, unknown>;
+        const itinerary = Array.isArray(agendaIn['itinerary'])
+          ? (agendaIn['itinerary'] as Record<string, unknown>[]).map((slot) => ({
+              clause: String(slot?.['clause'] ?? ''),
+              title: String(slot?.['title'] ?? ''),
+              duration: String(slot?.['duration'] ?? ''),
+              focus: String(slot?.['focus'] ?? ''),
+            }))
+          : [];
+        const script = (s: unknown, heading: string) => {
+          const obj = (s ?? {}) as Record<string, unknown>;
+          return { heading: String(obj['heading'] ?? heading), talkingPoints: strArr(obj['talkingPoints']) };
+        };
+        sendJson(
+          response,
+          200,
+          {
+            agenda: {
+              title: String(agendaIn['title'] ?? ''),
+              scope: String(agendaIn['scope'] ?? ''),
+              criteria: String(agendaIn['criteria'] ?? ''),
+              objectives: strArr(agendaIn['objectives']),
+              itinerary,
+              samplingNotes: strArr(agendaIn['samplingNotes']),
+              source: 'ai',
+              generatedAt,
+            },
+            scripts: {
+              opening: script(scriptsIn['opening'], 'Opening meeting'),
+              closing: script(scriptsIn['closing'], 'Closing meeting'),
+              source: 'ai',
+              generatedAt,
+            },
+          },
+          corsOrigin,
+        );
+        return;
+      } catch {
+        sendJson(response, 502, { error: 'ai_failed' }, corsOrigin);
+        return;
+      }
+    }
+
+    // AI "ask the standard" copilot (server-side). Inert until ANTHROPIC_API_KEY +
+    // ANTHROPIC_MODEL are set; the client falls back to its offline field-guide
+    // answerer on any non-2xx. The prompt forbids verbatim ISO requirement text.
+    const copilotMatch = matchPath(
+      new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/copilot/ask$`),
+      url.pathname,
+      ['tenantId', 'auditId'],
+    );
+    if (request.method === 'POST' && copilotMatch && actor) {
+      const tenantId = copilotMatch.params['tenantId']!;
+      requireTenant(actor, tenantId);
+      requireAnyRole(actor, ['leadAuditor', 'auditor']);
+      const body = await readJson(request, z.object({ question: z.string().min(1).max(2000) }));
+      const apiKey = process.env['ANTHROPIC_API_KEY'];
+      const model = process.env['ANTHROPIC_MODEL'];
+      if (!apiKey || !model) {
+        sendJson(response, 501, { error: 'ai_not_configured' }, corsOrigin);
+        return;
+      }
+      const system =
+        "You are an ISO 45001 lead auditor assistant. Answer the auditor's question using ISO 45001 clause numbers and short titles plus general OH&S auditing good practice. Do NOT quote or paraphrase verbatim ISO requirement text. Respond with a strict JSON object only: { \"answer\": string, \"clauseRefs\": [{ \"clauseId\": string, \"title\": string }] }.";
+      try {
+        const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+          body: JSON.stringify({ model, max_tokens: 900, system, messages: [{ role: 'user', content: body.question }] }),
+        });
+        if (!aiRes.ok) {
+          sendJson(response, 502, { error: 'ai_upstream' }, corsOrigin);
+          return;
+        }
+        const payload = (await aiRes.json()) as { content?: { text?: string }[] };
+        const text = (payload.content ?? []).map((part) => part.text ?? '').join('');
+        const found = text.match(/\{[\s\S]*\}/);
+        const parsed = found ? (JSON.parse(found[0]) as Record<string, unknown>) : null;
+        if (!parsed) {
+          sendJson(response, 502, { error: 'ai_parse' }, corsOrigin);
+          return;
+        }
+        const refsRaw = Array.isArray(parsed['clauseRefs']) ? (parsed['clauseRefs'] as unknown[]) : [];
+        const clauseRefs = refsRaw
+          .map((r) => r as { clauseId?: unknown; title?: unknown })
+          .filter((r) => typeof r.clauseId === 'string')
+          .map((r) => ({ clauseId: String(r.clauseId), title: String(r.title ?? '') }));
+        sendJson(response, 200, { answer: String(parsed['answer'] ?? ''), clauseRefs, source: 'ai' }, corsOrigin);
+        return;
+      } catch {
+        sendJson(response, 502, { error: 'ai_failed' }, corsOrigin);
+        return;
+      }
+    }
+
+    // AI finding draft (server-side). Inert until ANTHROPIC_API_KEY + ANTHROPIC_MODEL
+    // are set; the client falls back to its offline deterministic composer on any
+    // non-2xx. The prompt forbids verbatim ISO requirement text (copyright guardrail).
+    const findingDraftMatch = matchPath(
+      new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/finding-draft$`),
+      url.pathname,
+      ['tenantId', 'auditId'],
+    );
+    if (request.method === 'POST' && findingDraftMatch && actor) {
+      const tenantId = findingDraftMatch.params['tenantId']!;
+      requireTenant(actor, tenantId);
+      requireAnyRole(actor, ['leadAuditor', 'auditor']);
+      const input = await readJson(request, z.object({}).passthrough());
+      const apiKey = process.env['ANTHROPIC_API_KEY'];
+      const model = process.env['ANTHROPIC_MODEL'];
+      if (!apiKey || !model) {
+        sendJson(response, 501, { error: 'ai_not_configured' }, corsOrigin);
+        return;
+      }
+      const system =
+        'You are an ISO 45001 lead auditor assistant drafting a single audit finding (nonconformity). Use ONLY the finding data provided (clause id/title, note, result, evidence labels) and ISO 45001 clause numbers and short titles. Do NOT quote or paraphrase verbatim ISO requirement text; never use the word "shall". Respond with a strict JSON object only, with keys draftStatement, requirementSummary, objectiveEvidence, suggestedType, gradingRationale, rootCausePrompts. suggestedType must be one of majorNc, minorNc, ofi. rootCausePrompts must be an array of short question strings.';
+      try {
+        const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+          body: JSON.stringify({
+            model,
+            max_tokens: 1200,
+            system,
+            messages: [{ role: 'user', content: `Finding data:\n${JSON.stringify(input)}` }],
+          }),
+        });
+        if (!aiRes.ok) {
+          sendJson(response, 502, { error: 'ai_upstream' }, corsOrigin);
+          return;
+        }
+        const payload = (await aiRes.json()) as { content?: { text?: string }[] };
+        const text = (payload.content ?? []).map((part) => part.text ?? '').join('');
+        const found = text.match(/\{[\s\S]*\}/);
+        const parsed = found ? (JSON.parse(found[0]) as Record<string, unknown>) : null;
+        if (!parsed) {
+          sendJson(response, 502, { error: 'ai_parse' }, corsOrigin);
+          return;
+        }
+        const types = ['majorNc', 'minorNc', 'ofi'];
+        const rawType = parsed['suggestedType'];
+        const suggestedType = typeof rawType === 'string' && types.includes(rawType) ? rawType : 'minorNc';
+        const rawPrompts = parsed['rootCausePrompts'];
+        const rootCausePrompts = Array.isArray(rawPrompts)
+          ? rawPrompts.map((p) => String(p)).filter((p) => p.length > 0)
+          : [];
+        sendJson(
+          response,
+          200,
+          {
+            draftStatement: String(parsed['draftStatement'] ?? ''),
+            requirementSummary: String(parsed['requirementSummary'] ?? ''),
+            objectiveEvidence: String(parsed['objectiveEvidence'] ?? ''),
+            suggestedType,
+            gradingRationale: String(parsed['gradingRationale'] ?? ''),
+            rootCausePrompts,
             source: 'ai',
             generatedAt: new Date().toISOString(),
           },
@@ -1768,6 +2104,25 @@ export async function handleApiRequest(
         .collection(mongoCollections.incidents)
         .updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
       sendJson(response, 200, { incident: record }, corsOrigin);
+      return;
+    }
+
+    const hiraMatch = matchPath(
+      new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/hira/([^/]+)$`),
+      url.pathname,
+      ['tenantId', 'auditId', 'id'],
+    );
+    if (request.method === 'PUT' && hiraMatch && actor) {
+      const tenantId = hiraMatch.params['tenantId']!;
+      const auditId = hiraMatch.params['auditId']!;
+      requireTenant(actor, tenantId);
+      requireAnyRole(actor, ['leadAuditor', 'auditor']);
+      const command = await readJson(request, hiraUpsertCommandSchema);
+      const record = { ...command, tenantId, auditId, updatedAt: new Date().toISOString() };
+      await dependencies.db
+        .collection(mongoCollections.hira)
+        .updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
+      sendJson(response, 200, { hira: record }, corsOrigin);
       return;
     }
 

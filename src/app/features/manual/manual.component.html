@@ -1,41 +1,59 @@
 <section class="screen manual">
   <header class="screen-head">
-    <h1>User manual</h1>
-    <p>How to run an ISO 45001 OH&S audit in Soteria Signum by Trainovate, from fieldwork to a signed report.</p>
+    <h1>Auditor's manual</h1>
+    <p>A working methodology reference for ISO 45001 OH&S auditors — principles and ethics, the audit lifecycle, reporting, corrective action, competence and field working. Original Trainovate guidance grounded in ISO 19011 and ISO/IEC 17021-1; clause references are by number and title only. For the clause-by-clause "what to look for" guide, see the field guide.</p>
   </header>
 
   <nav class="toc panel" aria-label="Contents">
-    @for (section of sections; track section.id) {
-      <a [href]="'#' + section.id">
-        <mat-icon aria-hidden="true">{{ section.icon }}</mat-icon>
-        {{ section.title }}
+    @for (entry of toc; track entry.id) {
+      <a [href]="'#' + entry.id">
+        <mat-icon aria-hidden="true">{{ entry.icon }}</mat-icon>
+        {{ entry.title }}
       </a>
     }
   </nav>
 
-  @for (section of sections; track section.id) {
+  <div class="manual-search panel">
+    <mat-icon aria-hidden="true">search</mat-icon>
+    <input
+      #search
+      type="search"
+      placeholder="Search the manual by keyword…"
+      [value]="query()"
+      (input)="query.set(search.value)"
+      aria-label="Search the manual"
+    />
+  </div>
+
+  @for (section of sections(); track section.id) {
     <article class="panel doc" [id]="section.id">
       <h2><mat-icon aria-hidden="true">{{ section.icon }}</mat-icon>{{ section.title }}</h2>
-      @for (block of section.blocks; track $index) {
-        @switch (block.kind) {
-          @case ('p') {
-            <p>{{ block.text }}</p>
+      <p class="intro">{{ section.intro }}</p>
+
+      @for (sub of section.subsections; track sub.heading) {
+        <div class="sub">
+          <h3>{{ sub.heading }}</h3>
+          @for (block of sub.blocks; track $index) {
+            @switch (block.kind) {
+              @case ('p') {
+                <p>{{ block.text }}</p>
+              }
+              @case ('bullets') {
+                <ul>
+                  @for (item of block.items; track $index) { <li>{{ item }}</li> }
+                </ul>
+              }
+              @case ('steps') {
+                <ol>
+                  @for (item of block.items; track $index) { <li>{{ item }}</li> }
+                </ol>
+              }
+            }
           }
-          @case ('note') {
-            <p class="note"><mat-icon aria-hidden="true">info</mat-icon>{{ block.text }}</p>
-          }
-          @case ('ul') {
-            <ul>
-              @for (item of block.items; track $index) { <li>{{ item }}</li> }
-            </ul>
-          }
-          @case ('steps') {
-            <ol>
-              @for (item of block.items; track $index) { <li>{{ item }}</li> }
-            </ol>
-          }
-        }
+        </div>
       }
     </article>
+  } @empty {
+    <p class="muted">No sections match "{{ query() }}".</p>
   }
 </section>

@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 
@@ -29,6 +29,33 @@ export class AuditComponent {
 
   protected readonly opening = computed(() => this.store.meetings().find((m) => m.kind === 'opening') ?? null);
   protected readonly closing = computed(() => this.store.meetings().find((m) => m.kind === 'closing') ?? null);
+
+  // AI-assisted agenda + meeting scripts (rule-based offline, AI when configured).
+  protected readonly agenda = this.store.auditAgenda;
+  protected readonly scripts = this.store.meetingScripts;
+  protected readonly agendaInfo = this.store.agendaDraftInfo;
+  protected readonly generatingAgenda = signal(false);
+  protected readonly generatingScripts = signal(false);
+
+  /** Auto-draft a tailored audit agenda from the audit data (AI when live, rule-based offline). */
+  protected async generateAgenda(): Promise<void> {
+    this.generatingAgenda.set(true);
+    try {
+      await this.store.generateAuditAgenda();
+    } finally {
+      this.generatingAgenda.set(false);
+    }
+  }
+
+  /** Auto-draft opening/closing meeting scripts from the audit data (AI when live, rule-based offline). */
+  protected async generateScripts(): Promise<void> {
+    this.generatingScripts.set(true);
+    try {
+      await this.store.generateMeetingScripts();
+    } finally {
+      this.generatingScripts.set(false);
+    }
+  }
 
   protected statusIndex(status: AuditStatus): number {
     return this.statuses.findIndex((s) => s.value === status);

@@ -25,6 +25,68 @@
   </article>
 
   <article class="panel">
+    <h2>Agenda &amp; meeting scripts</h2>
+    @if (isLead()) {
+      <div class="ai-draft">
+        <div class="ai-buttons">
+          <button mat-stroked-button type="button" [disabled]="generatingAgenda()" (click)="generateAgenda()">
+            <mat-icon aria-hidden="true">auto_awesome</mat-icon>{{ generatingAgenda() ? 'Generating…' : 'Generate agenda' }}
+          </button>
+          <button mat-stroked-button type="button" [disabled]="generatingScripts()" (click)="generateScripts()">
+            <mat-icon aria-hidden="true">auto_awesome</mat-icon>{{ generatingScripts() ? 'Generating…' : 'Generate meeting scripts' }}
+          </button>
+        </div>
+        @if (agendaInfo(); as info) {
+          <p class="ai-note">
+            <mat-icon aria-hidden="true">info</mat-icon>
+            Composed from this audit's data ({{ info.source === 'ai' ? 'AI' : 'auto-draft' }}, {{ formatTime(info.generatedAt) }}) — review before the meeting; draft.
+          </p>
+        } @else {
+          <p class="ai-hint">Generate a tailored agenda and opening/closing talking points from this audit's data, then review and adapt before the meeting.</p>
+        }
+      </div>
+
+      @if (agenda(); as a) {
+        <div class="draft-block">
+          <h3>{{ a.title }}</h3>
+          <p class="line"><strong>Scope:</strong> {{ a.scope }}</p>
+          <p class="line"><strong>Criteria:</strong> {{ a.criteria }}</p>
+          @if (a.objectives.length) {
+            <p class="sub">Objectives</p>
+            <ul class="agenda">@for (o of a.objectives; track $index) { <li>{{ o }}</li> }</ul>
+          }
+          @if (a.itinerary.length) {
+            <p class="sub">Itinerary</p>
+            <ul class="itinerary">
+              @for (slot of a.itinerary; track slot.clause) {
+                <li>
+                  <span class="slot-head"><strong>Clause {{ slot.clause }} — {{ slot.title }}</strong> · {{ slot.duration }}</span>
+                  <span class="slot-focus">{{ slot.focus }}</span>
+                </li>
+              }
+            </ul>
+          }
+          @if (a.samplingNotes.length) {
+            <p class="sub">Sampling notes</p>
+            <ul class="agenda">@for (n of a.samplingNotes; track $index) { <li>{{ n }}</li> }</ul>
+          }
+        </div>
+      }
+
+      @if (scripts(); as s) {
+        <div class="draft-block">
+          <h3>{{ s.opening.heading }}</h3>
+          <ul class="agenda">@for (p of s.opening.talkingPoints; track $index) { <li>{{ p }}</li> }</ul>
+          <h3>{{ s.closing.heading }}</h3>
+          <ul class="agenda">@for (p of s.closing.talkingPoints; track $index) { <li>{{ p }}</li> }</ul>
+        </div>
+      }
+    } @else {
+      <p class="line muted">Only the lead auditor can generate the agenda and meeting scripts.</p>
+    }
+  </article>
+
+  <article class="panel">
     <h2>Opening meeting</h2>
     @if (opening(); as meeting) {
       <div class="recorded">

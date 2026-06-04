@@ -484,6 +484,7 @@ Deno.serve(async (req) => {
           performanceMetrics: byKind('performanceMetric'),
           permits: byKind('permit'),
           incidents: byKind('incident'),
+          hira: byKind('hira'),
           calibration: byKind('calibration'),
           training: byKind('training'),
           suppliers: byKind('supplier'),
@@ -545,6 +546,84 @@ Deno.serve(async (req) => {
         const { data, error } = await db.storage.from('evidence').createSignedUrl(storagePath, 3600);
         if (error || !data) return json(404, { error: 'No uploaded photo for this evidence.' });
         return json(200, { url: data.signedUrl });
+      }
+
+      // AI photo-evidence analysis (server-side vision). Inert until
+      // ANTHROPIC_API_KEY + a vision model (ANTHROPIC_VISION_MODEL or
+      // ANTHROPIC_MODEL) are set as function secrets → 501 ai_not_configured, so
+      // the client shows the graceful "needs the server/key" state. Returns a
+      // candidate (observations / hazard tags / suggested clause + finding) with
+      // status needsAuditorReview; the auditor accepts/rejects — nothing is
+      // auto-applied. The prompt forbids verbatim ISO requirement text (copyright).
+      if (method === 'POST' && rest[0] === 'evidence' && rest[1] && rest[2] === 'analyze') {
+        requireRole(actor, ['leadAuditor', 'auditor']);
+        const body = await readJson(req);
+        const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
+        const model = Deno.env.get('ANTHROPIC_VISION_MODEL') ?? Deno.env.get('ANTHROPIC_MODEL');
+        if (!apiKey || !model) return json(501, { error: 'ai_not_configured' }, req);
+        // Prefer image bytes in the body; otherwise download the stored photo.
+        let imageBase64 = typeof body.imageBase64 === 'string' ? body.imageBase64 : undefined;
+        let mimeType = typeof body.mimeType === 'string' ? body.mimeType : 'image/jpeg';
+        if (!imageBase64) {
+          const storagePath = `${tenantId}/${auditId}/${rest[1]}`;
+          const { data, error } = await db.storage.from('evidence').download(storagePath);
+          if (!error && data) {
+            const bytes = new Uint8Array(await data.arrayBuffer());
+            let binary = '';
+            for (let i = 0; i < bytes.length; i += 1) binary += String.fromCharCode(bytes[i]);
+            imageBase64 = btoa(binary);
+            mimeType = data.type || mimeType;
+          }
+        }
+        if (!imageBase64) return json(422, { error: 'no_image' }, req);
+        const system =
+          'You are an ISO 45001 occupational health & safety auditor assistant reviewing a single site photo. Suggest only what is visible. Use ISO 45001 clause numbers and short titles only; do NOT quote or paraphrase verbatim ISO requirement text. Respond with a strict JSON object only with keys: observations (string[]), hazardTags (string[]), suggestedClauseId (string), suggestedFindingStatement (string), suggestedType (one of minorNc, majorNc, ofi, conformity). Every suggestion is a candidate for an auditor to review; do not assert conclusions.';
+        try {
+          const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+            body: JSON.stringify({
+              model,
+              max_tokens: 1024,
+              system,
+              messages: [
+                {
+                  role: 'user',
+                  content: [
+                    { type: 'image', source: { type: 'base64', media_type: mimeType, data: imageBase64 } },
+                    { type: 'text', text: 'Analyze this OH&S site photo and return the JSON object.' },
+                  ],
+                },
+              ],
+            }),
+          });
+          if (!aiRes.ok) return json(502, { error: 'ai_upstream' }, req);
+          const payload = await aiRes.json();
+          const text = (payload?.content ?? []).map((part: { text?: string }) => part?.text ?? '').join('');
+          const found = text.match(/\{[\s\S]*\}/);
+          if (!found) return json(502, { error: 'ai_parse' }, req);
+          const parsed = JSON.parse(found[0]);
+          const types = ['minorNc', 'majorNc', 'ofi', 'conformity'];
+          const stringList = (value: unknown) =>
+            Array.isArray(value) ? value.filter((v) => typeof v === 'string') : [];
+          return json(
+            200,
+            {
+              status: 'needsAuditorReview',
+              observations: stringList(parsed.observations),
+              hazardTags: stringList(parsed.hazardTags),
+              suggestedClauseId: typeof parsed.suggestedClauseId === 'string' ? parsed.suggestedClauseId : undefined,
+              suggestedFindingStatement:
+                typeof parsed.suggestedFindingStatement === 'string' ? parsed.suggestedFindingStatement : undefined,
+              suggestedType: types.includes(parsed.suggestedType) ? parsed.suggestedType : 'ofi',
+              provider: 'anthropicClaude',
+              generatedAt: new Date().toISOString(),
+            },
+            req,
+          );
+        } catch {
+          return json(502, { error: 'ai_failed' }, req);
+        }
       }
 
       if (method === 'PUT' && rest[0] === 'findings' && rest[1]) {
@@ -679,6 +758,166 @@ Deno.serve(async (req) => {
         }
       }
 
+      // AI audit agenda + opening/closing meeting scripts (server-side). Inert until
+      // ANTHROPIC_API_KEY + ANTHROPIC_MODEL are set as function secrets; the client
+      // falls back to its offline rule-based composer on any non-2xx, so the feature
+      // still works without a key. The prompt forbids verbatim ISO requirement text
+      // (copyright guardrail).
+      if (method === 'POST' && rest[0] === 'agenda-draft') {
+        requireRole(actor, ['leadAuditor', 'auditor']);
+        const input = await readJson(req);
+        const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
+        const model = Deno.env.get('ANTHROPIC_MODEL');
+        if (!apiKey || !model) return json(501, { error: 'ai_not_configured' }, req);
+        const system =
+          'You are an ISO 45001 lead auditor assistant drafting (a) a tailored audit agenda and (b) opening- and closing-meeting talking-point scripts. Use ONLY the audit data provided and ISO 45001 clause numbers and short titles. Do NOT quote or paraphrase verbatim ISO requirement text. Respond with a strict JSON object only, with two keys: "agenda" and "scripts". "agenda" has keys title, scope, criteria, objectives (string array), itinerary (array of {clause, title, duration, focus}) and samplingNotes (string array). "scripts" has keys opening and closing, each an object with heading and talkingPoints (string array). The opening script covers introductions, confidentiality, safety induction/PPE/permits, scope+criteria+methods, the sampling caveat, how findings are graded and communicated, and closing-meeting arrangements. The closing script covers a findings summary by grade, agreed correction timelines (major ~30 days, minor ~90 days), auditee acknowledgement, and the recommendation plus next steps.';
+        try {
+          const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+            body: JSON.stringify({
+              model,
+              max_tokens: 2000,
+              system,
+              messages: [{ role: 'user', content: `Audit data:\n${JSON.stringify(input)}` }],
+            }),
+          });
+          if (!aiRes.ok) return json(502, { error: 'ai_upstream' }, req);
+          const payload = await aiRes.json();
+          const text = (payload?.content ?? []).map((part: { text?: string }) => part?.text ?? '').join('');
+          const found = text.match(/\{[\s\S]*\}/);
+          if (!found) return json(502, { error: 'ai_parse' }, req);
+          const parsed = JSON.parse(found[0]);
+          const generatedAt = new Date().toISOString();
+          const strArr = (v: unknown): string[] => (Array.isArray(v) ? v.map((x) => String(x ?? '')) : []);
+          const agendaIn = parsed.agenda ?? {};
+          const scriptsIn = parsed.scripts ?? {};
+          const itinerary = Array.isArray(agendaIn.itinerary)
+            ? agendaIn.itinerary.map((slot: Record<string, unknown>) => ({
+                clause: String(slot?.clause ?? ''),
+                title: String(slot?.title ?? ''),
+                duration: String(slot?.duration ?? ''),
+                focus: String(slot?.focus ?? ''),
+              }))
+            : [];
+          const script = (s: Record<string, unknown> | undefined, heading: string) => ({
+            heading: String(s?.heading ?? heading),
+            talkingPoints: strArr(s?.talkingPoints),
+          });
+          return json(
+            200,
+            {
+              agenda: {
+                title: String(agendaIn.title ?? ''),
+                scope: String(agendaIn.scope ?? ''),
+                criteria: String(agendaIn.criteria ?? ''),
+                objectives: strArr(agendaIn.objectives),
+                itinerary,
+                samplingNotes: strArr(agendaIn.samplingNotes),
+                source: 'ai',
+                generatedAt,
+              },
+              scripts: {
+                opening: script(scriptsIn.opening, 'Opening meeting'),
+                closing: script(scriptsIn.closing, 'Closing meeting'),
+                source: 'ai',
+                generatedAt,
+              },
+            },
+            req,
+          );
+        } catch {
+          return json(502, { error: 'ai_failed' }, req);
+        }
+      }
+
+      // AI "ask the standard" copilot (server-side). Inert until ANTHROPIC_API_KEY +
+      // ANTHROPIC_MODEL are set; the client falls back to its offline field-guide
+      // answerer on any non-2xx. The prompt forbids verbatim ISO requirement text.
+      if (method === 'POST' && rest[0] === 'copilot' && rest[1] === 'ask') {
+        requireRole(actor, ['leadAuditor', 'auditor']);
+        const body = await readJson(req);
+        const question = typeof body?.question === 'string' ? body.question : '';
+        const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
+        const model = Deno.env.get('ANTHROPIC_MODEL');
+        if (!apiKey || !model || !question) return json(501, { error: 'ai_not_configured' }, req);
+        const system =
+          "You are an ISO 45001 lead auditor assistant. Answer the auditor's question using ISO 45001 clause numbers and short titles plus general OH&S auditing good practice. Do NOT quote or paraphrase verbatim ISO requirement text. Respond with a strict JSON object only: { \"answer\": string, \"clauseRefs\": [{ \"clauseId\": string, \"title\": string }] }.";
+        try {
+          const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+            body: JSON.stringify({ model, max_tokens: 900, system, messages: [{ role: 'user', content: question }] }),
+          });
+          if (!aiRes.ok) return json(502, { error: 'ai_upstream' }, req);
+          const payload = await aiRes.json();
+          const text = (payload?.content ?? []).map((part: { text?: string }) => part?.text ?? '').join('');
+          const found = text.match(/\{[\s\S]*\}/);
+          if (!found) return json(502, { error: 'ai_parse' }, req);
+          const parsed = JSON.parse(found[0]);
+          const clauseRefs = Array.isArray(parsed.clauseRefs)
+            ? parsed.clauseRefs
+                .filter((r: { clauseId?: unknown }) => typeof r?.clauseId === 'string')
+                .map((r: { clauseId: string; title?: unknown }) => ({ clauseId: String(r.clauseId), title: String(r.title ?? '') }))
+            : [];
+          return json(200, { answer: String(parsed.answer ?? ''), clauseRefs, source: 'ai' }, req);
+        } catch {
+          return json(502, { error: 'ai_failed' }, req);
+        }
+      }
+
+      // AI finding draft (server-side). Inert until ANTHROPIC_API_KEY + ANTHROPIC_MODEL
+      // are set as function secrets; the client falls back to its offline deterministic
+      // composer on any non-2xx, so the feature still works without a key. The prompt
+      // forbids verbatim ISO requirement text (copyright guardrail).
+      if (method === 'POST' && rest[0] === 'finding-draft') {
+        requireRole(actor, ['leadAuditor', 'auditor']);
+        const input = await readJson(req);
+        const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
+        const model = Deno.env.get('ANTHROPIC_MODEL');
+        if (!apiKey || !model) return json(501, { error: 'ai_not_configured' }, req);
+        const system =
+          'You are an ISO 45001 lead auditor assistant drafting a single audit finding (nonconformity). Use ONLY the finding data provided (clause id/title, note, result, evidence labels) and ISO 45001 clause numbers and short titles. Do NOT quote or paraphrase verbatim ISO requirement text; never use the word "shall". Respond with a strict JSON object only, with keys draftStatement, requirementSummary, objectiveEvidence, suggestedType, gradingRationale, rootCausePrompts. suggestedType must be one of majorNc, minorNc, ofi. rootCausePrompts must be an array of short question strings.';
+        try {
+          const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+            body: JSON.stringify({
+              model,
+              max_tokens: 1200,
+              system,
+              messages: [{ role: 'user', content: `Finding data:\n${JSON.stringify(input)}` }],
+            }),
+          });
+          if (!aiRes.ok) return json(502, { error: 'ai_upstream' }, req);
+          const payload = await aiRes.json();
+          const text = (payload?.content ?? []).map((part: { text?: string }) => part?.text ?? '').join('');
+          const found = text.match(/\{[\s\S]*\}/);
+          if (!found) return json(502, { error: 'ai_parse' }, req);
+          const parsed = JSON.parse(found[0]);
+          const types = ['majorNc', 'minorNc', 'ofi'];
+          const prompts = Array.isArray(parsed.rootCausePrompts)
+            ? parsed.rootCausePrompts.map((p: unknown) => String(p)).filter((p: string) => p.length > 0)
+            : [];
+          return json(
+            200,
+            {
+              draftStatement: String(parsed.draftStatement ?? ''),
+              requirementSummary: String(parsed.requirementSummary ?? ''),
+              objectiveEvidence: String(parsed.objectiveEvidence ?? ''),
+              suggestedType: types.includes(parsed.suggestedType) ? parsed.suggestedType : 'minorNc',
+              gradingRationale: String(parsed.gradingRationale ?? ''),
+              rootCausePrompts: prompts,
+              source: 'ai',
+              generatedAt: new Date().toISOString(),
+            },
+            req,
+          );
+        } catch {
+          return json(502, { error: 'ai_failed' }, req);
+        }
+      }
+
       if (method === 'POST' && rest[0] === 'reports' && rest[1] === 'signoff') {
         requireRole(actor, ['leadAuditor']);
         const body = await readJson(req);
@@ -707,6 +946,7 @@ Deno.serve(async (req) => {
         'performance-metrics': 'performanceMetric',
         permits: 'permit',
         incidents: 'incident',
+        hira: 'hira',
         calibration: 'calibration',
         training: 'training',
         suppliers: 'supplier',

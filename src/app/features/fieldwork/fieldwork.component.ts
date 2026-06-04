@@ -1,6 +1,14 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { MatTooltipModule } from '@angular/material/tooltip';
 
 import { editionFromCriteria, standardChecklist } from '../../core/domain';
 import {
@@ -10,6 +18,7 @@ import {
   FindingType,
   SyncState,
 } from '../../core/field/field-audit-store';
+import { SpeechService, mergeTranscript } from '../../core/speech/speech.service';
 import { ConfirmService } from '../../core/ui/confirm.service';
 
 type Tone = 'positive' | 'progress' | 'critical' | 'neutral';
@@ -18,7 +27,7 @@ type FilterKey = 'all' | 'open' | 'nc';
 @Component({
   selector: 'app-fieldwork',
   standalone: true,
-  imports: [MatButtonModule, MatIconModule],
+  imports: [MatButtonModule, MatIconModule, MatTooltipModule],
   templateUrl: './fieldwork.component.html',
   styleUrl: './fieldwork.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -26,8 +35,17 @@ type FilterKey = 'all' | 'open' | 'nc';
 export class FieldworkComponent {
   protected readonly store = inject(FieldAuditStore);
   private readonly confirm = inject(ConfirmService);
+  protected readonly speech = inject(SpeechService);
   protected readonly index = signal(0);
   protected readonly filter = signal<FilterKey>('all');
+
+  /** Checklist item id currently receiving dictation, if any. */
+  protected readonly dictatingId = signal<string | null>(null);
+
+  constructor() {
+    // Avoid a dangling recognition session if the user navigates away mid-dictation.
+    inject(DestroyRef).onDestroy(() => this.speech.stop());
+  }
 
   /** Per-audit checklist authoring state. */
   protected readonly editing = signal(false);
@@ -152,6 +170,29 @@ export class FieldworkComponent {
 
   protected saveNote(item: FieldChecklistItem, note: string): void {
     this.store.setNote(item.id, note.trim());
+  }
+
+  /** Toggle voice dictation for this clause's field note, appending finalised speech. */
+  protected dictate(item: FieldChecklistItem): void {
+    if (!this.speech.supported) return;
+
+    if (this.speech.listening()) {
+      this.speech.stop();
+      this.dictatingId.set(null);
+      return;
+    }
+
+    this.dictatingId.set(item.id);
+    this.speech.start((text) => {
+      const current = this.store.items().find((entry) => entry.id === item.id);
+      const merged = mergeTranscript(current?.note ?? '', text);
+      this.store.setNote(item.id, merged);
+    });
+  }
+
+  /** True when this specific clause's mic is actively listening. */
+  protected isDictating(item: FieldChecklistItem): boolean {
+    return this.speech.listening() && this.dictatingId() === item.id;
   }
 
   protected onPhoto(event: Event, item: FieldChecklistItem): void {
