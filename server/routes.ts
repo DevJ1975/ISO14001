@@ -232,7 +232,10 @@ const capaStatusServerSchema = z.enum(['open', 'inProgress', 'verificationDue', 
 const capaUpsertCommandSchema = z.object({
   id: z.string().min(1),
   findingId: z.string().min(1),
+  // ISO 45001 cl. 10.2: action intent + root-cause method driving the action.
+  intent: z.enum(['correction', 'correctiveAction', 'preventiveAction']).default('correctiveAction'),
   correction: z.string().max(4000).optional(),
+  rootCauseMethod: z.enum(['fiveWhys', 'fishbone', 'faultTree', 'other']).optional(),
   rootCause: z.string().max(4000).optional(),
   action: z.string().max(4000).optional(),
   owner: z.string().max(300).optional(),

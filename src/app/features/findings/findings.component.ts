@@ -3,6 +3,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 
 import { AuthService } from '../../core/auth/auth.service';
+import { CapaIntent, CapaRootCauseMethod, capaIntentLabel, capaRootCauseMethodLabel } from '../../core/domain';
 import { CapaStatus, FieldCapa, FieldFinding, FieldAuditStore, FindingType, NcStatus } from '../../core/field/field-audit-store';
 
 type Tone = 'positive' | 'progress' | 'critical' | 'neutral';
@@ -40,6 +41,25 @@ export class FindingsComponent {
     { value: 'ofi', label: 'OFI' },
     { value: 'conformity', label: 'Conformity' },
   ];
+
+  /** ISO 45001 cl. 10.2 action intents (correction vs corrective vs preventive). */
+  protected readonly intents: { value: CapaIntent; label: string }[] = [
+    { value: 'correction', label: capaIntentLabel('correction') },
+    { value: 'correctiveAction', label: capaIntentLabel('correctiveAction') },
+    { value: 'preventiveAction', label: capaIntentLabel('preventiveAction') },
+  ];
+
+  /** Root-cause analysis methods offered when driving the corrective action. */
+  protected readonly rootCauseMethods: { value: CapaRootCauseMethod; label: string }[] = [
+    { value: 'fiveWhys', label: capaRootCauseMethodLabel('fiveWhys') },
+    { value: 'fishbone', label: capaRootCauseMethodLabel('fishbone') },
+    { value: 'faultTree', label: capaRootCauseMethodLabel('faultTree') },
+    { value: 'other', label: capaRootCauseMethodLabel('other') },
+  ];
+
+  protected intentLabel(intent: CapaIntent | undefined): string {
+    return capaIntentLabel(intent);
+  }
 
   protected select(id: string): void {
     this.selectedId.set(this.selectedId() === id ? null : id);
@@ -90,6 +110,14 @@ export class FindingsComponent {
 
   protected saveCapaField(capa: FieldCapa, field: 'correction' | 'rootCause' | 'action' | 'owner' | 'dueDate', value: string): void {
     this.store.updateCapa(capa.id, { [field]: value.trim() || undefined });
+  }
+
+  protected saveIntent(capa: FieldCapa, value: string): void {
+    this.store.updateCapa(capa.id, { intent: value as CapaIntent });
+  }
+
+  protected saveRootCauseMethod(capa: FieldCapa, value: string): void {
+    this.store.updateCapa(capa.id, { rootCauseMethod: (value || undefined) as CapaRootCauseMethod | undefined });
   }
 
   protected markImplemented(capa: FieldCapa): void {

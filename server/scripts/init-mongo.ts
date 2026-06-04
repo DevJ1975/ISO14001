@@ -48,7 +48,7 @@ async function seedDemoAudit(db: Db): Promise<void> {
   ]);
 
   await seedDocs(db, mongoCollections.capa, ['tenantId', 'auditId', 'id'], [
-    { ...base, id: 'capa-seed-1', findingId: 'finding-seed-1', findingRef: 'finding-seed-1', correction: 'Backfilled progress notes for the two affected objectives.', rootCause: 'Objective owners were not reminded to log quarterly progress.', action: 'Add a quarterly objective-review step to the OHSMS calendar with automated owner reminders.', owner: 'EHS Manager', dueDate: dateOnly(45), implementationEvidenceIds: [], verificationEvidenceIds: [], status: 'inProgress', createdAt: now },
+    { ...base, id: 'capa-seed-1', findingId: 'finding-seed-1', findingRef: 'finding-seed-1', intent: 'correctiveAction', correction: 'Backfilled progress notes for the two affected objectives.', rootCauseMethod: 'fiveWhys', rootCause: 'Objective owners were not reminded to log quarterly progress.', action: 'Add a quarterly objective-review step to the OHSMS calendar with automated owner reminders.', owner: 'EHS Manager', dueDate: dateOnly(45), implementationEvidenceIds: [], verificationEvidenceIds: [], status: 'inProgress', createdAt: now },
   ]);
 
   await seedDocs(db, mongoCollections.environmentalAspects, ['tenantId', 'auditId', 'id'], [

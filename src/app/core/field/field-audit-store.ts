@@ -3,6 +3,9 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import {
   AuditAgenda,
   AuditAgendaInput,
+  CapaIntent,
+  CapaRootCauseMethod,
+  DEFAULT_CAPA_INTENT,
   FindingDraft,
   FindingDraftInput,
   MeetingScripts,
@@ -545,7 +548,11 @@ export interface FieldFinding {
 export interface FieldCapa {
   id: string;
   findingId: string;
+  /** ISO 45001 cl. 10.2 action intent: immediate correction, root-cause corrective action, or proactive preventive action. */
+  intent: CapaIntent;
   correction?: string;
+  /** Root-cause analysis method used to drive the corrective action. */
+  rootCauseMethod?: CapaRootCauseMethod;
   rootCause?: string;
   action?: string;
   owner?: string;
@@ -1410,6 +1417,7 @@ export class FieldAuditStore {
     const capa: FieldCapa = {
       id: uid('capa'),
       findingId,
+      intent: DEFAULT_CAPA_INTENT,
       implementationEvidenceIds: [],
       verificationEvidenceIds: [],
       status: 'open',
@@ -1425,7 +1433,12 @@ export class FieldAuditStore {
 
   updateCapa(
     capaId: string,
-    patch: Partial<Pick<FieldCapa, 'correction' | 'rootCause' | 'action' | 'owner' | 'dueDate' | 'implementationEvidenceIds'>>,
+    patch: Partial<
+      Pick<
+        FieldCapa,
+        'intent' | 'correction' | 'rootCauseMethod' | 'rootCause' | 'action' | 'owner' | 'dueDate' | 'implementationEvidenceIds'
+      >
+    >,
   ): void {
     this.capas.update((list) =>
       list.map((capa) => {
@@ -2738,7 +2751,7 @@ export class FieldAuditStore {
       this.items.set(payload.items.map((item) => ({ ...item, sync: 'synced' as const })));
       this.evidence.set(payload.evidence.map((record) => ({ ...record, sync: 'synced' as const })));
       this.findings.set(payload.findings.map((finding) => ({ ...finding, sync: 'synced' as const })));
-      this.capas.set((payload.capas ?? []).map((capa) => ({ ...capa, sync: 'synced' as const })));
+      this.capas.set((payload.capas ?? []).map((capa) => ({ ...capa, intent: capa.intent ?? DEFAULT_CAPA_INTENT, sync: 'synced' as const })));
       this.auditStatus.set(payload.auditStatus ?? 'fieldwork');
       this.meetings.set((payload.meetings ?? []).map((meeting) => ({ ...meeting, sync: 'synced' as const })));
       this.conclusion.set(payload.conclusion ? { ...payload.conclusion, sync: 'synced' } : null);
@@ -2797,7 +2810,7 @@ export class FieldAuditStore {
     if (!saved) return;
     this.items.set(saved.items);
     this.findings.set(saved.findings.map(normalizeFinding));
-    this.capas.set(saved.capas ?? []);
+    this.capas.set((saved.capas ?? []).map((capa) => ({ ...capa, intent: capa.intent ?? DEFAULT_CAPA_INTENT })));
     this.auditStatus.set(saved.auditStatus ?? 'fieldwork');
     this.meetings.set(saved.meetings ?? []);
     this.conclusion.set(saved.conclusion ?? null);

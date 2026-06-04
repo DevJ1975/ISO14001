@@ -2,7 +2,10 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import {
+  DEFAULT_CAPA_INTENT,
   auditTypeSchema,
+  capaIntentLabel,
+  capaRootCauseMethodLabel,
   capaTimelineDays,
   classifyFinding,
   complianceObligationSchema,
@@ -35,6 +38,27 @@ describe('nonconformity classification', () => {
   it('escalates multiple minors against one requirement to major', () => {
     assert.equal(classifyFinding({ minorCountAgainstRequirement: 2 }).grade, 'majorNc');
     assert.equal(classifyFinding({ minorCountAgainstRequirement: 1 }).grade, 'minorNc');
+  });
+});
+
+describe('CAPA intent & root-cause method labels (cl. 10.2)', () => {
+  it('defaults to corrective action and labels each intent', () => {
+    assert.equal(DEFAULT_CAPA_INTENT, 'correctiveAction');
+    assert.equal(capaIntentLabel('correction'), 'Correction');
+    assert.equal(capaIntentLabel('correctiveAction'), 'Corrective action');
+    assert.equal(capaIntentLabel('preventiveAction'), 'Preventive action');
+  });
+
+  it('falls back to the default intent label when undefined', () => {
+    assert.equal(capaIntentLabel(undefined), capaIntentLabel(DEFAULT_CAPA_INTENT));
+  });
+
+  it('labels each root-cause method and yields an empty label when unset', () => {
+    assert.equal(capaRootCauseMethodLabel('fiveWhys'), '5 Whys');
+    assert.equal(capaRootCauseMethodLabel('fishbone'), 'Fishbone (Ishikawa)');
+    assert.equal(capaRootCauseMethodLabel('faultTree'), 'Fault tree analysis');
+    assert.equal(capaRootCauseMethodLabel('other'), 'Other');
+    assert.equal(capaRootCauseMethodLabel(undefined), '');
   });
 });
 
