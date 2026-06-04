@@ -4,7 +4,7 @@ import { firstValueFrom } from 'rxjs';
 
 import { AuthService } from '../auth/auth.service';
 import { APP_CONFIG } from '../config/app-config';
-import type { ReportDraft, ReportDraftInput } from '../domain';
+import type { AuditAgenda, AuditAgendaInput, ClauseAnswer, FindingDraft, FindingDraftInput, MeetingScripts, PhotoAnalysisFindingType, ReportDraft, ReportDraftInput } from '../domain';
 import { AuditSelectionService } from './audit-selection.service';
 import type {
   AuditConclusion,
@@ -21,6 +21,7 @@ import type {
   DocumentedInfoRecord,
   EmergencyRecord,
   Hazard,
+  HiraEntry,
   Incident,
   OhsObjective,
   FieldCapa,
@@ -73,12 +74,26 @@ export interface FieldStatePayload {
   performanceMetrics?: Array<Omit<PerformanceMetric, 'sync'>>;
   permits?: Array<Omit<Permit, 'sync'>>;
   incidents?: Array<Omit<Incident, 'sync'>>;
+  hira?: Array<Omit<HiraEntry, 'sync'>>;
   calibration?: Array<Omit<CalibrationRecord, 'sync'>>;
   training?: Array<Omit<TrainingRecord, 'sync'>>;
   suppliers?: Array<Omit<SupplierRecord, 'sync'>>;
   changes?: Array<Omit<ManagementOfChangeRecord, 'sync'>>;
   reportMeta?: Omit<ReportMeta, 'sync'> | null;
   changeLog?: ChangeLogEntry[];
+}
+
+/** Raw shape the photo-analyze route returns: a review-ready candidate with a
+ *  `needsAuditorReview` status. Strings are normalized client-side before use. */
+export interface PhotoAnalysisApiResponse {
+  status: 'needsAuditorReview';
+  observations?: string[];
+  hazardTags?: string[];
+  suggestedClauseId?: string;
+  suggestedFindingStatement?: string;
+  suggestedType?: PhotoAnalysisFindingType;
+  provider?: string;
+  generatedAt?: string;
 }
 
 /** Thin client over the tenant-scoped field-audit endpoints. The bearer token is
@@ -170,6 +185,23 @@ export class FieldApiService {
     }
   }
 
+  /**
+   * Request server-side AI (vision) analysis of a captured photo. Returns a
+   * review-ready candidate (observations / hazard tags / suggested clause +
+   * finding). Rejects with a 501 when the model/key are unconfigured so the
+   * store can show the graceful "needs the server/key" state, mirroring
+   * draftReport(). The route looks up the stored evidence image server-side, so
+   * no body is required.
+   */
+  requestPhotoAnalysis(evidenceId: string): Promise<PhotoAnalysisApiResponse> {
+    return firstValueFrom(
+      this.http.post<PhotoAnalysisApiResponse>(
+        `${this.base()}/evidence/${encodeURIComponent(evidenceId)}/analyze`,
+        {},
+      ),
+    );
+  }
+
   upsertFinding(body: Omit<FieldFinding, 'sync'>): Promise<unknown> {
     return firstValueFrom(this.http.put(`${this.base()}/findings/${encodeURIComponent(body.id)}`, body));
   }
@@ -204,6 +236,23 @@ export class FieldApiService {
   /** Generate a first-draft report narrative server-side (AI). Rejects when unavailable so the client falls back. */
   draftReport(body: ReportDraftInput): Promise<ReportDraft> {
     return firstValueFrom(this.http.post<ReportDraft>(`${this.base()}/report-draft`, body));
+  }
+
+  /** Generate the audit agenda + opening/closing meeting scripts server-side (AI). Rejects when unavailable so the client falls back. */
+  draftAgenda(body: AuditAgendaInput): Promise<{ agenda: AuditAgenda; scripts: MeetingScripts }> {
+    return firstValueFrom(
+      this.http.post<{ agenda: AuditAgenda; scripts: MeetingScripts }>(`${this.base()}/agenda-draft`, body),
+    );
+  }
+
+  /** Ask the standard via the server-side AI copilot. Rejects when unavailable so the client falls back to the field guide. */
+  askCopilot(question: string): Promise<ClauseAnswer> {
+    return firstValueFrom(this.http.post<ClauseAnswer>(`${this.base()}/copilot/ask`, { question }));
+  }
+
+  /** Generate a first-draft finding (statement, grade, root-cause prompts) server-side (AI). Rejects when unavailable so the client falls back. */
+  draftFinding(body: FindingDraftInput): Promise<FindingDraft> {
+    return firstValueFrom(this.http.post<FindingDraft>(`${this.base()}/finding-draft`, body));
   }
 
   signReport(body: { attestation: string; contentHash?: string }): Promise<{ signedAt?: string }> {
@@ -272,6 +321,10 @@ export class FieldApiService {
 
   upsertIncident(body: Omit<Incident, 'sync'>): Promise<unknown> {
     return firstValueFrom(this.http.put(`${this.base()}/incidents/${encodeURIComponent(body.id)}`, body));
+  }
+
+  upsertHira(body: Omit<HiraEntry, 'sync'>): Promise<unknown> {
+    return firstValueFrom(this.http.put(`${this.base()}/hira/${encodeURIComponent(body.id)}`, body));
   }
 
   upsertCalibration(body: Omit<CalibrationRecord, 'sync'>): Promise<unknown> {

@@ -1,5 +1,5 @@
 .manual {
-  max-width: 860px;
+  max-width: 900px;
 }
 
 .toc {
@@ -32,6 +32,31 @@
   color: var(--primary);
 }
 
+.manual-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+}
+
+.manual-search mat-icon {
+  flex: 0 0 auto;
+  color: var(--text-muted, var(--text));
+  font-size: 20px;
+  width: 20px;
+  height: 20px;
+}
+
+.manual-search input {
+  flex: 1 1 auto;
+  min-height: 44px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  outline: none;
+}
+
 .doc {
   scroll-margin-top: 80px;
 }
@@ -40,7 +65,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  margin: 0 0 12px;
+  margin: 0 0 10px;
   font-size: 20px;
   font-weight: 700;
   color: var(--text);
@@ -50,39 +75,43 @@
   color: var(--primary);
 }
 
-.doc p {
-  margin: 0 0 12px;
+.doc .intro {
+  margin: 0 0 14px;
+  color: var(--text-muted, var(--text));
+  line-height: 1.6;
+}
+
+.sub {
+  border-top: 1px solid var(--surface-guard);
+  padding-top: 14px;
+  margin-top: 14px;
+}
+
+.sub h3 {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.sub p {
+  margin: 0 0 10px;
   color: var(--text);
   line-height: 1.6;
 }
 
-.doc p.note {
-  display: flex;
-  gap: 10px;
-  align-items: flex-start;
-  border: 1px solid var(--tone-progress-bd);
-  border-radius: 12px;
-  background: var(--tone-progress-bg);
-  padding: 12px 14px;
-  color: var(--tone-progress-fg);
-  font-size: 14px;
-}
-
-.doc p.note mat-icon {
-  flex: 0 0 auto;
-  font-size: 18px;
-  width: 18px;
-  height: 18px;
-}
-
-.doc ul,
-.doc ol {
-  margin: 0 0 12px;
+.sub ul,
+.sub ol {
+  margin: 0 0 10px;
   padding-left: 22px;
   color: var(--text);
 }
 
-.doc li {
+.sub li {
   margin-bottom: 6px;
   line-height: 1.55;
+}
+
+.muted {
+  color: var(--text-muted, var(--text));
 }

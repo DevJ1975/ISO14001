@@ -1,14 +1,25 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 
 import {
+  AuditAgenda,
+  AuditAgendaInput,
+  FindingDraft,
+  FindingDraftInput,
+  MeetingScripts,
+  PhotoAnalysisResult,
   ReportDraft,
   ReportDraftInput,
   ReportSignature,
   SignableReport,
   StandardChecklistRow,
   StandardEdition,
+  analysisCandidateToFinding,
+  composeAuditAgenda,
+  composeFindingDraft,
+  composeMeetingScripts,
   composeReportDraft,
   editionFromCriteria,
+  normalizePhotoAnalysisPayload,
   reportContentHash,
   standardChecklist,
 } from '../domain';
@@ -426,6 +437,32 @@ export interface Incident {
   sync: SyncState;
 }
 
+/**
+ * Hazard Identification & Risk Assessment (HIRA) register row — the dedicated
+ * ISO 45001 cl. 6.1.2 hazard-by-hazard risk assessment, distinct from the
+ * environmental "aspects" tab. Each row scores an initial severity × likelihood
+ * risk, records existing and additional controls (with their place in the
+ * hierarchy of controls, cl. 8.1.2), then re-scores the residual risk.
+ */
+export interface HiraEntry {
+  id: string;
+  activity: string;
+  routineness: 'routine' | 'nonRoutine' | 'emergency';
+  hazard: string;
+  whoAtHarm?: string;
+  existingControls?: string;
+  severity?: number;
+  likelihood?: number;
+  additionalControls?: string;
+  controlType?: 'elimination' | 'substitution' | 'engineering' | 'administrative' | 'ppe';
+  residualSeverity?: number;
+  residualLikelihood?: number;
+  relatedClauseId?: string;
+  result: RegisterResult;
+  updatedAt: string;
+  sync: SyncState;
+}
+
 /** OH&S performance indicator — monitoring & measurement (ISO 45001 cl. 9.1.1). */
 export interface PerformanceMetric {
   id: string;
@@ -547,6 +584,7 @@ interface PersistedState {
   performanceMetrics: PerformanceMetric[];
   permits: Permit[];
   incidents: Incident[];
+  hira: HiraEntry[];
   calibration: CalibrationRecord[];
   training: TrainingRecord[];
   suppliers: SupplierRecord[];
@@ -554,6 +592,9 @@ interface PersistedState {
   reportMeta: ReportMeta;
   reportSignedAt: string | null;
   reportSignature?: ReportSignature | null;
+  auditAgenda?: AuditAgenda | null;
+  meetingScripts?: MeetingScripts | null;
+  photoAnalysis?: Record<string, PhotoAnalysisResult>;
 }
 
 const AUDIT_STATUS_ORDER: AuditStatus[] = ['draft', 'planned', 'fieldwork', 'reporting', 'followUp', 'closed', 'archived'];
@@ -699,6 +740,53 @@ function seedIncidents(): Incident[] {
   return [
     base({ title: 'Lost-time injury — fall from step ladder', occurredAt: '2026-05-12', location: 'Assembly hall', incidentType: 'injury', severity: 'high', status: 'investigating', result: 'needsFollowUp', immediateAction: 'First aid given; casualty referred to A&E. Ladder quarantined.', injuryClassification: 'lostTime', reportableToRegulator: true }),
     base({ title: 'Near-miss: dropped load from forklift', occurredAt: '2026-04-28', location: 'Warehouse', incidentType: 'nearMiss', severity: 'low', status: 'closed', result: 'conforming', injuryClassification: 'none', rootCause: 'Load not secured per SSOW; refresher training completed.' }),
+  ];
+}
+
+/** Demonstration HIRA rows — a routine and a non-routine task, each with initial & residual risk (cl. 6.1.2). */
+function seedHira(): HiraEntry[] {
+  const now = '2026-06-15T15:00:00.000Z';
+  const base = (extra: Partial<HiraEntry>): HiraEntry => ({
+    id: uid('hira'),
+    activity: '',
+    routineness: 'routine',
+    hazard: '',
+    result: 'notStarted',
+    updatedAt: now,
+    sync: 'synced',
+    ...extra,
+  });
+  return [
+    base({
+      activity: 'Roof-mounted plant access',
+      routineness: 'nonRoutine',
+      hazard: 'Working at height — fall from edge',
+      whoAtHarm: 'Maintenance technicians',
+      existingControls: 'Fixed access ladder; permit-to-work',
+      severity: 5,
+      likelihood: 3,
+      additionalControls: 'Install fixed guardrail to roof perimeter',
+      controlType: 'engineering',
+      residualSeverity: 5,
+      residualLikelihood: 1,
+      relatedClauseId: '6.1.2',
+      result: 'needsFollowUp',
+    }),
+    base({
+      activity: 'Manual handling of finished goods',
+      routineness: 'routine',
+      hazard: 'Musculoskeletal injury from repetitive lifting',
+      whoAtHarm: 'Warehouse operatives',
+      existingControls: 'Manual-handling training; trolleys provided',
+      severity: 3,
+      likelihood: 3,
+      additionalControls: 'Provide height-adjustable lift tables at pack stations',
+      controlType: 'engineering',
+      residualSeverity: 3,
+      residualLikelihood: 2,
+      relatedClauseId: '6.1.2',
+      result: 'conforming',
+    }),
   ];
 }
 
@@ -888,6 +976,7 @@ export class FieldAuditStore {
   readonly performanceMetrics = signal<PerformanceMetric[]>(seedPerformanceMetrics());
   readonly permits = signal<Permit[]>(seedPermits());
   readonly incidents = signal<Incident[]>(seedIncidents());
+  readonly hira = signal<HiraEntry[]>(seedHira());
   readonly calibration = signal<CalibrationRecord[]>(seedCalibration());
   readonly training = signal<TrainingRecord[]>(seedTraining());
   readonly suppliers = signal<SupplierRecord[]>(seedSuppliers());
@@ -900,6 +989,21 @@ export class FieldAuditStore {
   readonly reportSignature = signal<ReportSignature | null>(null);
   /** Provenance of the last generated report draft, for the "review before signing" banner. */
   readonly reportDraftInfo = signal<{ source: 'ai' | 'ruleBased'; generatedAt: string } | null>(null);
+  /** AI-assisted audit agenda generated from this audit's data (rule-based offline, AI when configured). */
+  readonly auditAgenda = signal<AuditAgenda | null>(null);
+  /** AI-assisted opening/closing meeting scripts generated from this audit's data. */
+  readonly meetingScripts = signal<MeetingScripts | null>(null);
+  /** Provenance of the last generated agenda + scripts, for the "review before the meeting" banner. */
+  readonly agendaDraftInfo = signal<{ source: 'ai' | 'ruleBased'; generatedAt: string } | null>(null);
+  /** Per-finding provenance of the last generated finding draft (findingId → source/time), for the "review before issuing" note. */
+  readonly findingDraftInfo = signal<Record<string, { source: 'ai' | 'ruleBased'; generatedAt: string }>>({});
+  /**
+   * Per-photo AI analysis state, keyed by evidenceId. Holds the review-gate
+   * status (processing / needsAuditorReview / accepted / rejected / failed /
+   * aiNotConfigured) and the candidate the auditor reviews. Nothing here becomes
+   * a finding without an explicit acceptAnalysis() call.
+   */
+  readonly photoAnalysis = signal<Record<string, PhotoAnalysisResult>>({});
   readonly online = signal(typeof navigator === 'undefined' ? true : navigator.onLine);
   readonly source = signal<DataSource>('local');
 
@@ -935,6 +1039,7 @@ export class FieldAuditStore {
       this.performanceMetrics().filter((m) => m.sync !== 'synced').length +
       this.permits().filter((p) => p.sync !== 'synced').length +
       this.incidents().filter((i) => i.sync !== 'synced').length +
+      this.hira().filter((h) => h.sync !== 'synced').length +
       this.calibration().filter((c) => c.sync !== 'synced').length +
       this.training().filter((t) => t.sync !== 'synced').length +
       this.suppliers().filter((s) => s.sync !== 'synced').length +
@@ -1185,6 +1290,105 @@ export class FieldAuditStore {
     this.autoFlush();
   }
 
+  private setAnalysis(evidenceId: string, result: PhotoAnalysisResult): void {
+    this.photoAnalysis.update((map) => ({ ...map, [evidenceId]: result }));
+    this.persist();
+  }
+
+  /**
+   * Request AI (vision) analysis of a captured photo. Tries the live server; on a
+   * 501 (key/model unset) or offline it sets a clear `aiNotConfigured` status so
+   * the UI explains AI analysis needs the server/key. On success the candidate is
+   * stored in `needsAuditorReview` for the auditor to accept or reject — nothing
+   * is auto-applied.
+   */
+  async requestAnalysis(evidenceId: string): Promise<PhotoAnalysisResult['status']> {
+    const record = this.evidence().find((entry) => entry.id === evidenceId);
+    if (!record || record.kind !== 'photo') return 'failed';
+
+    const requestedAt = new Date().toISOString();
+    const notConfigured = (): PhotoAnalysisResult['status'] => {
+      this.setAnalysis(evidenceId, { status: 'aiNotConfigured', provider: 'anthropicClaude', requestedAt });
+      return 'aiNotConfigured';
+    };
+
+    // Offline or local-demo mode: AI needs the server, so degrade gracefully.
+    if (this.source() !== 'live' || !this.online()) return notConfigured();
+
+    this.setAnalysis(evidenceId, { status: 'processing', provider: 'anthropicClaude', requestedAt });
+    try {
+      const response = await this.api.requestPhotoAnalysis(evidenceId);
+      const candidate = normalizePhotoAnalysisPayload(response);
+      this.setAnalysis(evidenceId, {
+        status: 'needsAuditorReview',
+        candidate,
+        provider: 'anthropicClaude',
+        requestedAt,
+      });
+      return 'needsAuditorReview';
+    } catch (error) {
+      // A 501 means the model/key are unconfigured — the inert scaffold path.
+      if ((error as { status?: number })?.status === 501) return notConfigured();
+      this.setAnalysis(evidenceId, {
+        status: 'failed',
+        provider: 'anthropicClaude',
+        requestedAt,
+        failureReason: 'AI photo analysis could not be completed. Try again when connected.',
+      });
+      return 'failed';
+    }
+  }
+
+  /**
+   * Auditor accepts an AI candidate: promotes it to a finding via the existing
+   * finding path and marks the analysis accepted (with review attribution). This
+   * is the only way an AI suggestion becomes a finding.
+   */
+  acceptAnalysis(evidenceId: string): FieldFinding | null {
+    const analysis = this.photoAnalysis()[evidenceId];
+    if (!analysis || analysis.status !== 'needsAuditorReview' || !analysis.candidate) return null;
+    const draft = analysisCandidateToFinding(analysis.candidate);
+    const clauseTitle = this.items().find((item) => item.clauseId === draft.clauseId)?.clauseTitle ?? draft.clauseId;
+    const finding: FieldFinding = {
+      id: uid('finding'),
+      clauseId: draft.clauseId,
+      clauseTitle,
+      type: draft.type,
+      description: draft.description,
+      requirementSummary: `Clause ${draft.clauseId} — ${clauseTitle}`,
+      objectiveEvidence: analysis.candidate.hazardTags.length
+        ? `Hazard tags: ${analysis.candidate.hazardTags.join(', ')}.`
+        : '',
+      evidenceIds: [evidenceId],
+      status: 'open',
+      createdByName: AUDITOR,
+      createdAt: new Date().toISOString(),
+      sync: 'queued',
+    };
+    this.findings.update((list) => [finding, ...list]);
+    this.setAnalysis(evidenceId, {
+      ...analysis,
+      status: 'accepted',
+      reviewedByName: AUDITOR,
+      reviewedAt: new Date().toISOString(),
+    });
+    this.autoFlush();
+    return finding;
+  }
+
+  /** Auditor rejects an AI candidate: nothing is applied; the analysis is marked rejected. */
+  rejectAnalysis(evidenceId: string): void {
+    const analysis = this.photoAnalysis()[evidenceId];
+    if (!analysis) return;
+    this.setAnalysis(evidenceId, {
+      ...analysis,
+      status: 'rejected',
+      candidate: undefined,
+      reviewedByName: AUDITOR,
+      reviewedAt: new Date().toISOString(),
+    });
+  }
+
   /** Lead-auditor grades the nonconformity and records the rationale. */
   gradeFinding(id: string, grade: FindingType, rationale: string, systemic: boolean): void {
     this.updateFinding(id, { type: grade, gradingRationale: rationale, systemic });
@@ -1364,6 +1568,130 @@ export class FieldAuditStore {
       })),
       evidenceCount: this.evidence().length,
       overdueCapaCount: this.overdueCapas().length,
+    };
+  }
+
+  /**
+   * Generate a tailored audit agenda from this audit's own data. Uses the
+   * server-side AI provider when live & online; otherwise the offline rule-based
+   * composer. The lead auditor reviews it before the audit.
+   */
+  async generateAuditAgenda(): Promise<'ai' | 'ruleBased'> {
+    const input = this.buildAuditAgendaInput();
+    let agenda: AuditAgenda;
+    if (this.source() === 'live' && this.online()) {
+      try {
+        agenda = (await this.api.draftAgenda(input)).agenda;
+      } catch {
+        agenda = composeAuditAgenda(input);
+      }
+    } else {
+      agenda = composeAuditAgenda(input);
+    }
+    this.auditAgenda.set(agenda);
+    this.agendaDraftInfo.set({ source: agenda.source, generatedAt: agenda.generatedAt });
+    this.persist();
+    return agenda.source;
+  }
+
+  /**
+   * Generate opening- and closing-meeting talking-point scripts from this
+   * audit's own data. Uses the server-side AI provider when live & online;
+   * otherwise the offline rule-based composer. Review before the meeting.
+   */
+  async generateMeetingScripts(): Promise<'ai' | 'ruleBased'> {
+    const input = this.buildAuditAgendaInput();
+    let scripts: MeetingScripts;
+    if (this.source() === 'live' && this.online()) {
+      try {
+        scripts = (await this.api.draftAgenda(input)).scripts;
+      } catch {
+        scripts = composeMeetingScripts(input);
+      }
+    } else {
+      scripts = composeMeetingScripts(input);
+    }
+    this.meetingScripts.set(scripts);
+    this.agendaDraftInfo.set({ source: scripts.source, generatedAt: scripts.generatedAt });
+    this.persist();
+    return scripts.source;
+  }
+
+  private buildAuditAgendaInput(): AuditAgendaInput {
+    const labels: Record<AuditType, string> = {
+      internal: 'Internal',
+      stage1: 'Stage 1 certification',
+      stage2: 'Stage 2 certification',
+      surveillance: 'Surveillance',
+      recertification: 'Recertification',
+    };
+    return {
+      auditee: this.auditee(),
+      criteria: this.criteria(),
+      auditTypeLabel: labels[this.reportMeta().auditType] ?? 'Audit',
+      checklist: this.items().map((item) => ({
+        clauseId: item.clauseId,
+        clauseTitle: item.clauseTitle,
+        result: item.result,
+      })),
+      findings: this.findings().map((finding) => ({
+        type: finding.type,
+        clauseId: finding.clauseId,
+        clauseTitle: finding.clauseTitle,
+        status: finding.status,
+      })),
+    };
+  }
+
+  /**
+   * Auto-draft a single finding (nonconformity statement, requirement summary,
+   * objective evidence, suggested grade and grading rationale) from the
+   * finding's own data plus its linked evidence. Uses the server-side AI
+   * provider when live & online; otherwise the offline deterministic composer.
+   * The auditor reviews and edits every field before issuing (auditor-review
+   * gate); the suggested grade is applied as the finding's type for review.
+   */
+  async generateFindingDraft(findingId: string): Promise<'ai' | 'ruleBased' | null> {
+    const finding = this.findings().find((entry) => entry.id === findingId);
+    if (!finding) return null;
+    const input = this.buildFindingDraftInput(finding);
+    let draft: FindingDraft;
+    if (this.source() === 'live' && this.online()) {
+      try {
+        draft = await this.api.draftFinding(input);
+      } catch {
+        draft = composeFindingDraft(input);
+      }
+    } else {
+      draft = composeFindingDraft(input);
+    }
+    this.updateFinding(findingId, {
+      description: draft.draftStatement,
+      requirementSummary: draft.requirementSummary,
+      objectiveEvidence: draft.objectiveEvidence,
+      gradingRationale: draft.gradingRationale,
+      type: draft.suggestedType,
+    });
+    this.findingDraftInfo.update((map) => ({
+      ...map,
+      [findingId]: { source: draft.source, generatedAt: draft.generatedAt },
+    }));
+    return draft.source;
+  }
+
+  /** Build the finding-draft input from a finding and the labels of its linked evidence. */
+  private buildFindingDraftInput(finding: FieldFinding): FindingDraftInput {
+    const evidenceById = new Map(this.evidence().map((entry) => [entry.id, entry]));
+    const evidenceLabels = finding.evidenceIds
+      .map((id) => evidenceById.get(id)?.label)
+      .filter((label): label is string => !!label);
+    const note = finding.objectiveEvidence?.trim() || finding.description?.trim() || undefined;
+    return {
+      clauseId: finding.clauseId,
+      clauseTitle: finding.clauseTitle,
+      note,
+      result: finding.type,
+      evidenceLabels,
     };
   }
 
@@ -1687,6 +2015,28 @@ export class FieldAuditStore {
     this.autoFlush();
   }
 
+  addHira(): void {
+    this.hira.update((list) => [
+      { id: uid('hira'), activity: '', routineness: 'routine', hazard: '', result: 'notStarted', updatedAt: new Date().toISOString(), sync: 'queued' },
+      ...list,
+    ]);
+    this.persist();
+    this.autoFlush();
+  }
+
+  updateHira(id: string, patch: Partial<HiraEntry>): void {
+    this.hira.update((list) =>
+      list.map((entry) => (entry.id === id ? { ...entry, ...patch, updatedAt: new Date().toISOString(), sync: 'queued' } : entry)),
+    );
+    this.persist();
+    this.autoFlush();
+  }
+
+  removeHira(id: string): void {
+    this.hira.update((list) => list.filter((entry) => entry.id !== id));
+    this.persist();
+  }
+
   addCalibration(): void {
     this.calibration.update((list) => [
       { id: uid('calib'), equipment: '', result: 'notStarted', updatedAt: new Date().toISOString(), sync: 'queued' },
@@ -1868,6 +2218,7 @@ export class FieldAuditStore {
     this.performanceMetrics.set(seedPerformanceMetrics());
     this.permits.set(seedPermits());
     this.incidents.set(seedIncidents());
+    this.hira.set(seedHira());
     this.calibration.set(seedCalibration());
     this.training.set(seedTraining());
     this.suppliers.set(seedSuppliers());
@@ -1875,6 +2226,10 @@ export class FieldAuditStore {
     this.reportMeta.set(defaultReportMeta());
     this.reportSignedAt.set(null);
     this.reportSignature.set(null);
+    this.auditAgenda.set(null);
+    this.meetingScripts.set(null);
+    this.agendaDraftInfo.set(null);
+    this.photoAnalysis.set({});
     await idbDelete('meta', META_KEY);
   }
 
@@ -2192,6 +2547,17 @@ export class FieldAuditStore {
           this.setSync('incidents', record.id, 'queued');
         }
       }
+      for (const record of this.hira().filter((entry) => entry.sync !== 'synced')) {
+        this.setSync('hira', record.id, 'syncing');
+        try {
+          const { sync, ...payload } = record;
+          void sync;
+          await this.api.upsertHira(payload);
+          this.setSync('hira', record.id, 'synced');
+        } catch {
+          this.setSync('hira', record.id, 'queued');
+        }
+      }
       for (const record of this.calibration().filter((entry) => entry.sync !== 'synced')) {
         this.setSync('calibration', record.id, 'syncing');
         try {
@@ -2265,6 +2631,7 @@ export class FieldAuditStore {
       | 'performanceMetrics'
       | 'permits'
       | 'incidents'
+      | 'hira'
       | 'calibration'
       | 'training'
       | 'suppliers'
@@ -2295,6 +2662,7 @@ export class FieldAuditStore {
       performanceMetrics: this.performanceMetrics,
       permits: this.permits,
       incidents: this.incidents,
+      hira: this.hira,
       calibration: this.calibration,
       training: this.training,
       suppliers: this.suppliers,
@@ -2359,6 +2727,7 @@ export class FieldAuditStore {
       performanceMetrics: this.performanceMetrics(),
       permits: this.permits(),
       incidents: this.incidents(),
+      hira: this.hira(),
       calibration: this.calibration(),
       training: this.training(),
       suppliers: this.suppliers(),
@@ -2366,6 +2735,9 @@ export class FieldAuditStore {
       reportMeta: this.reportMeta(),
       reportSignedAt: this.reportSignedAt(),
       reportSignature: this.reportSignature(),
+      auditAgenda: this.auditAgenda(),
+      meetingScripts: this.meetingScripts(),
+      photoAnalysis: this.photoAnalysis(),
     };
     void idbSet('meta', META_KEY, snapshot);
   }
@@ -2397,6 +2769,7 @@ export class FieldAuditStore {
       this.performanceMetrics.set((payload.performanceMetrics ?? []).map((m) => ({ ...m, sync: 'synced' as const })));
       this.permits.set((payload.permits ?? []).map((p) => ({ ...p, sync: 'synced' as const })));
       this.incidents.set((payload.incidents ?? []).map((i) => ({ ...i, sync: 'synced' as const })));
+      this.hira.set((payload.hira ?? []).map((h) => ({ ...h, sync: 'synced' as const })));
       this.calibration.set((payload.calibration ?? []).map((c) => ({ ...c, sync: 'synced' as const })));
       this.training.set((payload.training ?? []).map((t) => ({ ...t, sync: 'synced' as const })));
       this.suppliers.set((payload.suppliers ?? []).map((s) => ({ ...s, sync: 'synced' as const })));
@@ -2455,6 +2828,7 @@ export class FieldAuditStore {
     this.performanceMetrics.set(saved.performanceMetrics ?? seedPerformanceMetrics());
     this.permits.set(saved.permits ?? seedPermits());
     this.incidents.set(saved.incidents ?? seedIncidents());
+    this.hira.set(saved.hira ?? seedHira());
     this.calibration.set(saved.calibration ?? seedCalibration());
     this.training.set(saved.training ?? seedTraining());
     this.suppliers.set(saved.suppliers ?? seedSuppliers());
@@ -2462,6 +2836,16 @@ export class FieldAuditStore {
     if (saved.reportMeta) this.reportMeta.set({ ...defaultReportMeta(), ...saved.reportMeta });
     this.reportSignedAt.set(saved.reportSignedAt ?? null);
     this.reportSignature.set(saved.reportSignature ?? null);
+    this.auditAgenda.set(saved.auditAgenda ?? null);
+    this.meetingScripts.set(saved.meetingScripts ?? null);
+    this.agendaDraftInfo.set(
+      saved.auditAgenda
+        ? { source: saved.auditAgenda.source, generatedAt: saved.auditAgenda.generatedAt }
+        : saved.meetingScripts
+          ? { source: saved.meetingScripts.source, generatedAt: saved.meetingScripts.generatedAt }
+          : null,
+    );
+    this.photoAnalysis.set(saved.photoAnalysis ?? {});
     const restored = await Promise.all(
       saved.evidence.map(async (record) => {
         if (record.kind !== 'photo' || !record.blobKey || typeof URL === 'undefined') return record;

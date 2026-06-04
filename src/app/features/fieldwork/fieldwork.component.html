@@ -113,13 +113,38 @@
 
       <label class="fw-note">
         <span>Field note</span>
-        <textarea
-          rows="3"
-          #noteEl
-          [value]="item.note ?? ''"
-          (change)="saveNote(item, noteEl.value)"
-          placeholder="Observation, interview response, sample reference…"
-        ></textarea>
+        <div class="fw-note-input">
+          <textarea
+            rows="3"
+            #noteEl
+            [value]="item.note ?? ''"
+            (change)="saveNote(item, noteEl.value)"
+            placeholder="Observation, interview response, sample reference…"
+          ></textarea>
+          @if (speech.supported) {
+            <button
+              type="button"
+              class="mic"
+              [class.on]="isDictating(item)"
+              [attr.aria-pressed]="isDictating(item)"
+              [attr.aria-label]="isDictating(item) ? 'Stop dictation' : 'Dictate field note'"
+              [matTooltip]="isDictating(item) ? 'Stop dictation' : 'Dictate field note'"
+              (click)="dictate(item)"
+            >
+              <mat-icon aria-hidden="true">{{ isDictating(item) ? 'mic_off' : 'mic' }}</mat-icon>
+            </button>
+          } @else {
+            <button
+              type="button"
+              class="mic"
+              disabled
+              aria-label="Voice dictation unavailable on this device"
+              matTooltip="Voice dictation isn't supported by this browser"
+            >
+              <mat-icon aria-hidden="true">mic_off</mat-icon>
+            </button>
+          }
+        </div>
       </label>
 
       <div class="ev-strip">

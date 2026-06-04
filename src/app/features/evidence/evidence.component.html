@@ -52,6 +52,86 @@
               <small class="tag"><mat-icon aria-hidden="true">location_on</mat-icon>{{ evidence.geo.lat }}, {{ evidence.geo.lng }}</small>
             }
           </div>
+
+          @if (evidence.kind === 'photo') {
+            @let ai = analysis(evidence);
+            <div class="ai">
+              @if (!ai || ai.status === 'rejected' || ai.status === 'failed' || ai.status === 'aiNotConfigured') {
+                <button mat-stroked-button type="button" class="ai-btn" (click)="requestAnalysis(evidence)">
+                  <mat-icon aria-hidden="true">auto_awesome</mat-icon>
+                  Analyze with AI
+                </button>
+              }
+
+              @if (ai?.status === 'processing') {
+                <p class="ai-note"><mat-icon aria-hidden="true">hourglass_top</mat-icon>Analyzing photo…</p>
+              }
+
+              @if (ai?.status === 'aiNotConfigured') {
+                <p class="ai-note ai-warn">
+                  <mat-icon aria-hidden="true">cloud_off</mat-icon>
+                  AI analysis needs the server/key (configure ANTHROPIC_API_KEY). Suggestions stay disabled offline.
+                </p>
+              }
+
+              @if (ai?.status === 'failed') {
+                <p class="ai-note ai-warn"><mat-icon aria-hidden="true">error_outline</mat-icon>{{ ai?.failureReason }}</p>
+              }
+
+              @if (ai?.status === 'accepted') {
+                <p class="ai-note ai-ok"><mat-icon aria-hidden="true">task_alt</mat-icon>Accepted — finding raised for review.</p>
+              }
+
+              @if (ai?.status === 'needsAuditorReview' && ai?.candidate; as candidate) {
+                <div class="ai-review">
+                  <div class="ai-review-head">
+                    <mat-icon aria-hidden="true">auto_awesome</mat-icon>
+                    <strong>AI suggestion — review required</strong>
+                  </div>
+                  <p class="ai-hint">Nothing is applied until you accept. Edit the finding after promoting.</p>
+
+                  @if (candidate.observations.length) {
+                    <span class="ai-label">Observations</span>
+                    <ul class="ai-list">
+                      @for (obs of candidate.observations; track obs) {
+                        <li>{{ obs }}</li>
+                      }
+                    </ul>
+                  }
+
+                  @if (candidate.hazardTags.length) {
+                    <span class="ai-label">Hazard tags</span>
+                    <div class="ai-chips">
+                      @for (tag of candidate.hazardTags; track tag) {
+                        <small class="ai-chip">{{ tag }}</small>
+                      }
+                    </div>
+                  }
+
+                  @if (candidate.suggestedClauseId || candidate.suggestedFindingStatement) {
+                    <span class="ai-label">Suggested finding</span>
+                    <p class="ai-finding">
+                      @if (candidate.suggestedClauseId) {
+                        <em>Clause {{ candidate.suggestedClauseId }} · {{ candidate.suggestedType }}</em>
+                      }
+                      @if (candidate.suggestedFindingStatement) {
+                        <span>{{ candidate.suggestedFindingStatement }}</span>
+                      }
+                    </p>
+                  }
+
+                  <div class="ai-actions">
+                    <button mat-flat-button color="primary" type="button" (click)="acceptAnalysis(evidence)">
+                      <mat-icon aria-hidden="true">check</mat-icon>Accept
+                    </button>
+                    <button mat-stroked-button type="button" (click)="rejectAnalysis(evidence)">
+                      <mat-icon aria-hidden="true">close</mat-icon>Reject
+                    </button>
+                  </div>
+                </div>
+              }
+            </div>
+          }
         </div>
       </article>
     } @empty {
