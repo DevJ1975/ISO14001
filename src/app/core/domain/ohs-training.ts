@@ -4,7 +4,7 @@ import { checklistItemResultSchema } from './checklists.js';
 import { timestampSchema } from './models.js';
 
 /**
- * Training matrix entry (ISO 14001 cl. 7.2 — competence). Where the competence
+ * Training matrix entry (ISO 45001 cl. 7.2 — competence). Where the competence
  * register captures role requirements, this tracks the *evidence* dimension
  * competitor EHS platforms lead with: per-person completion with renewal/expiry,
  * so statutory refreshers (spill response, first-aid, forklift, ISO awareness)

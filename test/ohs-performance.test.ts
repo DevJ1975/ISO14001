@@ -34,14 +34,14 @@ describe('environmental performance metrics (cl. 9.1)', () => {
       id: 'metric-1',
       tenantId: 't',
       auditId: 'a',
-      indicator: 'Grid electricity',
-      unit: 'MWh',
+      indicator: 'Lost-time injuries',
+      unit: 'per 100k hrs',
       period: '2025',
-      targetValue: 1200,
-      actualValue: 1185,
+      targetValue: 1.2,
+      actualValue: 1.1,
       updatedAt: new Date().toISOString(),
     });
-    assert.equal(metric.category, 'energy');
+    assert.equal(metric.category, 'lostTimeInjury');
     assert.equal(metric.trend, 'notEvaluated');
     assert.equal(metric.result, 'notStarted');
     assert.deepEqual(metric.evidenceIds, []);

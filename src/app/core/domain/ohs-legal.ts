@@ -1,11 +1,11 @@
 import { z } from 'zod';
 
 import { checklistItemResultSchema } from './checklists.js';
-import { complianceStatusSchema } from './ems-registers.js';
+import { complianceStatusSchema } from './ohs-registers.js';
 import { timestampSchema } from './models.js';
 
 /**
- * Environmental permits, licences and consents (ISO 14001 cl. 6.1.3 / 9.1.2).
+ * OH&S permits, licences and authorizations (ISO 45001 cl. 6.1.3 / 9.1.2).
  * Compliance obligations capture the requirement; this register tracks the
  * permit instruments themselves — their conditions, monitoring requirements and,
  * crucially, renewal/expiry — so an auditor can see what is current, what is

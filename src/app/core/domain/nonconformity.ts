@@ -37,9 +37,9 @@ export type Nonconformity = z.infer<typeof nonconformitySchema>;
 export const capaTimelineDays = { majorNc: 30, minorNc: 90 } as const;
 
 export interface ClassificationInput {
-  /** Absence or total breakdown of a required EMS process. */
+  /** Absence or total breakdown of a required OHSMS process. */
   isAbsentOrTotalBreakdown?: boolean;
-  /** Significant doubt the EMS can achieve its intended results / product or service conformance. */
+  /** Significant doubt the OHSMS can achieve its intended results / product or service conformance. */
   castsDoubtOnOutcomes?: boolean;
   /** Significant legal-compliance or environmental risk. */
   legalOrSignificantEnvRisk?: boolean;
@@ -60,7 +60,7 @@ export interface ClassificationResult {
 
 /**
  * Encodes the ISO/IEC 17021-1 major-vs-minor criteria: a major nonconformity
- * affects the EMS's capability to achieve intended results (absence/total
+ * affects the OHSMS's capability to achieve intended results (absence/total
  * breakdown of a required process, significant doubt about control/conformance,
  * legal/environmental risk, or several minors against one requirement = systemic);
  * a minor is an isolated lapse; an OFI is an improvement suggestion, not an NC.
@@ -76,8 +76,8 @@ export function classifyFinding(input: ClassificationInput): ClassificationResul
 
   const systemicByCount = (input.minorCountAgainstRequirement ?? 0) >= 2;
   const reasons: string[] = [];
-  if (input.isAbsentOrTotalBreakdown) reasons.push('absence or total breakdown of a required EMS process');
-  if (input.castsDoubtOnOutcomes) reasons.push('significant doubt the EMS achieves its intended results');
+  if (input.isAbsentOrTotalBreakdown) reasons.push('absence or total breakdown of a required OHSMS process');
+  if (input.castsDoubtOnOutcomes) reasons.push('significant doubt the OHSMS achieves its intended results');
   if (input.legalOrSignificantEnvRisk) reasons.push('significant compliance or environmental risk');
   if (systemicByCount) reasons.push('multiple nonconformities against one requirement (systemic)');
 
@@ -86,7 +86,7 @@ export function classifyFinding(input: ClassificationInput): ClassificationResul
       grade: 'majorNc',
       systemic: true,
       timelineDays: capaTimelineDays.majorNc,
-      rationale: `Major: affects the capability of the EMS to achieve intended results — ${reasons.join('; ')}.`,
+      rationale: `Major: affects the capability of the OHSMS to achieve intended results — ${reasons.join('; ')}.`,
     };
   }
 
@@ -94,6 +94,6 @@ export function classifyFinding(input: ClassificationInput): ClassificationResul
     grade: 'minorNc',
     systemic: false,
     timelineDays: capaTimelineDays.minorNc,
-    rationale: 'Minor: an isolated lapse that does not affect the capability of the EMS to achieve intended results.',
+    rationale: 'Minor: an isolated lapse that does not affect the capability of the OHSMS to achieve intended results.',
   };
 }

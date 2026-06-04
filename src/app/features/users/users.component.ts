@@ -78,6 +78,10 @@ export class UsersComponent {
       this.error.set('Enter a valid email address.');
       return;
     }
+    if (displayName.trim().length < 2) {
+      this.error.set('Enter the person’s name.');
+      return;
+    }
     this.inviting.set(true);
     try {
       const result = await this.api.createMember({ email: email.trim(), displayName: displayName.trim(), role: this.inviteRole() });

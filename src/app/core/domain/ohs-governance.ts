@@ -1,19 +1,19 @@
 import { z } from 'zod';
 
 import { checklistItemResultSchema } from './checklists.js';
-import { significanceSchema } from './ems-registers.js';
+import { riskBandSchema } from './ohs-registers.js';
 import { timestampSchema } from './models.js';
 
 /**
- * EMS governance registers that the original foundation left thin or absent.
- * These close ISO 14001:2015/2026 clause gaps surfaced in the lead-auditor
- * review: interested parties (4.2), environmental objectives & targets (6.2),
+ * OH&S governance registers that the original foundation left thin or absent.
+ * These close ISO 45001:2018 clause gaps surfaced in the lead-auditor review:
+ * interested parties & workers (4.2), OH&S objectives & targets (6.2),
  * internal/external communication (7.4), and management review (9.3). Each
- * follows the same shape as the existing EMS registers (`ems-registers.ts`):
+ * follows the same shape as the other OH&S registers (`ohs-registers.ts`):
  * tenant- and audit-scoped, carrying an auditor `result` and evidence refs.
  */
 
-/** Interested parties and their needs & expectations (ISO 14001 cl. 4.2). */
+/** Workers & interested parties and their needs & expectations (ISO 45001 cl. 4.2). */
 export const interestedPartySchema = z.object({
   id: z.string().min(1),
   tenantId: z.string().min(1),
@@ -30,8 +30,8 @@ export type InterestedParty = z.infer<typeof interestedPartySchema>;
 
 export const objectiveProgressSchema = z.enum(['notStarted', 'onTrack', 'atRisk', 'achieved']);
 
-/** Environmental objectives & targets with progress (ISO 14001 cl. 6.2). */
-export const environmentalObjectiveSchema = z.object({
+/** OH&S objectives & targets with progress (ISO 45001 cl. 6.2). */
+export const ohsObjectiveSchema = z.object({
   id: z.string().min(1),
   tenantId: z.string().min(1),
   auditId: z.string().min(1),
@@ -44,9 +44,9 @@ export const environmentalObjectiveSchema = z.object({
   evidenceIds: z.array(z.string().min(1)).default([]),
   updatedAt: timestampSchema,
 });
-export type EnvironmentalObjective = z.infer<typeof environmentalObjectiveSchema>;
+export type OhsObjective = z.infer<typeof ohsObjectiveSchema>;
 
-/** Internal & external communication (ISO 14001 cl. 7.4). */
+/** Internal & external communication (ISO 45001 cl. 7.4). */
 export const communicationRecordSchema = z.object({
   id: z.string().min(1),
   tenantId: z.string().min(1),
@@ -62,7 +62,7 @@ export const communicationRecordSchema = z.object({
 });
 export type CommunicationRecord = z.infer<typeof communicationRecordSchema>;
 
-/** Management review inputs, decisions & outputs (ISO 14001 cl. 9.3). */
+/** Management review inputs, decisions & outputs (ISO 45001 cl. 9.3). */
 export const managementReviewSchema = z.object({
   id: z.string().min(1),
   tenantId: z.string().min(1),
@@ -78,14 +78,14 @@ export const managementReviewSchema = z.object({
 });
 export type ManagementReview = z.infer<typeof managementReviewSchema>;
 
-/** Risks & opportunities and their treatment (ISO 14001 cl. 6.1.1). */
+/** Risks & opportunities and their treatment (ISO 45001 cl. 6.1.1). */
 export const riskOpportunitySchema = z.object({
   id: z.string().min(1),
   tenantId: z.string().min(1),
   auditId: z.string().min(1),
   description: z.string().min(1).max(500),
   kind: z.enum(['risk', 'opportunity']).default('risk'),
-  significance: significanceSchema.default('medium'),
+  significance: riskBandSchema.default('medium'),
   treatment: z.string().max(1000).optional(),
   result: checklistItemResultSchema.default('notStarted'),
   evidenceIds: z.array(z.string().min(1)).default([]),
@@ -93,7 +93,7 @@ export const riskOpportunitySchema = z.object({
 });
 export type RiskOpportunity = z.infer<typeof riskOpportunitySchema>;
 
-/** Resources provided for the EMS (ISO 14001 cl. 7.1). */
+/** Resources provided for the OH&S management system (ISO 45001 cl. 7.1). */
 export const resourceRecordSchema = z.object({
   id: z.string().min(1),
   tenantId: z.string().min(1),
@@ -108,7 +108,7 @@ export const resourceRecordSchema = z.object({
 });
 export type ResourceRecord = z.infer<typeof resourceRecordSchema>;
 
-/** Competence & training of persons doing work under the EMS (ISO 14001 cl. 7.2). */
+/** Competence & training of persons doing work under the OH&S MS (ISO 45001 cl. 7.2). */
 export const competenceRecordSchema = z.object({
   id: z.string().min(1),
   tenantId: z.string().min(1),
@@ -123,7 +123,7 @@ export const competenceRecordSchema = z.object({
 });
 export type CompetenceRecord = z.infer<typeof competenceRecordSchema>;
 
-/** Awareness of policy, aspects and EMS roles (ISO 14001 cl. 7.3). */
+/** Awareness of policy, hazards and OH&S roles (ISO 45001 cl. 7.3). */
 export const awarenessRecordSchema = z.object({
   id: z.string().min(1),
   tenantId: z.string().min(1),
@@ -137,7 +137,7 @@ export const awarenessRecordSchema = z.object({
 });
 export type AwarenessRecord = z.infer<typeof awarenessRecordSchema>;
 
-/** Documented information & its control (ISO 14001 cl. 7.5). */
+/** Documented information & its control (ISO 45001 cl. 7.5). */
 export const documentedInfoSchema = z.object({
   id: z.string().min(1),
   tenantId: z.string().min(1),

@@ -4,7 +4,7 @@ import { checklistItemResultSchema } from './checklists.js';
 import { timestampSchema } from './models.js';
 
 /**
- * Calibration register for monitoring & measuring equipment (ISO 14001 cl.
+ * Calibration register for monitoring & measuring equipment (ISO 45001 cl.
  * 9.1.1 — "calibrated or verified measuring equipment"). Auditors routinely
  * sample whether instruments used for environmental monitoring are in
  * calibration; an out-of-calibration instrument undermines the 9.1 data.

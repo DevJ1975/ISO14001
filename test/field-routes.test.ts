@@ -342,7 +342,7 @@ describe('field-audit API routes', () => {
         method: 'PUT',
         url: '/api/tenants/t/audits/a/conclusion',
         headers: leadHeaders('t'),
-        body: { overallConformity: 'EMS broadly conforms with minor gaps.', recommendation: 'conditional' },
+        body: { overallConformity: 'OHSMS broadly conforms with minor gaps.', recommendation: 'conditional' },
       }),
       concl,
       { db, config },
@@ -393,7 +393,7 @@ describe('field-audit API routes', () => {
     assert.equal(res.statusCode, 400);
   });
 
-  it('upserts an EMS register entry and returns it in field-state', async () => {
+  it('upserts an OHSMS register entry and returns it in field-state', async () => {
     const { db, store } = createFakeDb();
     const res = makeRes();
     await handleApiRequest(
@@ -427,7 +427,7 @@ describe('field-audit API routes', () => {
         method: 'PUT',
         url: '/api/tenants/t/programme',
         headers: authHeaders('t'),
-        body: { cycleYear: 2026, criteria: 'ISO_14001_2026', plannedAudits: [], competence: [] },
+        body: { cycleYear: 2026, criteria: 'ISO_45001_2018', plannedAudits: [], competence: [] },
       }),
       denied,
       { db, config },
@@ -442,7 +442,7 @@ describe('field-audit API routes', () => {
         headers: leadHeaders('t'),
         body: {
           cycleYear: 2026,
-          criteria: 'ISO_14001_2026',
+          criteria: 'ISO_45001_2018',
           plannedAudits: [{ id: 'plan-1', type: 'surveillance', dueDate: '2027-01-01', status: 'planned' }],
           competence: [],
         },

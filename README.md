@@ -1,6 +1,12 @@
-# Trainovate ISO 14001 Audit Platform
+# Soteria Signum — ISO 45001 Audit Platform
 
-Clean Phase 0-6 foundation for a production-grade, multi-tenant environmental-audit PWA.
+**Soteria Signum** (by Trainovate) is a production-grade, multi-tenant
+occupational health & safety (ISO 45001:2018) audit PWA — the field tool an
+auditor uses to run OH&S management-system audits. Each tenant is a client site
+the auditor is working on; audits are conducted against ISO 45001:2018 (or the
+2026 edition placeholder), covering hazard identification & risk, worker
+consultation, legal & other requirements, incidents & investigation, and the
+full clause 4–10 register set.
 
 ## Stack
 
@@ -86,6 +92,19 @@ stay disabled in production.
 ## Standards Guardrail
 
 ISO standards are copyrighted. This repo stores only clause identifiers and short titles. Checklist content must be customer-authored or properly licensed before public release.
+
+## AI report drafting
+
+The Report screen's **Generate draft** action auto-writes the audit conclusions
+(overall conformity, OH&S effectiveness opinion, criteria-met statement and a
+recommendation) from the audit's own results. By default it uses an **offline,
+rule-based composer** — deterministic, no key, no network — so it works in the
+field. When the backend is configured with `ANTHROPIC_API_KEY` + `ANTHROPIC_MODEL`
+(server-side secrets only), the `/report-draft` endpoint upgrades the same button
+to a Claude-generated draft, and the client falls back to the rule-based composer
+on any error. The lead auditor reviews and edits every field before signing —
+generated text is a draft, never the final record — and the prompt forbids
+verbatim ISO requirement text.
 
 ## Docs
 

@@ -92,7 +92,7 @@ export const emsQuestionAnswerSchema = z
       if (citation.tenantId !== answer.tenantId || citation.auditeeId !== answer.auditeeId) {
         context.addIssue({
           code: 'custom',
-          message: 'EMS answer citation must match the answer tenant and auditee.',
+          message: 'OH&S answer citation must match the answer tenant and auditee.',
           path: ['citations', index],
         });
       }
@@ -155,9 +155,9 @@ export const transitionGapCandidateSchema = z.object({
   id: z.string().min(1),
   tenantId: z.string().min(1),
   auditeeId: z.string().min(1),
-  fromEdition: z.literal('ISO_14001_2015'),
-  toEdition: z.literal('ISO_14001_2026'),
-  clauseRef: clauseRefSchema.extend({ edition: z.literal('ISO_14001_2026') }),
+  fromEdition: z.literal('ISO_45001_2018'),
+  toEdition: z.literal('ISO_45001_2026'),
+  clauseRef: clauseRefSchema.extend({ edition: z.literal('ISO_45001_2026') }),
   summary: z.string().min(1),
   evidenceNeeded: z.array(z.string().min(1)).default([]),
   citations: z.array(aiCitationSchema).default([]),
@@ -206,7 +206,7 @@ export const aiCopilotFlowRequestSchema = z.object({
     'photoIdentification',
   ]),
   input: z.string().min(1),
-  criteria: isoEditionSchema.default('ISO_14001_2026'),
+  criteria: isoEditionSchema.default('ISO_45001_2026'),
 });
 
 export type AiCopilotFlowRequest = z.infer<typeof aiCopilotFlowRequestSchema>;

@@ -74,7 +74,7 @@ export const routes: Routes = [
       {
         path: 'registers',
         loadComponent: () => import('./features/registers/registers.component').then((m) => m.RegistersComponent),
-        title: 'EMS registers',
+        title: 'OH&S registers',
       },
       {
         path: 'report',

@@ -4,9 +4,9 @@ import { checklistItemResultSchema } from './checklists.js';
 import { timestampSchema } from './models.js';
 
 /**
- * Supplier / contractor evaluation (ISO 14001 cl. 8.1 — control of outsourced
+ * Supplier / contractor evaluation (ISO 45001 cl. 8.1 — control of outsourced
  * processes and environmentally relevant procurement). Where a supplier or
- * on-site contractor can affect the EMS (waste carriers, recyclers, chemical
+ * on-site contractor can affect the OHSMS (waste carriers, recyclers, chemical
  * suppliers, maintenance contractors), the organisation must evaluate and
  * control them; a relevant supplier with no current evaluation, or a poor
  * rating left unactioned, is a common finding.
@@ -20,7 +20,7 @@ export const supplierRecordSchema = z.object({
   name: z.string().min(1).max(300),
   serviceType: z.string().max(200).optional(),
   category: z.enum(['supplier', 'contractor', 'wasteCarrier', 'recycler', 'other']).default('supplier'),
-  /** Whether this party can materially affect the EMS (drives the "needs evaluation" alert). */
+  /** Whether this party can materially affect the OHSMS (drives the "needs evaluation" alert). */
   environmentallyRelevant: z.boolean().optional(),
   controlsCommunicated: z.boolean().optional(),
   rating: z.enum(['notRated', 'approved', 'conditional', 'rejected']).default('notRated'),

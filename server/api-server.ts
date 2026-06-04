@@ -21,7 +21,7 @@ async function main(): Promise<void> {
   });
 
   server.listen(config.port, () => {
-    console.log(`ISO 14001 MongoDB API listening on http://127.0.0.1:${config.port}`);
+    console.log(`ISO 45001 MongoDB API listening on http://127.0.0.1:${config.port}`);
   });
 }
 

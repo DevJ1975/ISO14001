@@ -309,6 +309,7 @@ const aspectUpsertCommandSchema = z.object({
   legalConcern: z.boolean().optional(),
   stakeholderConcern: z.boolean().optional(),
   significanceRationale: z.string().max(1000).optional(),
+  controlType: z.enum(['elimination', 'substitution', 'engineering', 'administrative', 'ppe']).optional(),
   controls: z.string().max(2000).optional(),
   relatedClauseId: z.string().optional(),
   result: registerResultSchema.default('notStarted'),
@@ -369,6 +370,31 @@ const managementReviewUpsertCommandSchema = z.object({
   inputs: z.string().max(4000).optional(),
   decisions: z.string().max(4000).optional(),
   actions: z.string().max(4000).optional(),
+  result: registerResultSchema.default('notStarted'),
+});
+
+const workerConsultationUpsertCommandSchema = z.object({
+  id: z.string().min(1),
+  topic: z.string().max(300).default(''),
+  category: z
+    .enum([
+      'policy',
+      'hazardIdentification',
+      'riskAssessment',
+      'controls',
+      'incidentInvestigation',
+      'training',
+      'ppe',
+      'emergencyArrangements',
+      'changes',
+      'other',
+    ])
+    .default('other'),
+  mechanism: z.enum(['safetyCommittee', 'toolboxTalk', 'survey', 'rep', 'directConsultation', 'other']).default('safetyCommittee'),
+  workerGroup: z.string().max(300).optional(),
+  participationEvidence: z.string().max(2000).optional(),
+  outcome: z.string().max(2000).optional(),
+  date: z.string().optional(),
   result: registerResultSchema.default('notStarted'),
 });
 
@@ -435,7 +461,7 @@ const documentedInfoUpsertCommandSchema = z.object({
 const performanceMetricUpsertCommandSchema = z.object({
   id: z.string().min(1),
   indicator: z.string().max(300).default(''),
-  category: z.enum(['energy', 'water', 'waste', 'emissions', 'materials', 'effluent', 'other']).default('energy'),
+  category: z.enum(['lostTimeInjury', 'recordableInjury', 'nearMiss', 'illHealth', 'exposure', 'inspection', 'toolboxTalk', 'trainingCompletion', 'other']).default('lostTimeInjury'),
   unit: z.string().max(40).default(''),
   period: z.string().max(60).default(''),
   baselineValue: z.number().finite().optional(),
@@ -467,12 +493,15 @@ const incidentUpsertCommandSchema = z.object({
   title: z.string().max(300).default(''),
   occurredAt: z.string().max(40).optional(),
   location: z.string().max(300).optional(),
-  incidentType: z.enum(['spill', 'release', 'exceedance', 'wasteBreach', 'complaint', 'nearMiss', 'other']).default('spill'),
+  incidentType: z
+    .enum(['injury', 'illHealth', 'nearMiss', 'dangerousOccurrence', 'propertyDamage', 'fatality', 'other'])
+    .default('injury'),
   severity: z.enum(['low', 'medium', 'high']).default('low'),
   description: z.string().max(2000).optional(),
   immediateAction: z.string().max(2000).optional(),
   rootCause: z.string().max(2000).optional(),
   correctiveActionRef: z.string().max(200).optional(),
+  injuryClassification: z.enum(['none', 'firstAid', 'medicalTreatment', 'lostTime', 'riddor']).optional(),
   reportableToRegulator: z.boolean().optional(),
   status: z.enum(['open', 'investigating', 'actioned', 'closed']).default('open'),
   result: registerResultSchema.default('notStarted'),
@@ -507,7 +536,7 @@ const supplierUpsertCommandSchema = z.object({
   id: z.string().min(1),
   name: z.string().max(300).default(''),
   serviceType: z.string().max(200).optional(),
-  category: z.enum(['supplier', 'contractor', 'wasteCarrier', 'recycler', 'other']).default('supplier'),
+  category: z.enum(['supplier', 'contractor', 'labourProvider', 'outsourcedProcess', 'other']).default('supplier'),
   environmentallyRelevant: z.boolean().optional(),
   controlsCommunicated: z.boolean().optional(),
   rating: z.enum(['notRated', 'approved', 'conditional', 'rejected']).default('notRated'),
@@ -530,19 +559,6 @@ const changeUpsertCommandSchema = z.object({
   controls: z.string().max(2000).optional(),
   targetDate: z.string().max(40).optional(),
   implementedAt: z.string().max(40).optional(),
-  result: registerResultSchema.default('notStarted'),
-});
-
-const carbonUpsertCommandSchema = z.object({
-  id: z.string().min(1),
-  source: z.string().max(300).default(''),
-  scope: z.union([z.literal(1), z.literal(2), z.literal(3)]).default(1),
-  category: z.string().max(200).optional(),
-  period: z.string().max(60).optional(),
-  activityData: z.number().min(0).max(1e12).optional(),
-  activityUnit: z.string().max(40).optional(),
-  emissionFactor: z.number().min(0).max(1e9).optional(),
-  tco2eOverride: z.number().min(0).max(1e12).optional(),
   result: registerResultSchema.default('notStarted'),
 });
 
@@ -642,7 +658,7 @@ function seedChecklistItems(): SeedChecklistItem[] {
       id: 'item-4',
       clauseId: '4',
       clauseTitle: 'Context of the organization',
-      question: 'What internal and external EMS context changes should the team verify during this audit?',
+      question: 'What internal and external OHSMS context changes should the team verify during this audit?',
       guidance: 'Use auditee-authored context records, interviews, and site observations.',
       ownerName: 'Maya Chen',
       result: 'conform',
@@ -1060,8 +1076,8 @@ export async function handleApiRequest(
         .collection(mongoCollections.changes)
         .find({ tenantId, auditId }, { projection: { _id: 0 } })
         .toArray();
-      const carbon = await dependencies.db
-        .collection(mongoCollections.carbon)
+      const workerConsultations = await dependencies.db
+        .collection(mongoCollections.workerConsultations)
         .find({ tenantId, auditId }, { projection: { _id: 0 } })
         .toArray();
       const reportMeta = await dependencies.db
@@ -1102,7 +1118,7 @@ export async function handleApiRequest(
           training,
           suppliers,
           changes,
-          carbon,
+          workerConsultations,
           reportMeta,
           changeLog,
         },
@@ -1364,6 +1380,73 @@ export async function handleApiRequest(
         .updateOne({ tenantId, auditId }, { $set: record }, { upsert: true });
       sendJson(response, 200, { reportMeta: record }, corsOrigin);
       return;
+    }
+
+    // AI report draft (server-side). Inert until ANTHROPIC_API_KEY + ANTHROPIC_MODEL
+    // are set; the client falls back to its offline rule-based composer on any
+    // non-2xx. The prompt forbids verbatim ISO requirement text (copyright guardrail).
+    const reportDraftMatch = matchPath(
+      new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/report-draft$`),
+      url.pathname,
+      ['tenantId', 'auditId'],
+    );
+    if (request.method === 'POST' && reportDraftMatch && actor) {
+      const tenantId = reportDraftMatch.params['tenantId']!;
+      requireTenant(actor, tenantId);
+      requireAnyRole(actor, ['leadAuditor', 'auditor']);
+      const input = await readJson(request, z.object({}).passthrough());
+      const apiKey = process.env['ANTHROPIC_API_KEY'];
+      const model = process.env['ANTHROPIC_MODEL'];
+      if (!apiKey || !model) {
+        sendJson(response, 501, { error: 'ai_not_configured' }, corsOrigin);
+        return;
+      }
+      const system =
+        'You are an ISO 45001 lead auditor assistant drafting an audit report. Use ONLY the audit data provided and ISO 45001 clause numbers and short titles. Do NOT quote or paraphrase verbatim ISO requirement text. Respond with a strict JSON object only, with keys overallConformity, emsEffectivenessOpinion, criteriaMetStatement, recommendation. recommendation must be one of recommend, conditional, notRecommended, satisfactory, actionRequired.';
+      try {
+        const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+          body: JSON.stringify({
+            model,
+            max_tokens: 1200,
+            system,
+            messages: [{ role: 'user', content: `Audit data:\n${JSON.stringify(input)}` }],
+          }),
+        });
+        if (!aiRes.ok) {
+          sendJson(response, 502, { error: 'ai_upstream' }, corsOrigin);
+          return;
+        }
+        const payload = (await aiRes.json()) as { content?: { text?: string }[] };
+        const text = (payload.content ?? []).map((part) => part.text ?? '').join('');
+        const found = text.match(/\{[\s\S]*\}/);
+        const parsed = found ? (JSON.parse(found[0]) as Record<string, unknown>) : null;
+        if (!parsed) {
+          sendJson(response, 502, { error: 'ai_parse' }, corsOrigin);
+          return;
+        }
+        const recs = ['recommend', 'conditional', 'notRecommended', 'satisfactory', 'actionRequired'];
+        const rawRec = parsed['recommendation'];
+        const recommendation = typeof rawRec === 'string' && recs.includes(rawRec) ? rawRec : 'satisfactory';
+        sendJson(
+          response,
+          200,
+          {
+            overallConformity: String(parsed['overallConformity'] ?? ''),
+            emsEffectivenessOpinion: String(parsed['emsEffectivenessOpinion'] ?? ''),
+            criteriaMetStatement: String(parsed['criteriaMetStatement'] ?? ''),
+            recommendation,
+            source: 'ai',
+            generatedAt: new Date().toISOString(),
+          },
+          corsOrigin,
+        );
+        return;
+      } catch {
+        sendJson(response, 502, { error: 'ai_failed' }, corsOrigin);
+        return;
+      }
     }
 
     const signoffMatch = matchPath(
@@ -1764,22 +1847,22 @@ export async function handleApiRequest(
       return;
     }
 
-    const carbonMatch = matchPath(
-      new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/carbon/([^/]+)$`),
+    const consultationMatch = matchPath(
+      new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/worker-consultations/([^/]+)$`),
       url.pathname,
       ['tenantId', 'auditId', 'id'],
     );
-    if (request.method === 'PUT' && carbonMatch && actor) {
-      const tenantId = carbonMatch.params['tenantId']!;
-      const auditId = carbonMatch.params['auditId']!;
+    if (request.method === 'PUT' && consultationMatch && actor) {
+      const tenantId = consultationMatch.params['tenantId']!;
+      const auditId = consultationMatch.params['auditId']!;
       requireTenant(actor, tenantId);
       requireAnyRole(actor, ['leadAuditor', 'auditor']);
-      const command = await readJson(request, carbonUpsertCommandSchema);
+      const command = await readJson(request, workerConsultationUpsertCommandSchema);
       const record = { ...command, tenantId, auditId, updatedAt: new Date().toISOString() };
       await dependencies.db
-        .collection(mongoCollections.carbon)
+        .collection(mongoCollections.workerConsultations)
         .updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
-      sendJson(response, 200, { carbon: record }, corsOrigin);
+      sendJson(response, 200, { workerConsultation: record }, corsOrigin);
       return;
     }
 

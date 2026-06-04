@@ -1,6 +1,17 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 
-import { ReportSignature, SignableReport, reportContentHash } from '../domain';
+import {
+  ReportDraft,
+  ReportDraftInput,
+  ReportSignature,
+  SignableReport,
+  StandardChecklistRow,
+  StandardEdition,
+  composeReportDraft,
+  editionFromCriteria,
+  reportContentHash,
+  standardChecklist,
+} from '../domain';
 import { AuditSelectionService } from './audit-selection.service';
 import { FieldApiService } from './field-api.service';
 import { idbDelete, idbGet, idbSet } from './idb';
@@ -21,7 +32,7 @@ export type SyncState = 'synced' | 'queued' | 'syncing' | 'conflict';
 export type FieldResult = 'notStarted' | 'conform' | 'minorNc' | 'majorNc' | 'ofi' | 'na';
 export type EvidenceKind = 'photo' | 'note';
 export type FindingType = 'minorNc' | 'majorNc' | 'ofi' | 'conformity';
-/** Nonconformity lifecycle (ISO 14001 cl. 10.2 close-out flow). */
+/** Nonconformity lifecycle (ISO 45001 cl. 10.2 close-out flow). */
 export type NcStatus = 'open' | 'responded' | 'implemented' | 'verified' | 'closed' | 'rejected' | 'reopened';
 export type CapaStatus = 'open' | 'inProgress' | 'verificationDue' | 'verified' | 'overdue';
 export type DataSource = 'local' | 'live';
@@ -64,7 +75,7 @@ export interface ChangeLogEntry {
 }
 
 /**
- * Report front-matter expected on a UKAS-style ISO 14001 report (audit type,
+ * Report front-matter expected on a UKAS-style ISO 45001 report (audit type,
  * dates, scope, criteria, sampling, auditor competence & impartiality,
  * distribution, version). Held as one record so the printed report has a single
  * source of truth rather than being re-derived ad hoc.
@@ -113,7 +124,7 @@ function defaultReportMeta(): ReportMeta {
   };
 }
 
-export interface EnvironmentalAspect {
+export interface Hazard {
   id: string;
   aspect: string;
   activity: string;
@@ -124,6 +135,7 @@ export interface EnvironmentalAspect {
   legalConcern?: boolean;
   stakeholderConcern?: boolean;
   significanceRationale?: string;
+  controlType?: 'elimination' | 'substitution' | 'engineering' | 'administrative' | 'ppe';
   controls?: string;
   relatedClauseId?: string;
   result: RegisterResult;
@@ -156,7 +168,7 @@ export interface EmergencyRecord {
 
 export type ObjectiveProgress = 'notStarted' | 'onTrack' | 'atRisk' | 'achieved';
 
-/** Interested parties & their needs (ISO 14001 cl. 4.2). */
+/** Interested parties & their needs (ISO 45001 cl. 4.2). */
 export interface InterestedParty {
   id: string;
   party: string;
@@ -168,8 +180,8 @@ export interface InterestedParty {
   sync: SyncState;
 }
 
-/** Environmental objectives & targets with progress (ISO 14001 cl. 6.2). */
-export interface EnvironmentalObjective {
+/** OH&S objectives & targets with progress (ISO 45001 cl. 6.2). */
+export interface OhsObjective {
   id: string;
   objective: string;
   target?: string;
@@ -181,7 +193,7 @@ export interface EnvironmentalObjective {
   sync: SyncState;
 }
 
-/** Internal & external communication (ISO 14001 cl. 7.4). */
+/** Internal & external communication (ISO 45001 cl. 7.4). */
 export interface CommunicationRecord {
   id: string;
   topic: string;
@@ -194,7 +206,32 @@ export interface CommunicationRecord {
   sync: SyncState;
 }
 
-/** Management review inputs, decisions & outputs (ISO 14001 cl. 9.3). */
+/** Worker consultation & participation (ISO 45001 cl. 5.4). */
+export interface WorkerConsultation {
+  id: string;
+  topic: string;
+  category:
+    | 'policy'
+    | 'hazardIdentification'
+    | 'riskAssessment'
+    | 'controls'
+    | 'incidentInvestigation'
+    | 'training'
+    | 'ppe'
+    | 'emergencyArrangements'
+    | 'changes'
+    | 'other';
+  mechanism: 'safetyCommittee' | 'toolboxTalk' | 'survey' | 'rep' | 'directConsultation' | 'other';
+  workerGroup?: string;
+  participationEvidence?: string;
+  outcome?: string;
+  date?: string;
+  result: RegisterResult;
+  updatedAt: string;
+  sync: SyncState;
+}
+
+/** Management review inputs, decisions & outputs (ISO 45001 cl. 9.3). */
 export interface ManagementReviewRecord {
   id: string;
   reviewDate?: string;
@@ -207,7 +244,7 @@ export interface ManagementReviewRecord {
   sync: SyncState;
 }
 
-/** Risks & opportunities and their treatment (ISO 14001 cl. 6.1.1). */
+/** Risks & opportunities and their treatment (ISO 45001 cl. 6.1.1). */
 export interface RiskOpportunity {
   id: string;
   description: string;
@@ -219,7 +256,7 @@ export interface RiskOpportunity {
   sync: SyncState;
 }
 
-/** Resources provided for the EMS (ISO 14001 cl. 7.1). */
+/** Resources provided for the OH&S management system (ISO 45001 cl. 7.1). */
 export interface ResourceRecord {
   id: string;
   resource: string;
@@ -231,7 +268,7 @@ export interface ResourceRecord {
   sync: SyncState;
 }
 
-/** Competence & training under the EMS (ISO 14001 cl. 7.2). */
+/** Competence & training under the OH&S management system (ISO 45001 cl. 7.2). */
 export interface CompetenceRecord {
   id: string;
   role: string;
@@ -243,7 +280,7 @@ export interface CompetenceRecord {
   sync: SyncState;
 }
 
-/** Awareness of policy, aspects and roles (ISO 14001 cl. 7.3). */
+/** Awareness of policy, hazards and roles (ISO 45001 cl. 7.3). */
 export interface AwarenessRecord {
   id: string;
   topic: string;
@@ -265,7 +302,7 @@ export interface DocumentAttachment {
   addedAt: string;
 }
 
-/** Documented information & its control (ISO 14001 cl. 7.5). */
+/** Documented information & its control (ISO 45001 cl. 7.5). */
 export interface DocumentedInfoRecord {
   id: string;
   document: string;
@@ -284,7 +321,7 @@ export interface DocumentedInfoRecord {
   sync: SyncState;
 }
 
-/** Environmental permit, licence or consent with renewal/expiry (ISO 14001 cl. 6.1.3 / 9.1.2). */
+/** OH&S permit, licence or consent with renewal/expiry (ISO 45001 cl. 6.1.3 / 9.1.2). */
 export interface Permit {
   id: string;
   title: string;
@@ -302,7 +339,7 @@ export interface Permit {
   sync: SyncState;
 }
 
-/** Training matrix entry — per-person training with renewal/expiry (ISO 14001 cl. 7.2). */
+/** Training matrix entry — per-person training with renewal/expiry (ISO 45001 cl. 7.2). */
 export interface TrainingRecord {
   id: string;
   person: string;
@@ -317,12 +354,12 @@ export interface TrainingRecord {
   sync: SyncState;
 }
 
-/** Supplier / contractor evaluation (ISO 14001 cl. 8.1 — control of outsourced processes & procurement). */
+/** Supplier / contractor evaluation (ISO 45001 cl. 8.1 — control of outsourced processes & procurement). */
 export interface SupplierRecord {
   id: string;
   name: string;
   serviceType?: string;
-  category: 'supplier' | 'contractor' | 'wasteCarrier' | 'recycler' | 'other';
+  category: 'supplier' | 'contractor' | 'labourProvider' | 'outsourcedProcess' | 'other';
   environmentallyRelevant?: boolean;
   controlsCommunicated?: boolean;
   rating: 'notRated' | 'approved' | 'conditional' | 'rejected';
@@ -335,7 +372,7 @@ export interface SupplierRecord {
   sync: SyncState;
 }
 
-/** Management of Change (ISO 14001 cl. 8.1 — control of planned changes & their environmental consequences). */
+/** Management of Change (ISO 45001 cl. 8.1.3 — control of planned changes & their OH&S consequences). */
 export interface ManagementOfChangeRecord {
   id: string;
   title: string;
@@ -353,23 +390,7 @@ export interface ManagementOfChangeRecord {
   sync: SyncState;
 }
 
-/** Greenhouse-gas (carbon) inventory entry by GHG Protocol scope (ISO 14001 cl. 9.1 / 6.1.2). */
-export interface CarbonEntry {
-  id: string;
-  source: string;
-  scope: 1 | 2 | 3;
-  category?: string;
-  period?: string;
-  activityData?: number;
-  activityUnit?: string;
-  emissionFactor?: number;
-  tco2eOverride?: number;
-  result: RegisterResult;
-  updatedAt: string;
-  sync: SyncState;
-}
-
-/** Monitoring & measuring equipment calibration (ISO 14001 cl. 9.1.1). */
+/** Monitoring & measuring equipment calibration (ISO 45001 cl. 9.1.1). */
 export interface CalibrationRecord {
   id: string;
   equipment: string;
@@ -385,18 +406,19 @@ export interface CalibrationRecord {
   sync: SyncState;
 }
 
-/** Environmental incident / near-miss (logged occurrence; ISO 14001 cl. 10.2 / 8.2). */
-export interface EnvironmentalIncident {
+/** OH&S incident / near-miss (logged occurrence; ISO 45001 cl. 10.2 / 8.2). */
+export interface Incident {
   id: string;
   title: string;
   occurredAt?: string;
   location?: string;
-  incidentType: 'spill' | 'release' | 'exceedance' | 'wasteBreach' | 'complaint' | 'nearMiss' | 'other';
+  incidentType: 'injury' | 'illHealth' | 'nearMiss' | 'dangerousOccurrence' | 'propertyDamage' | 'fatality' | 'other';
   severity: 'low' | 'medium' | 'high';
   description?: string;
   immediateAction?: string;
   rootCause?: string;
   correctiveActionRef?: string;
+  injuryClassification?: 'none' | 'firstAid' | 'medicalTreatment' | 'lostTime' | 'riddor';
   reportableToRegulator?: boolean;
   status: 'open' | 'investigating' | 'actioned' | 'closed';
   result: RegisterResult;
@@ -404,11 +426,20 @@ export interface EnvironmentalIncident {
   sync: SyncState;
 }
 
-/** Environmental performance indicator — monitoring & measurement (ISO 14001 cl. 9.1.1). */
+/** OH&S performance indicator — monitoring & measurement (ISO 45001 cl. 9.1.1). */
 export interface PerformanceMetric {
   id: string;
   indicator: string;
-  category: 'energy' | 'water' | 'waste' | 'emissions' | 'materials' | 'effluent' | 'other';
+  category:
+    | 'lostTimeInjury'
+    | 'recordableInjury'
+    | 'nearMiss'
+    | 'illHealth'
+    | 'exposure'
+    | 'inspection'
+    | 'toolboxTalk'
+    | 'trainingCompletion'
+    | 'other';
   unit: string;
   period: string;
   baselineValue?: number;
@@ -473,7 +504,7 @@ export interface FieldFinding {
   sync: SyncState;
 }
 
-/** Corrective-action record (ISO 14001 cl. 10.2): correction vs corrective action + effectiveness verification. */
+/** Corrective-action record (ISO 45001 cl. 10.2): correction vs corrective action + effectiveness verification. */
 export interface FieldCapa {
   id: string;
   findingId: string;
@@ -500,13 +531,14 @@ interface PersistedState {
   auditStatus: AuditStatus;
   meetings: AuditMeeting[];
   conclusion: AuditConclusion | null;
-  aspects: EnvironmentalAspect[];
+  aspects: Hazard[];
   obligations: ComplianceObligation[];
   emergencyRecords: EmergencyRecord[];
   interestedParties: InterestedParty[];
-  objectives: EnvironmentalObjective[];
+  objectives: OhsObjective[];
   communications: CommunicationRecord[];
   managementReviews: ManagementReviewRecord[];
+  workerConsultations: WorkerConsultation[];
   risksOpportunities: RiskOpportunity[];
   resources: ResourceRecord[];
   competence: CompetenceRecord[];
@@ -514,12 +546,11 @@ interface PersistedState {
   documentedInfo: DocumentedInfoRecord[];
   performanceMetrics: PerformanceMetric[];
   permits: Permit[];
-  incidents: EnvironmentalIncident[];
+  incidents: Incident[];
   calibration: CalibrationRecord[];
   training: TrainingRecord[];
   suppliers: SupplierRecord[];
   changes: ManagementOfChangeRecord[];
-  carbon: CarbonEntry[];
   reportMeta: ReportMeta;
   reportSignedAt: string | null;
   reportSignature?: ReportSignature | null;
@@ -542,9 +573,9 @@ function seedCalibration(): CalibrationRecord[] {
     ...extra,
   });
   return [
-    base({ equipment: 'Stack gas analyser', identifier: 'AN-204', parameter: 'NOx / CO', lastCalibratedAt: '2026-01-15', nextDueAt: '2027-01-15', frequencyMonths: 12, result: 'conforming' }),
-    base({ equipment: 'Effluent pH meter', identifier: 'PH-11', parameter: 'pH', lastCalibratedAt: '2025-12-01', nextDueAt: '2026-06-25', frequencyMonths: 6, result: 'needsFollowUp' }),
-    base({ equipment: 'Noise level meter', identifier: 'NL-03', parameter: 'dB(A)', lastCalibratedAt: '2025-02-01', nextDueAt: '2026-02-01', frequencyMonths: 12, result: 'nonconforming' }),
+    base({ equipment: 'Personal noise dosimeter', identifier: 'ND-204', parameter: 'dB(A) LEP,d', lastCalibratedAt: '2026-01-15', nextDueAt: '2027-01-15', frequencyMonths: 12, result: 'conforming' }),
+    base({ equipment: 'LEV face-velocity anemometer', identifier: 'AV-11', parameter: 'Capture velocity (m/s)', lastCalibratedAt: '2025-12-01', nextDueAt: '2026-06-25', frequencyMonths: 6, result: 'needsFollowUp' }),
+    base({ equipment: 'Gas detector — confined space', identifier: 'GD-03', parameter: 'O₂ / LEL / H₂S', lastCalibratedAt: '2025-02-01', nextDueAt: '2026-02-01', frequencyMonths: 12, result: 'nonconforming' }),
   ];
 }
 
@@ -562,9 +593,9 @@ function seedDocumentedInfo(): DocumentedInfoRecord[] {
     ...extra,
   });
   return [
-    base({ document: 'Environmental policy', docType: 'Policy', controlStatus: 'controlled', version: 'v3.0', owner: 'EHS Manager', lastReviewedAt: '2025-10-01', nextReviewAt: '2026-10-01', reviewFrequencyMonths: 12, retention: 'Indefinite', result: 'conforming' }),
-    base({ document: 'Aspects & impacts procedure', docType: 'Procedure', controlStatus: 'controlled', version: 'v2.1', owner: 'EHS Lead', lastReviewedAt: '2025-06-20', nextReviewAt: '2026-06-20', reviewFrequencyMonths: 12, result: 'needsFollowUp' }),
-    base({ document: 'Emergency preparedness plan', docType: 'Plan', controlStatus: 'controlled', version: 'v1.4', owner: 'Site Manager', lastReviewedAt: '2024-12-01', nextReviewAt: '2025-12-01', reviewFrequencyMonths: 12, result: 'nonconforming' }),
+    base({ document: 'OH&S policy', docType: 'Policy', controlStatus: 'controlled', version: 'v3.0', owner: 'H&S Manager', lastReviewedAt: '2025-10-01', nextReviewAt: '2026-10-01', reviewFrequencyMonths: 12, retention: 'Indefinite', result: 'conforming' }),
+    base({ document: 'Hazard identification & risk assessment procedure', docType: 'Procedure', controlStatus: 'controlled', version: 'v2.1', owner: 'H&S Lead', lastReviewedAt: '2025-06-20', nextReviewAt: '2026-06-20', reviewFrequencyMonths: 12, result: 'needsFollowUp' }),
+    base({ document: 'Asbestos management survey', docType: 'Survey report', controlStatus: 'controlled', version: 'v1.4', owner: 'Site Manager', lastReviewedAt: '2024-12-01', nextReviewAt: '2025-12-01', reviewFrequencyMonths: 12, result: 'nonconforming' }),
   ];
 }
 
@@ -581,10 +612,10 @@ function seedTraining(): TrainingRecord[] {
     ...extra,
   });
   return [
-    base({ person: 'J. Okafor', role: 'EHS lead', course: 'ISO 14001 internal auditor', completedAt: '2025-09-10', expiresAt: '2028-09-10', frequencyMonths: 36, mandatory: true, result: 'conforming' }),
-    base({ person: 'M. Silva', role: 'Press operator', course: 'Spill response', completedAt: '2025-07-01', expiresAt: '2026-07-01', frequencyMonths: 12, mandatory: true, result: 'needsFollowUp' }),
-    base({ person: 'R. Adeyemi', role: 'Forklift driver', course: 'Forklift / FLT licence', completedAt: '2024-02-20', expiresAt: '2026-02-20', frequencyMonths: 24, mandatory: true, result: 'nonconforming' }),
-    base({ person: 'L. Chen', role: 'Lab technician', course: 'Hazardous waste handling', completedAt: '2026-03-15', frequencyMonths: 0, mandatory: false, result: 'conforming' }),
+    base({ person: 'J. Okafor', role: 'H&S lead', course: 'ISO 45001 internal auditor', completedAt: '2025-09-10', expiresAt: '2028-09-10', frequencyMonths: 36, mandatory: true, result: 'conforming' }),
+    base({ person: 'M. Silva', role: 'First aider', course: 'First aid at work', completedAt: '2025-07-01', expiresAt: '2026-07-01', frequencyMonths: 12, mandatory: true, result: 'needsFollowUp' }),
+    base({ person: 'R. Adeyemi', role: 'MEWP operator', course: 'IPAF MEWP licence', completedAt: '2024-02-20', expiresAt: '2026-02-20', frequencyMonths: 24, mandatory: true, result: 'nonconforming' }),
+    base({ person: 'L. Chen', role: 'Maintenance technician', course: 'Working at height / harness', completedAt: '2026-03-15', frequencyMonths: 0, mandatory: false, result: 'conforming' }),
   ];
 }
 
@@ -602,15 +633,15 @@ function seedSuppliers(): SupplierRecord[] {
     ...extra,
   });
   return [
-    base({ name: 'GreenWaste Carriers Ltd', serviceType: 'Hazardous waste collection', category: 'wasteCarrier', environmentallyRelevant: true, controlsCommunicated: true, rating: 'approved', lastEvaluatedAt: '2026-01-10', nextEvaluationAt: '2027-01-10', evaluationFrequencyMonths: 12, result: 'conforming' }),
-    base({ name: 'Solvent Supplies Co', serviceType: 'Chemical supplier', category: 'supplier', environmentallyRelevant: true, controlsCommunicated: true, rating: 'conditional', lastEvaluatedAt: '2025-07-01', nextEvaluationAt: '2026-07-01', evaluationFrequencyMonths: 12, result: 'needsFollowUp', notes: 'SDS pack incomplete; chase updated documentation.' }),
-    base({ name: 'ACME Site Maintenance', serviceType: 'On-site maintenance contractor', category: 'contractor', environmentallyRelevant: true, controlsCommunicated: false, rating: 'approved', lastEvaluatedAt: '2025-01-15', nextEvaluationAt: '2026-01-15', evaluationFrequencyMonths: 12, result: 'nonconforming', notes: 'Re-evaluation overdue; environmental controls not re-communicated.' }),
-    base({ name: 'CircularPack Recyclers', serviceType: 'Packaging recycling', category: 'recycler', environmentallyRelevant: true, controlsCommunicated: false, rating: 'notRated', result: 'needsFollowUp', notes: 'New supplier — initial environmental evaluation outstanding.' }),
+    base({ name: 'SafeAccess Scaffolding Ltd', serviceType: 'Scaffold erection & inspection', category: 'contractor', environmentallyRelevant: true, controlsCommunicated: true, rating: 'approved', lastEvaluatedAt: '2026-01-10', nextEvaluationAt: '2027-01-10', evaluationFrequencyMonths: 12, result: 'conforming' }),
+    base({ name: 'PrimePeople Staffing', serviceType: 'Agency labour supply', category: 'labourProvider', environmentallyRelevant: true, controlsCommunicated: true, rating: 'conditional', lastEvaluatedAt: '2025-07-01', nextEvaluationAt: '2026-07-01', evaluationFrequencyMonths: 12, result: 'needsFollowUp', notes: 'Induction records incomplete; chase competence evidence.' }),
+    base({ name: 'ACME Site Maintenance', serviceType: 'On-site maintenance contractor', category: 'contractor', environmentallyRelevant: true, controlsCommunicated: false, rating: 'approved', lastEvaluatedAt: '2025-01-15', nextEvaluationAt: '2026-01-15', evaluationFrequencyMonths: 12, result: 'nonconforming', notes: 'Re-evaluation overdue; safety controls not re-communicated.' }),
+    base({ name: 'PrecisionCoat Outsourced Finishing', serviceType: 'Outsourced spray-coating process', category: 'outsourcedProcess', environmentallyRelevant: true, controlsCommunicated: false, rating: 'notRated', result: 'needsFollowUp', notes: 'New provider — initial OH&S evaluation outstanding.' }),
     base({ name: 'Citywide Stationery', serviceType: 'Office supplies', category: 'supplier', environmentallyRelevant: false, rating: 'notRated', result: 'notApplicable' }),
   ];
 }
 
-/** Demonstration management-of-change records — on-track, aspects-outstanding and overdue. */
+/** Demonstration management-of-change records — on-track, hazards-outstanding and overdue. */
 function seedChanges(): ManagementOfChangeRecord[] {
   const now = '2026-06-15T15:00:00.000Z';
   const base = (extra: Partial<ManagementOfChangeRecord>): ManagementOfChangeRecord => ({
@@ -624,42 +655,40 @@ function seedChanges(): ManagementOfChangeRecord[] {
     ...extra,
   });
   return [
-    base({ title: 'New solvent recovery still', description: 'Install closed-loop solvent recovery on line 2.', changeType: 'equipment', status: 'assessing', aspectsReviewed: true, riskLevel: 'medium', owner: 'Process Eng.', controls: 'New air-emissions point; permit variation in progress.', targetDate: '2026-08-31', result: 'needsFollowUp' }),
-    base({ title: 'Switch degreaser to water-based', description: 'Substitute chlorinated degreaser with aqueous product.', changeType: 'material', status: 'implemented', aspectsReviewed: false, riskLevel: 'high', owner: 'EHS Lead', implementedAt: '2026-05-20', result: 'nonconforming', controls: 'Implemented before aspects/impacts reassessment — gap.' }),
-    base({ title: 'Reorganise waste storage area', description: 'Relocate hazardous-waste store nearer the dock.', changeType: 'organisational', status: 'approved', aspectsReviewed: true, riskLevel: 'low', owner: 'Site Manager', targetDate: '2026-04-30', result: 'needsFollowUp', controls: 'Bunding and signage specified; target date passed.' }),
-    base({ title: 'New packaging EPR reporting rules', description: 'Adapt to updated producer-responsibility regulations.', changeType: 'regulatory', status: 'closed', aspectsReviewed: true, riskLevel: 'low', owner: 'Compliance', implementedAt: '2026-02-15', result: 'conforming' }),
+    base({ title: 'New robotic welding cell', description: 'Install robot welding cell with light-guarding on line 2.', changeType: 'equipment', status: 'assessing', aspectsReviewed: true, riskLevel: 'medium', owner: 'Process Eng.', controls: 'New machinery guarding & LOTO; risk assessment in progress.', targetDate: '2026-08-31', result: 'needsFollowUp' }),
+    base({ title: 'Switch to water-based degreaser', description: 'Substitute solvent degreaser to reduce inhalation exposure.', changeType: 'material', status: 'implemented', aspectsReviewed: false, riskLevel: 'high', owner: 'H&S Lead', implementedAt: '2026-05-20', result: 'nonconforming', controls: 'Implemented before COSHH/manual-handling reassessment — gap.' }),
+    base({ title: 'Reorganise warehouse racking layout', description: 'Relocate racking to widen pedestrian/FLT segregation.', changeType: 'organisational', status: 'approved', aspectsReviewed: true, riskLevel: 'low', owner: 'Site Manager', targetDate: '2026-04-30', result: 'needsFollowUp', controls: 'Barriers and walkway markings specified; target date passed.' }),
+    base({ title: 'New PPE at work regulations', description: 'Adapt to updated PPE legal requirements.', changeType: 'regulatory', status: 'closed', aspectsReviewed: true, riskLevel: 'low', owner: 'Compliance', implementedAt: '2026-02-15', result: 'conforming' }),
   ];
 }
 
-/** Demonstration carbon inventory — Scope 1/2/3 sources with activity data & factors. */
-function seedCarbon(): CarbonEntry[] {
+/** Demonstration worker consultation & participation records (ISO 45001 cl. 5.4). */
+function seedConsultations(): WorkerConsultation[] {
   const now = '2026-06-15T15:00:00.000Z';
-  const base = (extra: Partial<CarbonEntry>): CarbonEntry => ({
-    id: uid('carbon'),
-    source: '',
-    scope: 1,
-    period: 'FY2025',
+  const base = (extra: Partial<WorkerConsultation>): WorkerConsultation => ({
+    id: uid('consultation'),
+    topic: '',
+    category: 'other',
+    mechanism: 'safetyCommittee',
     result: 'notStarted',
     updatedAt: now,
     sync: 'synced',
     ...extra,
   });
   return [
-    base({ source: 'Natural gas — boilers', scope: 1, category: 'Stationary combustion', activityData: 4200, activityUnit: 'MWh', emissionFactor: 183, result: 'conforming' }),
-    base({ source: 'Diesel — site fleet', scope: 1, category: 'Mobile combustion', activityData: 38000, activityUnit: 'litres', emissionFactor: 2.51, result: 'conforming' }),
-    base({ source: 'Purchased electricity', scope: 2, category: 'Location-based', activityData: 5600, activityUnit: 'MWh', emissionFactor: 207, result: 'needsFollowUp' }),
-    base({ source: 'Business travel — air', scope: 3, category: 'Cat 6 travel', activityData: 410000, activityUnit: 'passenger-km', emissionFactor: 0.18, result: 'needsFollowUp' }),
-    base({ source: 'Waste to landfill', scope: 3, category: 'Cat 5 waste', activityData: 320, activityUnit: 'tonnes', emissionFactor: 458, result: 'notStarted' }),
+    base({ topic: 'Review of working-at-height risk assessment', category: 'riskAssessment', mechanism: 'safetyCommittee', workerGroup: 'Maintenance team', participationEvidence: 'Q2 safety committee minutes', outcome: 'Agreed additional edge protection on mezzanine.', date: '2026-05-14', result: 'conforming' }),
+    base({ topic: 'New hand-arm vibration controls', category: 'controls', mechanism: 'toolboxTalk', workerGroup: 'Assembly operators', participationEvidence: 'Toolbox-talk sign-in sheet', outcome: 'Operators trialled low-vibration tools; feedback logged.', date: '2026-04-28', result: 'needsFollowUp' }),
+    base({ topic: 'PPE selection — cut-resistant gloves', category: 'ppe', mechanism: 'survey', workerGroup: 'Warehouse', participationEvidence: 'PPE preference survey results', outcome: 'Two glove options approved for trial.', date: '2026-03-20', result: 'conforming' }),
   ];
 }
 
-/** Demonstration incidents — an open high-severity spill and a closed near-miss. */
-function seedIncidents(): EnvironmentalIncident[] {
+/** Demonstration incidents — an open lost-time injury and a closed near-miss. */
+function seedIncidents(): Incident[] {
   const now = '2026-06-15T15:00:00.000Z';
-  const base = (extra: Partial<EnvironmentalIncident>): EnvironmentalIncident => ({
+  const base = (extra: Partial<Incident>): Incident => ({
     id: uid('incident'),
     title: '',
-    incidentType: 'spill',
+    incidentType: 'injury',
     severity: 'low',
     status: 'open',
     result: 'notStarted',
@@ -668,8 +697,8 @@ function seedIncidents(): EnvironmentalIncident[] {
     ...extra,
   });
   return [
-    base({ title: 'Hydraulic oil spill at press 3', occurredAt: '2026-05-12', location: 'Assembly hall', incidentType: 'spill', severity: 'high', status: 'investigating', result: 'needsFollowUp', immediateAction: 'Bunded and absorbed; ~20 L to interceptor isolated.', reportableToRegulator: false }),
-    base({ title: 'Near-miss: uncapped solvent drum', occurredAt: '2026-04-28', location: 'Paint store', incidentType: 'nearMiss', severity: 'low', status: 'closed', result: 'conforming', rootCause: 'Decanting procedure not followed; retraining completed.' }),
+    base({ title: 'Lost-time injury — fall from step ladder', occurredAt: '2026-05-12', location: 'Assembly hall', incidentType: 'injury', severity: 'high', status: 'investigating', result: 'needsFollowUp', immediateAction: 'First aid given; casualty referred to A&E. Ladder quarantined.', injuryClassification: 'lostTime', reportableToRegulator: true }),
+    base({ title: 'Near-miss: dropped load from forklift', occurredAt: '2026-04-28', location: 'Warehouse', incidentType: 'nearMiss', severity: 'low', status: 'closed', result: 'conforming', injuryClassification: 'none', rootCause: 'Load not secured per SSOW; refresher training completed.' }),
   ];
 }
 
@@ -688,19 +717,19 @@ function seedPermits(): Permit[] {
     ...extra,
   });
   return [
-    base({ title: 'Environmental permit — installation', permitType: 'permit', reference: 'EPR/AB1234CD', issuingAuthority: 'Environment Agency', issuedAt: '2022-04-01', expiresAt: '2027-09-30', complianceStatus: 'compliant', result: 'conforming', conditionsSummary: 'Emission limits, monitoring and reporting conditions.', monitoringRequirements: 'Quarterly stack testing; annual return.' }),
-    base({ title: 'Trade effluent consent', permitType: 'consent', reference: 'TE-2024-117', issuingAuthority: 'Water utility', issuedAt: '2024-07-01', expiresAt: '2026-08-15', complianceStatus: 'toVerify', result: 'needsFollowUp', monitoringRequirements: 'Monthly composite sampling of pH and COD.' }),
-    base({ title: 'Hazardous-waste carrier registration', permitType: 'registration', reference: 'CBDU-998877', issuingAuthority: 'Environment Agency', issuedAt: '2023-03-01', expiresAt: '2026-02-28', complianceStatus: 'nonCompliant', result: 'nonconforming', conditionsSummary: 'Upper-tier carrier registration; renew before expiry.' }),
+    base({ title: 'Asbestos removal licence', permitType: 'licence', reference: 'ARL/AB1234CD', issuingAuthority: 'HSE', issuedAt: '2022-04-01', expiresAt: '2027-09-30', complianceStatus: 'compliant', result: 'conforming', conditionsSummary: 'Licensed work conditions, plans of work and notification.', monitoringRequirements: 'Air monitoring & four-stage clearance per job.' }),
+    base({ title: 'Explosives storage licence', permitType: 'licence', reference: 'EX-2024-117', issuingAuthority: 'Local authority', issuedAt: '2024-07-01', expiresAt: '2026-08-15', complianceStatus: 'toVerify', result: 'needsFollowUp', monitoringRequirements: 'Quarterly magazine inspection and stock reconciliation.' }),
+    base({ title: 'Pressure systems written scheme of examination', permitType: 'registration', reference: 'PSSR-998877', issuingAuthority: 'Competent person (insurer)', issuedAt: '2023-03-01', expiresAt: '2026-02-28', complianceStatus: 'nonCompliant', result: 'nonconforming', conditionsSummary: 'Thorough examination overdue; arrange before next run.' }),
   ];
 }
 
-/** Demonstration 9.1 performance data — energy/water/waste/emissions with a target miss and a worsening trend. */
+/** Demonstration 9.1 performance data — OH&S leading/lagging indicators with a target miss and a worsening trend. */
 function seedPerformanceMetrics(): PerformanceMetric[] {
   const now = '2026-06-15T15:00:00.000Z';
   const base = (extra: Partial<PerformanceMetric>): PerformanceMetric => ({
     id: uid('metric'),
     indicator: '',
-    category: 'energy',
+    category: 'lostTimeInjury',
     unit: '',
     period: '2025',
     trend: 'notEvaluated',
@@ -710,54 +739,59 @@ function seedPerformanceMetrics(): PerformanceMetric[] {
     ...extra,
   });
   return [
-    base({ indicator: 'Grid electricity', category: 'energy', unit: 'MWh', baselineValue: 1320, targetValue: 1200, actualValue: 1185, trend: 'improving', result: 'conforming', monitoringMethod: 'Half-hourly meter readings, monthly reconciliation' }),
-    base({ indicator: 'Mains water', category: 'water', unit: 'm³', baselineValue: 8600, targetValue: 8000, actualValue: 8420, trend: 'worsening', result: 'needsFollowUp', evaluationNotes: 'Above target; suspected cooling-tower leak under investigation.' }),
-    base({ indicator: 'Hazardous waste', category: 'waste', unit: 't', baselineValue: 14.2, targetValue: 12, actualValue: 11.4, trend: 'improving', result: 'conforming' }),
-    base({ indicator: 'Scope 1 emissions', category: 'emissions', unit: 'tCO₂e', baselineValue: 540, targetValue: 500, actualValue: 512, trend: 'stable', result: 'needsFollowUp' }),
+    base({ indicator: 'Lost-time injury frequency rate', category: 'lostTimeInjury', unit: 'per 100k hrs', baselineValue: 1.8, targetValue: 1.2, actualValue: 1.1, trend: 'improving', result: 'conforming', monitoringMethod: 'Incident log vs hours worked, monthly reconciliation' }),
+    base({ indicator: 'Near-miss reports', category: 'nearMiss', unit: 'count', baselineValue: 40, targetValue: 60, actualValue: 48, trend: 'worsening', result: 'needsFollowUp', evaluationNotes: 'Below reporting target; reinforce reporting culture.' }),
+    base({ indicator: 'Safety inspections completed', category: 'inspection', unit: '%', baselineValue: 82, targetValue: 95, actualValue: 97, trend: 'improving', result: 'conforming' }),
+    base({ indicator: 'Overdue corrective actions', category: 'other', unit: 'count', baselineValue: 6, targetValue: 0, actualValue: 3, trend: 'stable', result: 'needsFollowUp' }),
   ];
 }
 
-function seedItems(): FieldChecklistItem[] {
-  const now = '2026-06-15T15:00:00.000Z';
-  return [
-    {
-      id: 'item-4',
-      clauseId: '4',
-      clauseTitle: 'Context of the organization',
-      question: 'What internal and external EMS context changes should the team verify during this audit?',
-      guidance: 'Use auditee-authored context records, interviews, and site observations.',
-      ownerName: 'Maya Chen',
-      result: 'conform',
-      evidenceIds: [],
-      sync: 'synced',
-      updatedAt: now,
-    },
-    {
-      id: 'item-6',
-      clauseId: '6',
-      clauseTitle: 'Planning',
-      question: 'Which planned controls, objectives, and evidence sources should be sampled for transition readiness?',
-      guidance: 'Keep the prompt tied to auditee records and avoid copying standard text.',
-      ownerName: 'Omar Patel',
-      result: 'ofi',
-      note: 'Objective tracking evidence partially available; confirm before signoff.',
-      evidenceIds: ['evidence-seed-note'],
-      sync: 'synced',
-      updatedAt: now,
-    },
-    {
-      id: 'item-8',
-      clauseId: '8',
-      clauseTitle: 'Operation',
-      question: 'Which operational controls should be observed, photographed, or sampled during fieldwork?',
-      guidance: 'Use photo evidence only where site rules allow it.',
-      ownerName: 'Ava Brooks',
-      result: 'notStarted',
-      evidenceIds: [],
-      sync: 'synced',
-      updatedAt: now,
-    },
-  ];
+const DEMO_SEED_AT = '2026-06-15T15:00:00.000Z';
+
+/**
+ * Demo answers layered onto the generated full-standard checklist so the seeded
+ * audit still tells a story (clause 4 conform, 6 OFI with a note + evidence, 8
+ * not yet started). Keyed by clauseId.
+ */
+const DEMO_CHECKLIST_ANSWERS: Record<
+  string,
+  Partial<Pick<FieldChecklistItem, 'ownerName' | 'result' | 'note' | 'evidenceIds'>>
+> = {
+  '4': { ownerName: 'Maya Chen', result: 'conform' },
+  '6': {
+    ownerName: 'Omar Patel',
+    result: 'ofi',
+    note: 'Objective tracking evidence partially available; confirm before signoff.',
+    evidenceIds: ['evidence-seed-note'],
+  },
+  '8': { ownerName: 'Ava Brooks', result: 'notStarted' },
+};
+
+function checklistItemId(clauseId: string): string {
+  return `item-${clauseId}`;
+}
+
+/** Turn a generated clause row into a checklist item, applying any demo answer. */
+function rowToItem(row: StandardChecklistRow): FieldChecklistItem {
+  const demo = DEMO_CHECKLIST_ANSWERS[row.clauseId];
+  return {
+    id: checklistItemId(row.clauseId),
+    clauseId: row.clauseId,
+    clauseTitle: row.clauseTitle,
+    question: row.question,
+    guidance: row.guidance,
+    ownerName: demo?.ownerName ?? '',
+    result: demo?.result ?? 'notStarted',
+    note: demo?.note,
+    evidenceIds: demo?.evidenceIds ?? [],
+    sync: 'synced',
+    updatedAt: DEMO_SEED_AT,
+  };
+}
+
+/** Seed the whole ISO 45001 clause set so every clause is answerable from day one. */
+function seedItems(edition: StandardEdition['id'] = 'ISO_45001_2018'): FieldChecklistItem[] {
+  return standardChecklist(edition).map(rowToItem);
 }
 
 function seedEvidence(): FieldEvidence[] {
@@ -767,7 +801,7 @@ function seedEvidence(): FieldEvidence[] {
       kind: 'note',
       itemId: 'item-6',
       clauseId: '6',
-      label: 'Interviewed EHS manager about transition planning records; objective tracking needs follow-up.',
+      label: 'Interviewed H&S manager about OH&S planning records; objective tracking needs follow-up.',
       capturedByName: 'Omar Patel',
       capturedAt: '2026-06-15T18:30:00.000Z',
       geo: { lat: 39.7392, lng: -104.9903, accuracyMeters: 12 },
@@ -783,10 +817,10 @@ function seedFindings(): FieldFinding[] {
       clauseId: '6',
       clauseTitle: 'Planning',
       type: 'minorNc',
-      description: 'Environmental objective tracking for 2026 transition is not fully evidenced.',
-      requirementSummary: 'Cl. 6.2 — establish, monitor and retain documented information on environmental objectives.',
+      description: 'OH&S objective tracking for the current period is not fully evidenced.',
+      requirementSummary: 'Cl. 6.2 — establish, monitor and retain documented information on OH&S objectives.',
       objectiveEvidence: 'Objectives register shows 2 of 5 objectives without progress records for the current period.',
-      gradingRationale: 'Isolated lapse on a subset of objectives; does not undermine the EMS overall — minor.',
+      gradingRationale: 'Isolated lapse on a subset of objectives; does not undermine the OH&S management system overall — minor.',
       systemic: false,
       evidenceIds: ['evidence-seed-note'],
       status: 'open',
@@ -827,7 +861,7 @@ export class FieldAuditStore {
   private readonly selection = inject(AuditSelectionService);
 
   readonly auditee = signal('Northstar Components — Denver Assembly Plant');
-  readonly criteria = signal('ISO 14001:2026');
+  readonly criteria = signal('ISO 45001:2018');
   readonly audits = signal<AuditSummary[]>([]);
   readonly selectedAuditId = this.selection.selectedAuditId;
 
@@ -838,13 +872,14 @@ export class FieldAuditStore {
   readonly auditStatus = signal<AuditStatus>('fieldwork');
   readonly meetings = signal<AuditMeeting[]>([]);
   readonly conclusion = signal<AuditConclusion | null>(null);
-  readonly aspects = signal<EnvironmentalAspect[]>([]);
+  readonly aspects = signal<Hazard[]>([]);
   readonly obligations = signal<ComplianceObligation[]>([]);
   readonly emergencyRecords = signal<EmergencyRecord[]>([]);
   readonly interestedParties = signal<InterestedParty[]>([]);
-  readonly objectives = signal<EnvironmentalObjective[]>([]);
+  readonly objectives = signal<OhsObjective[]>([]);
   readonly communications = signal<CommunicationRecord[]>([]);
   readonly managementReviews = signal<ManagementReviewRecord[]>([]);
+  readonly workerConsultations = signal<WorkerConsultation[]>(seedConsultations());
   readonly risksOpportunities = signal<RiskOpportunity[]>([]);
   readonly resources = signal<ResourceRecord[]>([]);
   readonly competence = signal<CompetenceRecord[]>([]);
@@ -852,18 +887,19 @@ export class FieldAuditStore {
   readonly documentedInfo = signal<DocumentedInfoRecord[]>(seedDocumentedInfo());
   readonly performanceMetrics = signal<PerformanceMetric[]>(seedPerformanceMetrics());
   readonly permits = signal<Permit[]>(seedPermits());
-  readonly incidents = signal<EnvironmentalIncident[]>(seedIncidents());
+  readonly incidents = signal<Incident[]>(seedIncidents());
   readonly calibration = signal<CalibrationRecord[]>(seedCalibration());
   readonly training = signal<TrainingRecord[]>(seedTraining());
   readonly suppliers = signal<SupplierRecord[]>(seedSuppliers());
   readonly changes = signal<ManagementOfChangeRecord[]>(seedChanges());
-  readonly carbon = signal<CarbonEntry[]>(seedCarbon());
   readonly reportMeta = signal<ReportMeta>(defaultReportMeta());
   /** Read-only audit trail from the backend (not synced upward). */
   readonly changeLog = signal<ChangeLogEntry[]>([]);
   readonly reportSignedAt = signal<string | null>(null);
   /** Tamper-evident e-signature captured at sign-off (signer, attestation, content hash). */
   readonly reportSignature = signal<ReportSignature | null>(null);
+  /** Provenance of the last generated report draft, for the "review before signing" banner. */
+  readonly reportDraftInfo = signal<{ source: 'ai' | 'ruleBased'; generatedAt: string } | null>(null);
   readonly online = signal(typeof navigator === 'undefined' ? true : navigator.onLine);
   readonly source = signal<DataSource>('local');
 
@@ -890,6 +926,7 @@ export class FieldAuditStore {
       this.objectives().filter((o) => o.sync !== 'synced').length +
       this.communications().filter((c) => c.sync !== 'synced').length +
       this.managementReviews().filter((m) => m.sync !== 'synced').length +
+      this.workerConsultations().filter((c) => c.sync !== 'synced').length +
       this.risksOpportunities().filter((r) => r.sync !== 'synced').length +
       this.resources().filter((r) => r.sync !== 'synced').length +
       this.competence().filter((c) => c.sync !== 'synced').length +
@@ -902,7 +939,6 @@ export class FieldAuditStore {
       this.training().filter((t) => t.sync !== 'synced').length +
       this.suppliers().filter((s) => s.sync !== 'synced').length +
       this.changes().filter((c) => c.sync !== 'synced').length +
-      this.carbon().filter((c) => c.sync !== 'synced').length +
       (this.conclusion() && this.conclusion()!.sync !== 'synced' ? 1 : 0) +
       (this.reportMeta().sync !== 'synced' ? 1 : 0),
   );
@@ -960,6 +996,92 @@ export class FieldAuditStore {
         item.id === itemId ? { ...item, note, sync: 'queued', updatedAt: new Date().toISOString() } : item,
       ),
     );
+    this.persist();
+    this.autoFlush();
+  }
+
+  /**
+   * Append any standard clauses not yet present as checklist items so the auditor
+   * can record conformity for the whole standard (idempotent). Returns the number
+   * of clauses added; items are kept in standard clause order.
+   */
+  addMissingClauseItems(edition?: StandardEdition['id']): number {
+    const ed = edition ?? editionFromCriteria(this.criteria());
+    const rows = standardChecklist(ed);
+    const existing = new Set(this.items().map((item) => item.clauseId));
+    const additions = rows
+      .filter((row) => !existing.has(row.clauseId))
+      .map((row) => ({ ...rowToItem(row), sync: 'queued' as const, updatedAt: new Date().toISOString() }));
+    if (!additions.length) return 0;
+    const order = new Map(rows.map((row, index) => [row.clauseId, index]));
+    this.items.update((items) =>
+      [...items, ...additions].sort(
+        (a, b) =>
+          (order.get(a.clauseId) ?? Number.MAX_SAFE_INTEGER) - (order.get(b.clauseId) ?? Number.MAX_SAFE_INTEGER),
+      ),
+    );
+    this.persist();
+    this.autoFlush();
+    return additions.length;
+  }
+
+  /** Add a single clause row on demand (no-op if it is already present). */
+  addChecklistItem(clauseId: string, edition?: StandardEdition['id']): void {
+    if (this.items().some((item) => item.clauseId === clauseId)) return;
+    const ed = edition ?? editionFromCriteria(this.criteria());
+    const row = standardChecklist(ed).find((candidate) => candidate.clauseId === clauseId);
+    if (!row) return;
+    const item: FieldChecklistItem = { ...rowToItem(row), sync: 'queued', updatedAt: new Date().toISOString() };
+    this.items.update((items) => [...items, item]);
+    this.persist();
+    this.autoFlush();
+  }
+
+  /** Add a custom/tailored check (e.g. an industry- or client-specific question) against any clause. */
+  addCustomChecklistItem(input: { clauseId: string; clauseTitle?: string; question: string; guidance?: string }): void {
+    const clauseId = input.clauseId.trim() || 'custom';
+    const question = input.question.trim();
+    if (!question) return;
+    const item: FieldChecklistItem = {
+      id: uid('item'),
+      clauseId,
+      clauseTitle: input.clauseTitle?.trim() || clauseId,
+      question,
+      guidance: input.guidance?.trim() || undefined,
+      ownerName: '',
+      result: 'notStarted',
+      evidenceIds: [],
+      sync: 'queued',
+      updatedAt: new Date().toISOString(),
+    };
+    this.items.update((items) => [...items, item]);
+    this.persist();
+    this.autoFlush();
+  }
+
+  /** Edit a check's wording (question/guidance/title) to tailor it to the auditee. */
+  updateChecklistItem(itemId: string, patch: { question?: string; guidance?: string; clauseTitle?: string }): void {
+    this.items.update((items) =>
+      items.map((item) =>
+        item.id === itemId
+          ? {
+              ...item,
+              ...(patch.question !== undefined ? { question: patch.question.trim() } : {}),
+              ...(patch.guidance !== undefined ? { guidance: patch.guidance.trim() || undefined } : {}),
+              ...(patch.clauseTitle !== undefined ? { clauseTitle: patch.clauseTitle.trim() } : {}),
+              sync: 'queued',
+              updatedAt: new Date().toISOString(),
+            }
+          : item,
+      ),
+    );
+    this.persist();
+    this.autoFlush();
+  }
+
+  /** Remove a check from this audit's checklist. */
+  removeChecklistItem(itemId: string): void {
+    this.items.update((items) => items.filter((item) => item.id !== itemId));
     this.persist();
     this.autoFlush();
   }
@@ -1179,6 +1301,61 @@ export class FieldAuditStore {
     this.autoFlush();
   }
 
+  /**
+   * Auto-draft the audit conclusions from this audit's own data. Uses the
+   * server-side AI provider when live & online; otherwise the offline rule-based
+   * composer. The lead auditor reviews and edits every field before signing.
+   */
+  async generateReportDraft(): Promise<'ai' | 'ruleBased'> {
+    const input = this.buildReportDraftInput();
+    let draft: ReportDraft;
+    if (this.source() === 'live' && this.online()) {
+      try {
+        draft = await this.api.draftReport(input);
+      } catch {
+        draft = composeReportDraft(input);
+      }
+    } else {
+      draft = composeReportDraft(input);
+    }
+    this.saveConclusion({
+      overallConformity: draft.overallConformity,
+      emsEffectivenessOpinion: draft.emsEffectivenessOpinion,
+      criteriaMetStatement: draft.criteriaMetStatement,
+      recommendation: draft.recommendation,
+    });
+    this.reportDraftInfo.set({ source: draft.source, generatedAt: draft.generatedAt });
+    return draft.source;
+  }
+
+  private buildReportDraftInput(): ReportDraftInput {
+    const labels: Record<AuditType, string> = {
+      internal: 'Internal',
+      stage1: 'Stage 1 certification',
+      stage2: 'Stage 2 certification',
+      surveillance: 'Surveillance',
+      recertification: 'Recertification',
+    };
+    return {
+      auditee: this.auditee(),
+      criteria: this.criteria(),
+      auditTypeLabel: labels[this.reportMeta().auditType] ?? 'Audit',
+      checklist: this.items().map((item) => ({
+        clauseId: item.clauseId,
+        clauseTitle: item.clauseTitle,
+        result: item.result,
+      })),
+      findings: this.findings().map((finding) => ({
+        type: finding.type,
+        clauseId: finding.clauseId,
+        clauseTitle: finding.clauseTitle,
+        status: finding.status,
+      })),
+      evidenceCount: this.evidence().length,
+      overdueCapaCount: this.overdueCapas().length,
+    };
+  }
+
   /** Update the report front-matter (UK-style report metadata). Synced to the
    *  backend so it travels across devices/team members, like the conclusion. */
   updateReportMeta(patch: Partial<Omit<ReportMeta, 'sync'>>): void {
@@ -1196,7 +1373,7 @@ export class FieldAuditStore {
     this.autoFlush();
   }
 
-  updateAspect(id: string, patch: Partial<EnvironmentalAspect>): void {
+  updateAspect(id: string, patch: Partial<Hazard>): void {
     this.aspects.update((list) =>
       list.map((entry) => (entry.id === id ? { ...entry, ...patch, updatedAt: new Date().toISOString(), sync: 'queued' } : entry)),
     );
@@ -1264,7 +1441,7 @@ export class FieldAuditStore {
     this.autoFlush();
   }
 
-  updateObjective(id: string, patch: Partial<EnvironmentalObjective>): void {
+  updateObjective(id: string, patch: Partial<OhsObjective>): void {
     this.objectives.update((list) =>
       list.map((entry) => (entry.id === id ? { ...entry, ...patch, updatedAt: new Date().toISOString(), sync: 'queued' } : entry)),
     );
@@ -1300,6 +1477,23 @@ export class FieldAuditStore {
 
   updateManagementReview(id: string, patch: Partial<ManagementReviewRecord>): void {
     this.managementReviews.update((list) =>
+      list.map((entry) => (entry.id === id ? { ...entry, ...patch, updatedAt: new Date().toISOString(), sync: 'queued' } : entry)),
+    );
+    this.persist();
+    this.autoFlush();
+  }
+
+  addWorkerConsultation(): void {
+    this.workerConsultations.update((list) => [
+      { id: uid('consultation'), topic: '', category: 'other', mechanism: 'safetyCommittee', result: 'notStarted', updatedAt: new Date().toISOString(), sync: 'queued' },
+      ...list,
+    ]);
+    this.persist();
+    this.autoFlush();
+  }
+
+  updateWorkerConsultation(id: string, patch: Partial<WorkerConsultation>): void {
+    this.workerConsultations.update((list) =>
       list.map((entry) => (entry.id === id ? { ...entry, ...patch, updatedAt: new Date().toISOString(), sync: 'queued' } : entry)),
     );
     this.persist();
@@ -1433,7 +1627,7 @@ export class FieldAuditStore {
 
   addPerformanceMetric(): void {
     this.performanceMetrics.update((list) => [
-      { id: uid('metric'), indicator: '', category: 'energy', unit: '', period: '', trend: 'notEvaluated', result: 'notStarted', updatedAt: new Date().toISOString(), sync: 'queued' },
+      { id: uid('metric'), indicator: '', category: 'nearMiss', unit: '', period: '', trend: 'notEvaluated', result: 'notStarted', updatedAt: new Date().toISOString(), sync: 'queued' },
       ...list,
     ]);
     this.persist();
@@ -1467,14 +1661,14 @@ export class FieldAuditStore {
 
   addIncident(): void {
     this.incidents.update((list) => [
-      { id: uid('incident'), title: '', incidentType: 'spill', severity: 'low', status: 'open', result: 'notStarted', updatedAt: new Date().toISOString(), sync: 'queued' },
+      { id: uid('incident'), title: '', incidentType: 'injury', severity: 'low', status: 'open', result: 'notStarted', updatedAt: new Date().toISOString(), sync: 'queued' },
       ...list,
     ]);
     this.persist();
     this.autoFlush();
   }
 
-  updateIncident(id: string, patch: Partial<EnvironmentalIncident>): void {
+  updateIncident(id: string, patch: Partial<Incident>): void {
     this.incidents.update((list) =>
       list.map((entry) => (entry.id === id ? { ...entry, ...patch, updatedAt: new Date().toISOString(), sync: 'queued' } : entry)),
     );
@@ -1544,23 +1738,6 @@ export class FieldAuditStore {
 
   updateChange(id: string, patch: Partial<ManagementOfChangeRecord>): void {
     this.changes.update((list) =>
-      list.map((entry) => (entry.id === id ? { ...entry, ...patch, updatedAt: new Date().toISOString(), sync: 'queued' } : entry)),
-    );
-    this.persist();
-    this.autoFlush();
-  }
-
-  addCarbon(): void {
-    this.carbon.update((list) => [
-      { id: uid('carbon'), source: '', scope: 1, result: 'notStarted', updatedAt: new Date().toISOString(), sync: 'queued' },
-      ...list,
-    ]);
-    this.persist();
-    this.autoFlush();
-  }
-
-  updateCarbon(id: string, patch: Partial<CarbonEntry>): void {
-    this.carbon.update((list) =>
       list.map((entry) => (entry.id === id ? { ...entry, ...patch, updatedAt: new Date().toISOString(), sync: 'queued' } : entry)),
     );
     this.persist();
@@ -1671,6 +1848,7 @@ export class FieldAuditStore {
     this.objectives.set([]);
     this.communications.set([]);
     this.managementReviews.set([]);
+    this.workerConsultations.set(seedConsultations());
     this.risksOpportunities.set([]);
     this.resources.set([]);
     this.competence.set([]);
@@ -1683,7 +1861,6 @@ export class FieldAuditStore {
     this.training.set(seedTraining());
     this.suppliers.set(seedSuppliers());
     this.changes.set(seedChanges());
-    this.carbon.set(seedCarbon());
     this.reportMeta.set(defaultReportMeta());
     this.reportSignedAt.set(null);
     this.reportSignature.set(null);
@@ -1905,6 +2082,17 @@ export class FieldAuditStore {
           this.setSync('managementReviews', record.id, 'queued');
         }
       }
+      for (const record of this.workerConsultations().filter((entry) => entry.sync !== 'synced')) {
+        this.setSync('workerConsultations', record.id, 'syncing');
+        try {
+          const { sync, ...payload } = record;
+          void sync;
+          await this.api.upsertConsultation(payload);
+          this.setSync('workerConsultations', record.id, 'synced');
+        } catch {
+          this.setSync('workerConsultations', record.id, 'queued');
+        }
+      }
       for (const record of this.risksOpportunities().filter((entry) => entry.sync !== 'synced')) {
         this.setSync('risksOpportunities', record.id, 'syncing');
         try {
@@ -2037,17 +2225,6 @@ export class FieldAuditStore {
           this.setSync('changes', record.id, 'queued');
         }
       }
-      for (const record of this.carbon().filter((entry) => entry.sync !== 'synced')) {
-        this.setSync('carbon', record.id, 'syncing');
-        try {
-          const { sync, ...payload } = record;
-          void sync;
-          await this.api.upsertCarbon(payload);
-          this.setSync('carbon', record.id, 'synced');
-        } catch {
-          this.setSync('carbon', record.id, 'queued');
-        }
-      }
       this.persist();
     } finally {
       this.flushing = false;
@@ -2068,6 +2245,7 @@ export class FieldAuditStore {
       | 'objectives'
       | 'communications'
       | 'managementReviews'
+      | 'workerConsultations'
       | 'risksOpportunities'
       | 'resources'
       | 'competence'
@@ -2079,8 +2257,7 @@ export class FieldAuditStore {
       | 'calibration'
       | 'training'
       | 'suppliers'
-      | 'changes'
-      | 'carbon',
+      | 'changes',
     id: string,
     sync: SyncState,
   ): void {
@@ -2098,6 +2275,7 @@ export class FieldAuditStore {
       objectives: this.objectives,
       communications: this.communications,
       managementReviews: this.managementReviews,
+      workerConsultations: this.workerConsultations,
       risksOpportunities: this.risksOpportunities,
       resources: this.resources,
       competence: this.competence,
@@ -2110,7 +2288,6 @@ export class FieldAuditStore {
       training: this.training,
       suppliers: this.suppliers,
       changes: this.changes,
-      carbon: this.carbon,
     };
     const ref = map[collection] as unknown as {
       update: (fn: (list: SyncRecord[]) => SyncRecord[]) => void;
@@ -2162,6 +2339,7 @@ export class FieldAuditStore {
       objectives: this.objectives(),
       communications: this.communications(),
       managementReviews: this.managementReviews(),
+      workerConsultations: this.workerConsultations(),
       risksOpportunities: this.risksOpportunities(),
       resources: this.resources(),
       competence: this.competence(),
@@ -2174,7 +2352,6 @@ export class FieldAuditStore {
       training: this.training(),
       suppliers: this.suppliers(),
       changes: this.changes(),
-      carbon: this.carbon(),
       reportMeta: this.reportMeta(),
       reportSignedAt: this.reportSignedAt(),
       reportSignature: this.reportSignature(),
@@ -2200,6 +2377,7 @@ export class FieldAuditStore {
       this.objectives.set((payload.objectives ?? []).map((o) => ({ ...o, sync: 'synced' as const })));
       this.communications.set((payload.communications ?? []).map((c) => ({ ...c, sync: 'synced' as const })));
       this.managementReviews.set((payload.managementReviews ?? []).map((m) => ({ ...m, sync: 'synced' as const })));
+      this.workerConsultations.set((payload.workerConsultations ?? []).map((c) => ({ ...c, sync: 'synced' as const })));
       this.risksOpportunities.set((payload.risksOpportunities ?? []).map((r) => ({ ...r, sync: 'synced' as const })));
       this.resources.set((payload.resources ?? []).map((r) => ({ ...r, sync: 'synced' as const })));
       this.competence.set((payload.competence ?? []).map((c) => ({ ...c, sync: 'synced' as const })));
@@ -2212,7 +2390,6 @@ export class FieldAuditStore {
       this.training.set((payload.training ?? []).map((t) => ({ ...t, sync: 'synced' as const })));
       this.suppliers.set((payload.suppliers ?? []).map((s) => ({ ...s, sync: 'synced' as const })));
       this.changes.set((payload.changes ?? []).map((c) => ({ ...c, sync: 'synced' as const })));
-      this.carbon.set((payload.carbon ?? []).map((c) => ({ ...c, sync: 'synced' as const })));
       // Report front-matter: prefer the server copy (shared across the team),
       // falling back to defaults, then overlay scope/dates from the audit record.
       this.reportMeta.set(
@@ -2258,6 +2435,7 @@ export class FieldAuditStore {
     this.objectives.set(saved.objectives ?? []);
     this.communications.set(saved.communications ?? []);
     this.managementReviews.set(saved.managementReviews ?? []);
+    this.workerConsultations.set(saved.workerConsultations ?? seedConsultations());
     this.risksOpportunities.set(saved.risksOpportunities ?? []);
     this.resources.set(saved.resources ?? []);
     this.competence.set(saved.competence ?? []);
@@ -2270,7 +2448,6 @@ export class FieldAuditStore {
     this.training.set(saved.training ?? seedTraining());
     this.suppliers.set(saved.suppliers ?? seedSuppliers());
     this.changes.set(saved.changes ?? seedChanges());
-    this.carbon.set(saved.carbon ?? seedCarbon());
     if (saved.reportMeta) this.reportMeta.set({ ...defaultReportMeta(), ...saved.reportMeta });
     this.reportSignedAt.set(saved.reportSignedAt ?? null);
     this.reportSignature.set(saved.reportSignature ?? null);

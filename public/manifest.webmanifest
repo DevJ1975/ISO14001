@@ -1,13 +1,13 @@
 {
-  "name": "Trainovate ISO 14001 Audit Platform",
+  "name": "Trainovate ISO 45001 Audit Platform",
   "short_name": "Audit",
-  "description": "Field-ready ISO 14001 environmental audit workspace.",
+  "description": "Field-ready ISO 45001 occupational health & safety audit workspace for auditors.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "any",
-  "background_color": "#073633",
-  "theme_color": "#0b4d4a",
+  "background_color": "#f4f1ea",
+  "theme_color": "#0a0a0a",
   "categories": ["business", "productivity", "utilities"],
   "icons": [
     { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },

@@ -22,11 +22,11 @@ const SECTIONS: ManualSection[] = [
     blocks: [
       {
         kind: 'p',
-        text: 'Trainovate is a field-ready ISO 14001 environmental audit workspace for lead auditors and audit teams. It guides an audit from on-site fieldwork through nonconformities, corrective action, audit conclusions and the signed report — and it keeps working when you lose signal.',
+        text: 'Soteria Signum by Trainovate is a field-ready ISO 45001 occupational health & safety (OH&S) audit workspace for lead auditors and audit teams. It guides an audit from on-site fieldwork through nonconformities, corrective action, audit conclusions and the signed report — and it keeps working when you lose signal.',
       },
       {
         kind: 'p',
-        text: 'It is grounded in ISO 19011:2018 (auditing management systems), ISO/IEC 17021-1 (certification audits) and ISO 14001:2015. This manual is your reference for each part of the workflow.',
+        text: 'Each account represents a client site you are auditing. Audits run against ISO 45001:2018 (or the 2026 edition placeholder), grounded in ISO 19011:2018 (auditing management systems) and ISO/IEC 17021-1 (certification audits). This manual is your reference for each part of the workflow.',
       },
     ],
   },
@@ -35,7 +35,7 @@ const SECTIONS: ManualSection[] = [
     title: 'Signing in (Live vs Local)',
     icon: 'login',
     blocks: [
-      { kind: 'p', text: 'Sign in with your auditor credentials to load the live audit from the backend. The data-source pill in the header shows where your data lives:' },
+      { kind: 'p', text: 'Sign in with your auditor credentials to load the live audit for the client site from the backend. The data-source pill in the header shows where your data lives:' },
       {
         kind: 'ul',
         items: [
@@ -108,8 +108,8 @@ const SECTIONS: ManualSection[] = [
       {
         kind: 'ul',
         items: [
-          'Major NC — affects the EMS’s capability to achieve intended results: absence or total breakdown of a required process, significant doubt about control/conformance, legal/environmental risk, or several minors against one requirement (systemic). A major NC blocks certification.',
-          'Minor NC — an isolated lapse that does not undermine the EMS overall.',
+          'Major NC — affects the OHSMS’s capability to achieve intended results: absence or total breakdown of a required process, significant doubt about control/conformance, legal or worker-safety risk, or several minors against one requirement (systemic). A major NC blocks certification.',
+          'Minor NC — an isolated lapse that does not undermine the OHSMS overall.',
           'OFI — an opportunity for improvement; not a nonconformity.',
         ],
       },
@@ -121,7 +121,7 @@ const SECTIONS: ManualSection[] = [
     title: 'Corrective action & effectiveness',
     icon: 'build',
     blocks: [
-      { kind: 'p', text: 'Each nonconformity drives a corrective-action record (ISO 14001 cl. 10.2):' },
+      { kind: 'p', text: 'Each nonconformity drives a corrective-action record (ISO 45001 cl. 10.2):' },
       {
         kind: 'steps',
         items: [
@@ -146,7 +146,7 @@ const SECTIONS: ManualSection[] = [
         items: [
           'Opening meeting — confirm scope, criteria, methods, confidentiality and schedule with the auditee.',
           'Closing meeting — present findings, agree timelines and record the auditee’s acknowledgement.',
-          'Conclusions — overall conformity, EMS effectiveness opinion, the degree to which criteria were met, and the recommendation (recommend / conditional / not recommended, or satisfactory / action required for internal audits).',
+          'Conclusions — overall conformity, OHSMS effectiveness opinion, the degree to which criteria were met, and the recommendation (recommend / conditional / not recommended, or satisfactory / action required for internal audits).',
         ],
       },
     ],
@@ -162,16 +162,30 @@ const SECTIONS: ManualSection[] = [
   },
   {
     id: 'ems',
-    title: 'ISO 14001 EMS registers',
-    icon: 'eco',
+    title: 'ISO 45001 OH&S registers',
+    icon: 'health_and_safety',
     blocks: [
-      { kind: 'p', text: 'EMS-specific evaluation is captured in dedicated registers:' },
+      { kind: 'p', text: 'OH&S evaluation is captured in dedicated registers that mirror the Registers screen. Open each one to review entries against the relevant clause:' },
       {
         kind: 'ul',
         items: [
-          'Significant environmental aspects (cl. 6.1.2 / 8.1) — aspect, activity, impact, lifecycle stage, significance and controls.',
-          'Compliance obligations & evaluation of compliance (cl. 9.1.2) — obligation, source, requirement and compliance status.',
+          'Hazard identification & OH&S risk register (cl. 6.1.2 / 8.1.2) — hazard, activity, who could be harmed, severity × likelihood risk rating, and the controls applied via the hierarchy of controls (elimination, substitution, engineering, administrative, PPE).',
+          'Worker consultation & participation register (cl. 5.4) — how non-managerial workers are consulted and take part in OH&S decisions; unique to ISO 45001.',
+          'Legal & other requirements register and evaluation of compliance (cl. 6.1.3 / 9.1.2) — requirement, source, how it applies, and compliance status.',
+          'Incident, near-miss & investigation register (cl. 10.2) — event, injury classification (including RIDDOR-reportable), root-cause analysis and actions taken.',
+          'OH&S performance metrics (cl. 9.1) — leading and lagging indicators such as LTIFR/TRIFR, near-misses and toolbox talks.',
           'Emergency preparedness & response (cl. 8.2) — scenarios, procedures and drills.',
+          'Procurement, contractors & outsourcing (cl. 8.1.4) — how OH&S controls extend to suppliers, contractors and outsourced processes.',
+          'Management of change (cl. 8.1.3) — how OH&S risks of planned changes are assessed and controlled.',
+        ],
+      },
+      { kind: 'p', text: 'Governance and supporting registers round out the system:' },
+      {
+        kind: 'ul',
+        items: [
+          'Interested parties (cl. 4.2), OH&S objectives (cl. 6.2), communication (cl. 7.4) and management review (cl. 9.3).',
+          'Resources (cl. 7.1), competence (cl. 7.2), awareness (cl. 7.3) and documented information (cl. 7.5).',
+          'Calibration of OH&S monitoring equipment (noise dosimeters, gas detectors), training and competence with expiry tracking, and document control.',
         ],
       },
     ],

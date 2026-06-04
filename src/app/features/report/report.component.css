@@ -5,6 +5,38 @@
   color: var(--text);
 }
 
+.ai-draft {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.ai-draft button {
+  justify-self: start;
+  min-height: 44px;
+  border-radius: 11px;
+}
+
+.ai-note,
+.ai-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.ai-note mat-icon {
+  flex: 0 0 auto;
+  font-size: 17px;
+  width: 17px;
+  height: 17px;
+}
+
 .report-head {
   display: flex;
   align-items: flex-start;

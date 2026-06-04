@@ -23,6 +23,7 @@ import {
   surveillanceDue,
 } from '../../core/domain';
 import { AuditTypeKind, PlannedStatus, ProgrammeStore } from '../../core/programme/programme-store';
+import { ConfirmService } from '../../core/ui/confirm.service';
 
 @Component({
   selector: 'app-programme',
@@ -36,6 +37,7 @@ export class ProgrammeComponent {
   protected readonly store = inject(ProgrammeStore);
   private readonly auth = inject(AuthService);
   private readonly alerts = inject(AlertsService);
+  private readonly confirm = inject(ConfirmService);
 
   /** Upcoming deadlines (planned audits, permit expiries, complaint due dates) grouped by month for the timeline. */
   protected readonly schedule = computed(() => {
@@ -83,6 +85,36 @@ export class ProgrammeComponent {
 
   protected addPlanned(): void {
     this.store.addPlannedAudit(this.newType(), this.suggestDue(this.newType()));
+  }
+
+  protected async confirmRemovePlanned(id: string): Promise<void> {
+    const ok = await this.confirm.ask({
+      title: 'Remove planned audit?',
+      message: 'This planned audit will be removed from the programme. This cannot be undone.',
+      confirmLabel: 'Remove',
+      danger: true,
+    });
+    if (ok) this.store.removePlannedAudit(id);
+  }
+
+  protected async confirmRemoveCertificate(id: string): Promise<void> {
+    const ok = await this.confirm.ask({
+      title: 'Remove certificate?',
+      message: 'This certificate record will be permanently removed.',
+      confirmLabel: 'Remove',
+      danger: true,
+    });
+    if (ok) this.store.removeCertificate(id);
+  }
+
+  protected async confirmRemoveComplaint(id: string): Promise<void> {
+    const ok = await this.confirm.ask({
+      title: 'Remove record?',
+      message: 'This complaint / appeal record will be permanently removed.',
+      confirmLabel: 'Remove',
+      danger: true,
+    });
+    if (ok) this.store.removeComplaint(id);
   }
 
   protected suggestDue(type: AuditTypeKind): string {

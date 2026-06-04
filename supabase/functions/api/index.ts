@@ -1,4 +1,4 @@
-// Supabase Edge Function: ISO 14001 audit API.
+// Supabase Edge Function: ISO 45001 audit API.
 // Mirrors the original Node/Mongo `/api` contract over Postgres JSONB tables.
 // Custom auth (HS256 app JWT + PBKDF2 passwords via Web Crypto); deployed with
 // verify_jwt=false so the app's own bearer token passes through unmodified.
@@ -218,12 +218,12 @@ async function upsertRecord(tenantId, auditId, kind, recordId, doc) {
     );
 }
 
-// A fresh audit starts with the three top-level ISO 14001 clause checklist rows.
+// A fresh audit starts with the three top-level ISO 45001 clause checklist rows.
 function starterChecklist() {
   const now = new Date().toISOString();
   return [
-    { id: 'item-4', clauseId: '4', clauseTitle: 'Context of the organization', question: 'Verify internal/external EMS context and interested parties.', ownerName: '', result: 'notStarted', evidenceIds: [], updatedAt: now },
-    { id: 'item-6', clauseId: '6', clauseTitle: 'Planning', question: 'Sample environmental aspects, compliance obligations, risks and objectives.', ownerName: '', result: 'notStarted', evidenceIds: [], updatedAt: now },
+    { id: 'item-4', clauseId: '4', clauseTitle: 'Context of the organization', question: 'Verify internal/external OHSMS context and interested parties.', ownerName: '', result: 'notStarted', evidenceIds: [], updatedAt: now },
+    { id: 'item-6', clauseId: '6', clauseTitle: 'Planning', question: 'Sample hazards, OH&S risks, legal & other requirements and objectives.', ownerName: '', result: 'notStarted', evidenceIds: [], updatedAt: now },
     { id: 'item-8', clauseId: '8', clauseTitle: 'Operation', question: 'Observe operational controls and emergency preparedness.', ownerName: '', result: 'notStarted', evidenceIds: [], updatedAt: now },
   ];
 }
@@ -429,7 +429,7 @@ Deno.serve(async (req) => {
           id,
           auditee: String(body.auditee ?? '').slice(0, 300),
           scope: String(body.scope ?? '').slice(0, 2000),
-          criteria: body.criteria === 'ISO 14001:2015' ? 'ISO 14001:2015' : 'ISO 14001:2026',
+          criteria: body.criteria === 'ISO 45001:2026' ? 'ISO 45001:2026' : 'ISO 45001:2018',
           status: 'planned',
           startsAt: body.startsAt ?? null,
           endsAt: body.endsAt ?? null,
@@ -488,7 +488,7 @@ Deno.serve(async (req) => {
           training: byKind('training'),
           suppliers: byKind('supplier'),
           changes: byKind('change-moc'),
-          carbon: byKind('carbon'),
+          workerConsultations: byKind('consultation'),
           meetings: byKind('meeting'),
           conclusion: single('conclusion'),
           reportMeta: single('reportMeta'),
@@ -632,6 +632,53 @@ Deno.serve(async (req) => {
         return json(200, { reportMeta: doc }, req);
       }
 
+      // AI report draft (server-side). Inert until ANTHROPIC_API_KEY + ANTHROPIC_MODEL
+      // are set as function secrets; the client falls back to its offline rule-based
+      // composer on any non-2xx, so the feature still works without a key. The prompt
+      // forbids verbatim ISO requirement text (copyright guardrail).
+      if (method === 'POST' && rest[0] === 'report-draft') {
+        requireRole(actor, ['leadAuditor', 'auditor']);
+        const input = await readJson(req);
+        const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
+        const model = Deno.env.get('ANTHROPIC_MODEL');
+        if (!apiKey || !model) return json(501, { error: 'ai_not_configured' }, req);
+        const system =
+          'You are an ISO 45001 lead auditor assistant drafting an audit report. Use ONLY the audit data provided and ISO 45001 clause numbers and short titles. Do NOT quote or paraphrase verbatim ISO requirement text. Respond with a strict JSON object only, with keys overallConformity, emsEffectivenessOpinion, criteriaMetStatement, recommendation. recommendation must be one of recommend, conditional, notRecommended, satisfactory, actionRequired.';
+        try {
+          const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+            body: JSON.stringify({
+              model,
+              max_tokens: 1200,
+              system,
+              messages: [{ role: 'user', content: `Audit data:\n${JSON.stringify(input)}` }],
+            }),
+          });
+          if (!aiRes.ok) return json(502, { error: 'ai_upstream' }, req);
+          const payload = await aiRes.json();
+          const text = (payload?.content ?? []).map((part: { text?: string }) => part?.text ?? '').join('');
+          const found = text.match(/\{[\s\S]*\}/);
+          if (!found) return json(502, { error: 'ai_parse' }, req);
+          const parsed = JSON.parse(found[0]);
+          const recs = ['recommend', 'conditional', 'notRecommended', 'satisfactory', 'actionRequired'];
+          return json(
+            200,
+            {
+              overallConformity: String(parsed.overallConformity ?? ''),
+              emsEffectivenessOpinion: String(parsed.emsEffectivenessOpinion ?? ''),
+              criteriaMetStatement: String(parsed.criteriaMetStatement ?? ''),
+              recommendation: recs.includes(parsed.recommendation) ? parsed.recommendation : 'satisfactory',
+              source: 'ai',
+              generatedAt: new Date().toISOString(),
+            },
+            req,
+          );
+        } catch {
+          return json(502, { error: 'ai_failed' }, req);
+        }
+      }
+
       if (method === 'POST' && rest[0] === 'reports' && rest[1] === 'signoff') {
         requireRole(actor, ['leadAuditor']);
         const body = await readJson(req);
@@ -664,7 +711,7 @@ Deno.serve(async (req) => {
         training: 'training',
         suppliers: 'supplier',
         changes: 'change-moc',
-        carbon: 'carbon',
+        'worker-consultations': 'consultation',
       };
       if (method === 'PUT' && registerKinds[rest[0]] && rest[1]) {
         requireRole(actor, ['leadAuditor', 'auditor']);

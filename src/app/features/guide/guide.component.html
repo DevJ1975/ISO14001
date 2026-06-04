@@ -1,7 +1,7 @@
 <section class="screen guide">
   <header class="screen-head">
     <h1>Auditor's field guide</h1>
-    <p>How to run a proper ISO 14001 audit and what to look for — a starting point for auditors new to environmental management-system auditing. Grounded in ISO 19011 and ISO/IEC 17021-1; clause references are by number and title only.</p>
+    <p>How to run a proper ISO 45001 OH&S audit and what to look for — a starting point for auditors new to occupational health & safety management-system auditing. Grounded in ISO 19011 and ISO/IEC 17021-1; clause references are by number and title only.</p>
   </header>
 
   <nav class="toc panel" aria-label="Contents">
@@ -12,7 +12,7 @@
 
   <article class="panel doc" id="method">
     <h2><mat-icon aria-hidden="true">route</mat-icon>The audit, step by step</h2>
-    <p>Every audit follows the same arc, from preparation to verifying that fixes worked. Trainovate's workflow mirrors it: planned → fieldwork → reporting → follow-up → closed.</p>
+    <p>Every audit follows the same arc, from preparation to verifying that fixes worked. The Soteria Signum workflow mirrors it: planned → fieldwork → reporting → follow-up → closed.</p>
     @for (stage of methodology; track stage.id) {
       <div class="stage">
         <h3><mat-icon aria-hidden="true">{{ stage.icon }}</mat-icon>{{ stage.title }}</h3>
@@ -46,8 +46,26 @@
 
   <article class="panel doc" id="clauses">
     <h2><mat-icon aria-hidden="true">menu_book</mat-icon>What to look for by clause</h2>
-    <p>For each ISO 14001 clause (4–10): why it matters, what to look for, the evidence to request, questions to ask, and the nonconformities that commonly turn up.</p>
-    @for (c of clauses; track c.clauseId) {
+    <p>For each ISO 45001 clause (4–10): why it matters, what to look for, the evidence to request, questions to ask, and the nonconformities that commonly turn up.</p>
+
+    <div class="clause-search">
+      <mat-icon aria-hidden="true">search</mat-icon>
+      <input
+        #search
+        type="search"
+        placeholder="Filter clauses by number or title…"
+        [value]="query()"
+        (input)="query.set(search.value)"
+        aria-label="Filter clauses"
+      />
+    </div>
+    <nav class="clause-jump" aria-label="Jump to clause">
+      @for (entry of clauseIndex; track entry.clauseId) {
+        <a [href]="'#clause-' + entry.clauseId" [title]="entry.title">{{ entry.clauseId }}</a>
+      }
+    </nav>
+
+    @for (c of clauses(); track c.clauseId) {
       <div class="clause" [id]="'clause-' + c.clauseId">
         <h3><span class="ref">{{ c.clauseId }}</span>{{ c.title }}</h3>
         <p class="purpose">{{ c.purpose }}</p>
@@ -70,6 +88,8 @@
           </div>
         </div>
       </div>
+    } @empty {
+      <p class="muted">No clauses match "{{ query() }}".</p>
     }
   </article>
 </section>

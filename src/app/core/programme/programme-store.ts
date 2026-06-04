@@ -103,7 +103,7 @@ export class ProgrammeStore {
     const created: Programme = {
       tenantId: this.tenantId(),
       cycleYear: new Date().getFullYear(),
-      criteria: 'ISO_14001_2026',
+      criteria: 'ISO_45001_2018',
       plannedAudits: [],
       competence: [],
       certificates: [],
@@ -172,7 +172,7 @@ export class ProgrammeStore {
     const certificate: Certificate = {
       id: uid('cert'),
       certificateNumber: '',
-      edition: 'ISO_14001_2026',
+      edition: 'ISO_45001_2026',
       scopeStatement: '',
       sites: [],
       status: 'active',

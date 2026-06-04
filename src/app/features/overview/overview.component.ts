@@ -4,7 +4,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { RouterLink } from '@angular/router';
 
 import { AlertsService } from '../../core/alerts/alerts.service';
-import { carbonRollup, formatTco2e, metricVariance } from '../../core/domain';
+import { metricVariance } from '../../core/domain';
 import { FieldAuditStore } from '../../core/field/field-audit-store';
 
 interface Bar {
@@ -54,6 +54,10 @@ export class OverviewComponent {
       capaVerified: capas.filter((c) => c.status === 'verified').length,
       evidence: this.store.evidence().length,
       incidentsOpen: this.store.incidents().filter((i) => i.status !== 'closed').length,
+      hazards: this.store.aspects().length,
+      hazardsHigh: this.store.aspects().filter((h) => h.significance === 'high').length,
+      consultations: this.store.workerConsultations().length,
+      riddor: this.store.incidents().filter((i) => i.reportableToRegulator || i.injuryClassification === 'riddor').length,
     };
   });
 
@@ -94,11 +98,35 @@ export class OverviewComponent {
     }),
   );
 
+  /** Hazards grouped by recorded risk band (cl. 6.1.2). */
+  protected readonly hazardsByBand = computed<Bar[]>(() => {
+    const hz = this.store.aspects();
+    const count = (band: string) => hz.filter((h) => h.significance === band).length;
+    const high = count('high');
+    const medium = count('medium');
+    const low = count('low');
+    const max = Math.max(1, high, medium, low);
+    const toBar = (label: string, n: number, tone: Bar['tone']): Bar => ({ label, count: n, pct: Math.round((n / max) * 100), tone });
+    return [toBar('High', high, 'critical'), toBar('Medium', medium, 'progress'), toBar('Low', low, 'positive')];
+  });
+
+  /** Legal & other requirements by evaluation-of-compliance status (cl. 9.1.2). */
+  protected readonly complianceBreakdown = computed<Bar[]>(() => {
+    const ob = this.store.obligations();
+    const count = (s: string) => ob.filter((o) => o.complianceStatus === s).length;
+    const compliant = count('compliant');
+    const toVerify = count('toVerify');
+    const nonCompliant = count('nonCompliant');
+    const max = Math.max(1, compliant, toVerify, nonCompliant);
+    const toBar = (label: string, n: number, tone: Bar['tone']): Bar => ({ label, count: n, pct: Math.round((n / max) * 100), tone });
+    return [toBar('Compliant', compliant, 'positive'), toBar('To verify', toVerify, 'progress'), toBar('Non-compliant', nonCompliant, 'critical')];
+  });
+
   protected alertIcon(severity: string): string {
     return severity === 'critical' ? 'error' : severity === 'warning' ? 'warning' : 'info';
   }
 
-  /** 5×5 aspect significance heat-map (likelihood rows 5→1, severity cols 1→5). */
+  /** 5×5 hazard risk heat-map (likelihood rows 5→1, severity cols 1→5). */
   protected readonly heatmap = computed(() => {
     const scored = this.store.aspects().filter((a) => a.severityScore && a.likelihoodScore);
     const rows = [5, 4, 3, 2, 1].map((lik) => ({
@@ -111,8 +139,4 @@ export class OverviewComponent {
     }));
     return { rows, total: scored.length };
   });
-
-  /** Carbon footprint rollup (GHG Scope 1/2/3) for the dashboard summary card. */
-  protected readonly carbon = computed(() => carbonRollup(this.store.carbon()));
-  protected readonly fmtTco2e = formatTco2e;
 }

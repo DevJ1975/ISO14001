@@ -1,0 +1,26 @@
+/* ────────────────────────────────────────────────────────────
+ * TRAINOVATE — Web fonts
+ * The running app loads Inter Tight + JetBrains Mono via the
+ * <link> tags in src/index.html (cached by the service worker for
+ * offline field use). This file is the drop-in point for fully
+ * self-hosted, offline fonts: add the woff2 files alongside it and
+ * uncomment the @font-face blocks below, then import this file from
+ * src/styles.css instead of relying on the Google Fonts <link>.
+ * ──────────────────────────────────────────────────────────── */
+
+/*
+@font-face {
+  font-family: 'Inter Tight';
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url('./inter-tight-variable.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 400 600;
+  font-display: swap;
+  src: url('./jetbrains-mono-variable.woff2') format('woff2');
+}
+*/

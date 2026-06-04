@@ -1,5 +1,5 @@
 /**
- * Tamper-evident electronic signature for the audit report (ISO 14001 cl. 7.5.3
+ * Tamper-evident electronic signature for the audit report (ISO 45001 cl. 7.5.3
  * control of documented information; ISO 19011 reporting). The signature binds
  * the signer's identity, role, timestamp and attestation to a SHA-256 digest of
  * the report content at the moment of signing, so any later edit is detectable

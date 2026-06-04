@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 
+import { editionFromCriteria, standardChecklist } from '../../core/domain';
 import {
   FieldAuditStore,
   FieldChecklistItem,
@@ -9,6 +10,7 @@ import {
   FindingType,
   SyncState,
 } from '../../core/field/field-audit-store';
+import { ConfirmService } from '../../core/ui/confirm.service';
 
 type Tone = 'positive' | 'progress' | 'critical' | 'neutral';
 type FilterKey = 'all' | 'open' | 'nc';
@@ -23,8 +25,29 @@ type FilterKey = 'all' | 'open' | 'nc';
 })
 export class FieldworkComponent {
   protected readonly store = inject(FieldAuditStore);
+  private readonly confirm = inject(ConfirmService);
   protected readonly index = signal(0);
   protected readonly filter = signal<FilterKey>('all');
+
+  /** Per-audit checklist authoring state. */
+  protected readonly editing = signal(false);
+  protected readonly showAdd = signal(false);
+
+  /** Standard clauses offered when adding a custom check. */
+  protected readonly clauseOptions = computed(() =>
+    standardChecklist(editionFromCriteria(this.store.criteria())).map((row) => ({
+      clauseId: row.clauseId,
+      clauseTitle: row.clauseTitle,
+    })),
+  );
+
+  /** Clauses in the selected standard not yet on the checklist (drives the "add missing" action). */
+  protected readonly missingCount = computed(() => {
+    const present = new Set(this.store.items().map((item) => item.clauseId));
+    return standardChecklist(editionFromCriteria(this.store.criteria())).filter(
+      (row) => !present.has(row.clauseId),
+    ).length;
+  });
 
   protected readonly filters: { value: FilterKey; label: string }[] = [
     { value: 'all', label: 'All' },
@@ -65,6 +88,62 @@ export class FieldworkComponent {
   protected setFilter(value: FilterKey): void {
     this.filter.set(value);
     this.index.set(0);
+    this.editing.set(false);
+  }
+
+  /** Pull in every ISO 45001 clause not yet on the checklist so all of them are answerable. */
+  protected addMissingClauses(): void {
+    this.store.addMissingClauseItems();
+    this.index.set(0);
+  }
+
+  /** Top-level clause group label (e.g. "6 · Planning") for orientation while stepping clause by clause. */
+  protected sectionTitle(clauseId: string): string {
+    const top = clauseId.split('.')[0] ?? clauseId;
+    const parent = this.store.items().find((item) => item.clauseId === top);
+    return parent ? `${top} · ${parent.clauseTitle}` : `Section ${top}`;
+  }
+
+  // --- Per-audit checklist authoring ---
+
+  protected startEdit(): void {
+    this.showAdd.set(false);
+    this.editing.set(true);
+  }
+
+  protected cancelEdit(): void {
+    this.editing.set(false);
+  }
+
+  protected saveEdit(item: FieldChecklistItem, question: string, guidance: string): void {
+    if (!question.trim()) return;
+    this.store.updateChecklistItem(item.id, { question, guidance });
+    this.editing.set(false);
+  }
+
+  protected toggleAdd(): void {
+    this.editing.set(false);
+    this.showAdd.update((value) => !value);
+  }
+
+  protected addCustom(clauseId: string, question: string, guidance: string): void {
+    if (!question.trim()) return;
+    const option = this.clauseOptions().find((entry) => entry.clauseId === clauseId);
+    this.store.addCustomChecklistItem({ clauseId, clauseTitle: option?.clauseTitle, question, guidance });
+    this.showAdd.set(false);
+  }
+
+  protected async removeCurrent(item: FieldChecklistItem): Promise<void> {
+    const ok = await this.confirm.ask({
+      title: 'Remove this check?',
+      message: `"${item.clauseTitle}" (clause ${item.clauseId}) will be removed from this audit's checklist.`,
+      confirmLabel: 'Remove',
+      danger: true,
+    });
+    if (ok) {
+      this.store.removeChecklistItem(item.id);
+      this.index.set(0);
+    }
   }
 
   protected choose(item: FieldChecklistItem, value: FieldResult): void {
@@ -91,10 +170,12 @@ export class FieldworkComponent {
   }
 
   protected prev(): void {
+    this.editing.set(false);
     this.index.update((value) => Math.max(0, value - 1));
   }
 
   protected next(): void {
+    this.editing.set(false);
     this.index.update((value) => Math.min(this.visibleItems().length - 1, value + 1));
   }
 

@@ -4,6 +4,7 @@ import { firstValueFrom } from 'rxjs';
 
 import { AuthService } from '../auth/auth.service';
 import { APP_CONFIG } from '../config/app-config';
+import type { ReportDraft, ReportDraftInput } from '../domain';
 import { AuditSelectionService } from './audit-selection.service';
 import type {
   AuditConclusion,
@@ -12,7 +13,6 @@ import type {
   AuditSummary,
   AwarenessRecord,
   CalibrationRecord,
-  CarbonEntry,
   ChangeLogEntry,
   ReportMeta,
   CommunicationRecord,
@@ -20,9 +20,9 @@ import type {
   ComplianceObligation,
   DocumentedInfoRecord,
   EmergencyRecord,
-  EnvironmentalAspect,
-  EnvironmentalIncident,
-  EnvironmentalObjective,
+  Hazard,
+  Incident,
+  OhsObjective,
   FieldCapa,
   FieldChecklistItem,
   FieldEvidence,
@@ -37,6 +37,7 @@ import type {
   RiskOpportunity,
   SupplierRecord,
   TrainingRecord,
+  WorkerConsultation,
 } from './field-audit-store';
 
 export interface Member {
@@ -56,13 +57,14 @@ export interface FieldStatePayload {
   auditStatus?: AuditStatus;
   meetings?: Array<Omit<AuditMeeting, 'sync'>>;
   conclusion?: Omit<AuditConclusion, 'sync'> | null;
-  aspects?: Array<Omit<EnvironmentalAspect, 'sync'>>;
+  aspects?: Array<Omit<Hazard, 'sync'>>;
   obligations?: Array<Omit<ComplianceObligation, 'sync'>>;
   emergencyRecords?: Array<Omit<EmergencyRecord, 'sync'>>;
   interestedParties?: Array<Omit<InterestedParty, 'sync'>>;
-  objectives?: Array<Omit<EnvironmentalObjective, 'sync'>>;
+  objectives?: Array<Omit<OhsObjective, 'sync'>>;
   communications?: Array<Omit<CommunicationRecord, 'sync'>>;
   managementReviews?: Array<Omit<ManagementReviewRecord, 'sync'>>;
+  workerConsultations?: Array<Omit<WorkerConsultation, 'sync'>>;
   risksOpportunities?: Array<Omit<RiskOpportunity, 'sync'>>;
   resources?: Array<Omit<ResourceRecord, 'sync'>>;
   competence?: Array<Omit<CompetenceRecord, 'sync'>>;
@@ -70,12 +72,11 @@ export interface FieldStatePayload {
   documentedInfo?: Array<Omit<DocumentedInfoRecord, 'sync'>>;
   performanceMetrics?: Array<Omit<PerformanceMetric, 'sync'>>;
   permits?: Array<Omit<Permit, 'sync'>>;
-  incidents?: Array<Omit<EnvironmentalIncident, 'sync'>>;
+  incidents?: Array<Omit<Incident, 'sync'>>;
   calibration?: Array<Omit<CalibrationRecord, 'sync'>>;
   training?: Array<Omit<TrainingRecord, 'sync'>>;
   suppliers?: Array<Omit<SupplierRecord, 'sync'>>;
   changes?: Array<Omit<ManagementOfChangeRecord, 'sync'>>;
-  carbon?: Array<Omit<CarbonEntry, 'sync'>>;
   reportMeta?: Omit<ReportMeta, 'sync'> | null;
   changeLog?: ChangeLogEntry[];
 }
@@ -200,11 +201,16 @@ export class FieldApiService {
     return firstValueFrom(this.http.put(`${this.base()}/report-meta`, body));
   }
 
+  /** Generate a first-draft report narrative server-side (AI). Rejects when unavailable so the client falls back. */
+  draftReport(body: ReportDraftInput): Promise<ReportDraft> {
+    return firstValueFrom(this.http.post<ReportDraft>(`${this.base()}/report-draft`, body));
+  }
+
   signReport(body: { attestation: string; contentHash?: string }): Promise<{ signedAt?: string }> {
     return firstValueFrom(this.http.post<{ signedAt?: string }>(`${this.base()}/reports/signoff`, body));
   }
 
-  upsertAspect(body: Omit<EnvironmentalAspect, 'sync'>): Promise<unknown> {
+  upsertAspect(body: Omit<Hazard, 'sync'>): Promise<unknown> {
     return firstValueFrom(this.http.put(`${this.base()}/aspects/${encodeURIComponent(body.id)}`, body));
   }
 
@@ -220,7 +226,7 @@ export class FieldApiService {
     return firstValueFrom(this.http.put(`${this.base()}/interested-parties/${encodeURIComponent(body.id)}`, body));
   }
 
-  upsertObjective(body: Omit<EnvironmentalObjective, 'sync'>): Promise<unknown> {
+  upsertObjective(body: Omit<OhsObjective, 'sync'>): Promise<unknown> {
     return firstValueFrom(this.http.put(`${this.base()}/objectives/${encodeURIComponent(body.id)}`, body));
   }
 
@@ -230,6 +236,10 @@ export class FieldApiService {
 
   upsertManagementReview(body: Omit<ManagementReviewRecord, 'sync'>): Promise<unknown> {
     return firstValueFrom(this.http.put(`${this.base()}/management-reviews/${encodeURIComponent(body.id)}`, body));
+  }
+
+  upsertConsultation(body: Omit<WorkerConsultation, 'sync'>): Promise<unknown> {
+    return firstValueFrom(this.http.put(`${this.base()}/worker-consultations/${encodeURIComponent(body.id)}`, body));
   }
 
   upsertRiskOpportunity(body: Omit<RiskOpportunity, 'sync'>): Promise<unknown> {
@@ -260,7 +270,7 @@ export class FieldApiService {
     return firstValueFrom(this.http.put(`${this.base()}/permits/${encodeURIComponent(body.id)}`, body));
   }
 
-  upsertIncident(body: Omit<EnvironmentalIncident, 'sync'>): Promise<unknown> {
+  upsertIncident(body: Omit<Incident, 'sync'>): Promise<unknown> {
     return firstValueFrom(this.http.put(`${this.base()}/incidents/${encodeURIComponent(body.id)}`, body));
   }
 
@@ -278,10 +288,6 @@ export class FieldApiService {
 
   upsertChange(body: Omit<ManagementOfChangeRecord, 'sync'>): Promise<unknown> {
     return firstValueFrom(this.http.put(`${this.base()}/changes/${encodeURIComponent(body.id)}`, body));
-  }
-
-  upsertCarbon(body: Omit<CarbonEntry, 'sync'>): Promise<unknown> {
-    return firstValueFrom(this.http.put(`${this.base()}/carbon/${encodeURIComponent(body.id)}`, body));
   }
 
   private tenantBase(): string {

@@ -4,19 +4,22 @@ import { checklistItemResultSchema } from './checklists.js';
 import { timestampSchema } from './models.js';
 
 /**
- * Environmental performance monitoring & measurement (ISO 14001 cl. 9.1.1).
- * The other registers capture qualitative conformity; this one captures the
- * quantitative backbone — measured indicators (energy, water, waste, emissions)
- * with units, periods, target-vs-actual and a trend, so an auditor can evaluate
- * "analysis and evaluation" of environmental performance, not just status.
+ * OH&S performance monitoring & measurement (ISO 45001 cl. 9.1.1). The other
+ * registers capture qualitative conformity; this one captures the quantitative
+ * backbone — leading & lagging indicators (lost-time/recordable injuries,
+ * near-misses, exposure monitoring, inspections, toolbox talks) with units,
+ * periods, target-vs-actual and a trend, so an auditor can evaluate "analysis
+ * and evaluation" of OH&S performance, not just status.
  */
 export const performanceCategorySchema = z.enum([
-  'energy',
-  'water',
-  'waste',
-  'emissions',
-  'materials',
-  'effluent',
+  'lostTimeInjury',
+  'recordableInjury',
+  'nearMiss',
+  'illHealth',
+  'exposure',
+  'inspection',
+  'toolboxTalk',
+  'trainingCompletion',
   'other',
 ]);
 export type PerformanceCategory = z.infer<typeof performanceCategorySchema>;
@@ -29,7 +32,7 @@ export const performanceMetricSchema = z.object({
   tenantId: z.string().min(1),
   auditId: z.string().min(1),
   indicator: z.string().min(1).max(300),
-  category: performanceCategorySchema.default('energy'),
+  category: performanceCategorySchema.default('lostTimeInjury'),
   unit: z.string().max(40).default(''),
   period: z.string().max(60).default(''),
   baselineValue: z.number().finite().optional(),
@@ -62,10 +65,11 @@ export function metricVariance(metric: { actualValue?: number; targetValue?: num
 }
 
 /**
- * Derive a trend from a chronological series of readings. For most environmental
- * indicators lower is better (less energy/water/waste/emissions); pass
- * `lowerIsBetter = false` for indicators where higher is better (e.g. recycling
- * rate). A change within `tolerance` (default 2%) of the first reading is 'stable'.
+ * Derive a trend from a chronological series of readings. For most OH&S lagging
+ * indicators lower is better (fewer injuries/near-misses/exposures); pass
+ * `lowerIsBetter = false` for indicators where higher is better (e.g. inspection
+ * or training completion). A change within `tolerance` (default 2%) of the first
+ * reading is 'stable'.
  */
 export function deriveTrend(values: number[], lowerIsBetter = true, tolerance = 0.02): PerformanceTrend {
   if (values.length < 2) return 'notEvaluated';

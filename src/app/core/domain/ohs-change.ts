@@ -4,7 +4,7 @@ import { checklistItemResultSchema } from './checklists.js';
 import { timestampSchema } from './models.js';
 
 /**
- * Management of Change (ISO 14001 cl. 8.1 — "the organization shall control
+ * Management of Change (ISO 45001 cl. 8.1 — "the organization shall control
  * planned changes and review the consequences of unintended changes"). New
  * equipment, process or material changes, organisational or regulatory changes
  * can introduce new environmental aspects. The classic finding is a change made

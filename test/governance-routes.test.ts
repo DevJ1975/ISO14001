@@ -85,7 +85,7 @@ function createFakeDb(): { db: Db; store: Map<string, Record<string, unknown>[]>
   return { db: { collection } as unknown as Db, store };
 }
 
-describe('EMS governance API routes', () => {
+describe('OHSMS governance API routes', () => {
   const cases = [
     { path: 'interested-parties', collection: 'interestedParties', body: { id: 'party-1', party: 'Regulator', category: 'external', result: 'conforming' }, check: 'party' },
     { path: 'objectives', collection: 'environmentalObjectives', body: { id: 'obj-1', objective: 'Cut VOCs', progress: 'onTrack', result: 'needsFollowUp' }, check: 'objective' },
@@ -95,15 +95,15 @@ describe('EMS governance API routes', () => {
     { path: 'resources', collection: 'resourceRecords', body: { id: 'res-1', resource: 'EHS team', category: 'people', adequacy: 'partial', result: 'needsFollowUp' }, check: 'resource' },
     { path: 'competence', collection: 'competenceRecords', body: { id: 'comp-1', role: 'Operators', status: 'competent', result: 'conforming' }, check: 'role' },
     { path: 'awareness', collection: 'awarenessRecords', body: { id: 'aware-1', topic: 'Policy', audience: 'All staff', result: 'conforming' }, check: 'topic' },
-    { path: 'documented-info', collection: 'documentedInfo', body: { id: 'doc-1', document: 'EMS Manual', controlStatus: 'controlled', version: 'v3.0', owner: 'EHS Manager', lastReviewedAt: '2025-10-01', nextReviewAt: '2026-10-01', reviewFrequencyMonths: 12, attachments: [{ id: 'att-1', name: 'manual.pdf', mime: 'application/pdf', size: 1024, blobKey: 'att-1', addedAt: '2026-01-01T00:00:00.000Z' }], result: 'conforming' }, check: 'document' },
-    { path: 'performance-metrics', collection: 'performanceMetrics', body: { id: 'metric-1', indicator: 'Electricity', category: 'energy', unit: 'MWh', targetValue: 1200, actualValue: 1185, trend: 'improving', result: 'conforming' }, check: 'indicator' },
+    { path: 'documented-info', collection: 'documentedInfo', body: { id: 'doc-1', document: 'OHSMS Manual', controlStatus: 'controlled', version: 'v3.0', owner: 'EHS Manager', lastReviewedAt: '2025-10-01', nextReviewAt: '2026-10-01', reviewFrequencyMonths: 12, attachments: [{ id: 'att-1', name: 'manual.pdf', mime: 'application/pdf', size: 1024, blobKey: 'att-1', addedAt: '2026-01-01T00:00:00.000Z' }], result: 'conforming' }, check: 'document' },
+    { path: 'performance-metrics', collection: 'performanceMetrics', body: { id: 'metric-1', indicator: 'Lost-time injuries', category: 'lostTimeInjury', unit: 'per 100k hrs', targetValue: 1.2, actualValue: 1.1, trend: 'improving', result: 'conforming' }, check: 'indicator' },
     { path: 'permits', collection: 'permits', body: { id: 'permit-1', title: 'Environmental permit', permitType: 'permit', reference: 'EPR/AB1234CD', expiresAt: '2027-09-30', renewalReminderDays: 90, complianceStatus: 'compliant', result: 'conforming' }, check: 'title' },
-    { path: 'incidents', collection: 'incidents', body: { id: 'inc-1', title: 'Oil spill', incidentType: 'spill', severity: 'high', status: 'investigating', reportableToRegulator: false, result: 'needsFollowUp' }, check: 'title' },
+    { path: 'incidents', collection: 'incidents', body: { id: 'inc-1', title: 'Hand laceration at guillotine', incidentType: 'injury', severity: 'high', status: 'investigating', reportableToRegulator: false, result: 'needsFollowUp' }, check: 'title' },
     { path: 'calibration', collection: 'calibration', body: { id: 'cal-1', equipment: 'pH meter', identifier: 'PH-11', parameter: 'pH', nextDueAt: '2026-12-01', frequencyMonths: 6, result: 'conforming' }, check: 'equipment' },
     { path: 'training', collection: 'training', body: { id: 'trn-1', person: 'M. Silva', role: 'Operator', course: 'Spill response', completedAt: '2025-07-01', expiresAt: '2026-07-01', frequencyMonths: 12, mandatory: true, result: 'needsFollowUp' }, check: 'person' },
-    { path: 'suppliers', collection: 'suppliers', body: { id: 'sup-1', name: 'GreenWaste Carriers Ltd', serviceType: 'Hazardous waste collection', category: 'wasteCarrier', environmentallyRelevant: true, controlsCommunicated: true, rating: 'approved', lastEvaluatedAt: '2026-01-10', nextEvaluationAt: '2027-01-10', evaluationFrequencyMonths: 12, result: 'conforming' }, check: 'name' },
+    { path: 'suppliers', collection: 'suppliers', body: { id: 'sup-1', name: 'PeoplePower Labour Ltd', serviceType: 'Agency operatives', category: 'labourProvider', environmentallyRelevant: true, controlsCommunicated: true, rating: 'approved', lastEvaluatedAt: '2026-01-10', nextEvaluationAt: '2027-01-10', evaluationFrequencyMonths: 12, result: 'conforming' }, check: 'name' },
     { path: 'changes', collection: 'changes', body: { id: 'moc-1', title: 'Switch to water-based degreaser', description: 'Material substitution', changeType: 'material', status: 'implemented', aspectsReviewed: false, riskLevel: 'high', owner: 'EHS Lead', implementedAt: '2026-05-20', result: 'nonconforming' }, check: 'title' },
-    { path: 'carbon', collection: 'carbon', body: { id: 'co2-1', source: 'Natural gas — boilers', scope: 1, category: 'Stationary combustion', period: 'FY2025', activityData: 4200, activityUnit: 'MWh', emissionFactor: 183, result: 'conforming' }, check: 'source' },
+    { path: 'worker-consultations', collection: 'workerConsultations', body: { id: 'wc-1', topic: 'Forklift near-miss review', category: 'incidentInvestigation', mechanism: 'toolboxTalk', workerGroup: 'Warehouse operatives', outcome: 'Pedestrian route segregated', date: '2026-05-18', result: 'conforming' }, check: 'topic' },
   ];
 
   for (const { path, collection, body, check } of cases) {
@@ -133,6 +133,7 @@ describe('EMS governance API routes', () => {
         'risks-opportunities': 'risksOpportunities',
         'documented-info': 'documentedInfo',
         'performance-metrics': 'performanceMetrics',
+        'worker-consultations': 'workerConsultations',
       };
       const key = keyMap[path] ?? path;
       assert.equal(payload[key]!.length, 1);
@@ -144,11 +145,11 @@ describe('EMS governance API routes', () => {
     const leadHeaders = { ...authHeaders('t'), 'x-iso-role': 'leadAuditor' };
     const body = {
       cycleYear: 2026,
-      criteria: 'ISO_14001_2026',
+      criteria: 'ISO_45001_2018',
       plannedAudits: [],
       competence: [],
       certificates: [
-        { id: 'cert-1', certificateNumber: 'EMS-0007', scopeStatement: 'Assembly', status: 'active', history: [{ action: 'issued', at: '2026-01-01' }] },
+        { id: 'cert-1', certificateNumber: 'OHSMS-0007', scopeStatement: 'Assembly', status: 'active', history: [{ action: 'issued', at: '2026-01-01' }] },
       ],
       complaintsAppeals: [{ id: 'case-1', kind: 'complaint', subject: 'Noise', status: 'received' }],
       planning: { effectivePersonnel: 50, complexity: 'high', siteCount: 9, stage: 'initial' },

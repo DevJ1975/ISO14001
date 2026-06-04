@@ -29,7 +29,7 @@ export const certificateSchema = z.object({
   id: z.string().min(1),
   certificateNumber: z.string().min(1).max(120),
   auditeeName: z.string().max(300).optional(),
-  edition: isoEditionSchema.default('ISO_14001_2026'),
+  edition: isoEditionSchema.default('ISO_45001_2026'),
   scopeStatement: z.string().max(2000).default(''),
   sites: z.array(z.string().min(1)).default([]),
   issuedAt: z.union([z.string().date(), z.string().datetime(), z.date()]).optional(),

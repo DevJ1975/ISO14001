@@ -45,8 +45,8 @@ describe('audit domain schemas', () => {
       tenantId: 't',
       auditId: 'a',
       clauseRef: {
-        standard: 'ISO_14001',
-        edition: 'ISO_14001_2026',
+        standard: 'ISO_45001',
+        edition: 'ISO_45001_2026',
         clauseId: '9.1.2',
         title: 'Evaluation of compliance',
       },

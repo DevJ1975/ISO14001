@@ -21,6 +21,7 @@ import type { NotificationChannel } from '../../core/notifications/notifications
 export class NotificationSettingsComponent {
   protected readonly notifications = inject(NotificationsService);
   protected readonly prefs = this.notifications.prefs;
+  protected readonly pushPermission = this.notifications.pushPermission;
 
   protected readonly severities: { value: AlertSeverity; label: string; hint: string }[] = [
     { value: 'info', label: 'Everything', hint: 'All notifications, including informational' },
@@ -42,6 +43,25 @@ export class NotificationSettingsComponent {
 
   protected setChannel(channel: NotificationChannel, event: Event): void {
     this.notifications.setChannel(channel, (event.target as HTMLInputElement).checked);
+  }
+
+  /** Push needs browser permission; request it on enable, just clear the channel on disable. */
+  protected async setPush(event: Event): Promise<void> {
+    if ((event.target as HTMLInputElement).checked) await this.notifications.enablePush();
+    else this.notifications.setChannel('push', false);
+  }
+
+  protected pushStatus(): string {
+    switch (this.pushPermission()) {
+      case 'granted':
+        return 'Allowed — alerts appear as browser notifications.';
+      case 'denied':
+        return 'Blocked in your browser — re-enable notifications for this site to use push.';
+      case 'unsupported':
+        return 'This browser does not support notifications.';
+      default:
+        return 'Browser / device notifications — you will be asked to allow them.';
+    }
   }
 
   protected setMinSeverity(value: AlertSeverity): void {

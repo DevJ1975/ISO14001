@@ -9,6 +9,7 @@ import { ConditionsService } from '../conditions/conditions.service';
 import { FieldAuditStore } from '../field/field-audit-store';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ThemeService } from '../theme/theme.service';
+import { ConfirmHostComponent } from '../ui/confirm-host.component';
 
 interface NavItem {
   readonly path: string;
@@ -20,7 +21,7 @@ interface NavItem {
 @Component({
   selector: 'app-shell',
   standalone: true,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, MatButtonModule, MatIconModule],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, MatButtonModule, MatIconModule, ConfirmHostComponent],
   templateUrl: './shell.component.html',
   styleUrl: './shell.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -82,7 +83,7 @@ export class ShellComponent {
     { path: '/fieldwork', label: 'Fieldwork', icon: 'checklist', exact: false },
     { path: '/evidence', label: 'Evidence', icon: 'photo_camera', exact: false },
     { path: '/findings', label: 'Findings', icon: 'flag', exact: false },
-    { path: '/registers', label: 'EMS', icon: 'eco', exact: false },
+    { path: '/registers', label: 'Registers', icon: 'health_and_safety', exact: false },
     { path: '/report', label: 'Report', icon: 'description', exact: false },
     { path: '/programme', label: 'Programme', icon: 'calendar_month', exact: false },
     { path: '/portal', label: 'Auditee', icon: 'handshake', exact: false },

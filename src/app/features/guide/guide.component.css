@@ -242,3 +242,62 @@
   margin-bottom: 5px;
   line-height: 1.5;
 }
+
+.clause-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--surface-guard);
+  border-radius: 12px;
+  padding: 0 12px;
+  margin: 4px 0 12px;
+}
+
+.clause-search mat-icon {
+  flex: 0 0 auto;
+  color: var(--text-muted, var(--text));
+  font-size: 20px;
+  width: 20px;
+  height: 20px;
+}
+
+.clause-search input {
+  flex: 1 1 auto;
+  min-height: 44px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  outline: none;
+}
+
+.clause-jump {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 8px;
+}
+
+.clause-jump a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  min-height: 32px;
+  padding: 0 8px;
+  border-radius: 8px;
+  background: var(--surface-guard);
+  color: var(--text);
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.clause-jump a:hover {
+  background: var(--primary);
+  color: var(--on-primary, #fff);
+}
+
+.muted {
+  color: var(--text-muted, var(--text));
+}
