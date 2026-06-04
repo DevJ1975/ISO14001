@@ -233,3 +233,14 @@
 .empty strong {
   color: var(--text);
 }
+
+/* Loading skeleton — placeholder member rows while the list resolves. */
+.sk-list {
+  display: grid;
+  gap: 10px;
+}
+
+.sk-row {
+  display: grid;
+  gap: 10px;
+}

@@ -26,6 +26,7 @@ import {
 import { CsvExportService } from '../../core/export/csv-export.service';
 import { Hazard, FieldAuditStore, HiraEntry, Permit, RegisterResult } from '../../core/field/field-audit-store';
 import { ConfirmService } from '../../core/ui/confirm.service';
+import { ToastService } from '../../core/ui/toast.service';
 import {
   calibrationColumns,
   changeColumns,
@@ -76,6 +77,8 @@ export class RegistersComponent {
   private readonly csv = inject(CsvExportService);
   private readonly route = inject(ActivatedRoute);
   private readonly confirm = inject(ConfirmService);
+  private readonly toast = inject(ToastService);
+  private savedTimer: ReturnType<typeof setTimeout> | null = null;
   protected readonly tab = signal<Tab>('aspects');
   protected readonly hintsOpen = signal(false);
   /** URL fragment (e.g. #permits) → open that register tab on deep-link from dashboards/alerts. */
@@ -153,6 +156,20 @@ export class RegistersComponent {
 
   protected setTab(value: Tab): void {
     this.tab.set(value);
+  }
+
+  /**
+   * Confirm an edit landed. Register fields autosave through the store on every
+   * `(change)`; a single delegated listener on the screen catches them all
+   * (change bubbles) so we don't touch ~100 inline bindings. Debounced so a
+   * burst of edits coalesces into one "Saved".
+   */
+  protected onRegisterEdit(): void {
+    if (this.savedTimer) clearTimeout(this.savedTimer);
+    this.savedTimer = setTimeout(() => {
+      this.savedTimer = null;
+      this.toast.saved();
+    }, 700);
   }
 
   /** Confirm before removing a document attachment (destructive, no undo). */

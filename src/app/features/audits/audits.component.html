@@ -48,6 +48,12 @@
         <mat-icon aria-hidden="true">fact_check</mat-icon>
         <strong>No audits yet</strong>
         <span>{{ canCreate() ? 'Create your first audit to get started.' : 'Sign in as a lead auditor to create audits.' }}</span>
+        @if (canCreate()) {
+          <button class="empty-cta" mat-flat-button color="primary" type="button" (click)="showForm.set(true)">
+            <mat-icon aria-hidden="true">add</mat-icon>
+            New audit
+          </button>
+        }
       </div>
     }
   </div>

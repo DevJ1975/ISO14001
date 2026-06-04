@@ -19,8 +19,14 @@
         autocomplete="username"
         [value]="email()"
         (input)="email.set(emailEl.value)"
+        (blur)="emailTouched.set(true)"
+        [attr.aria-invalid]="emailError() ? 'true' : null"
+        [attr.aria-describedby]="emailError() ? 'email-err' : null"
         required
       />
+      @if (emailError(); as message) {
+        <small id="email-err" class="field-err" role="alert"><mat-icon aria-hidden="true">error</mat-icon>{{ message }}</small>
+      }
     </label>
 
     <label class="field">
@@ -31,15 +37,21 @@
         autocomplete="current-password"
         [value]="password()"
         (input)="password.set(passwordEl.value)"
+        (blur)="passwordTouched.set(true)"
+        [attr.aria-invalid]="passwordError() ? 'true' : null"
+        [attr.aria-describedby]="passwordError() ? 'password-err' : null"
         required
       />
+      @if (passwordError(); as message) {
+        <small id="password-err" class="field-err" role="alert"><mat-icon aria-hidden="true">error</mat-icon>{{ message }}</small>
+      }
     </label>
 
     @if (error(); as message) {
       <p class="error" role="alert"><mat-icon aria-hidden="true">error</mat-icon>{{ message }}</p>
     }
 
-    <button mat-flat-button color="primary" type="submit" [disabled]="busy()">
+    <button mat-flat-button color="primary" type="submit" [disabled]="busy() || !canSubmit()">
       <mat-icon aria-hidden="true">login</mat-icon>
       {{ busy() ? 'Signing in…' : 'Sign in' }}
     </button>

@@ -178,6 +178,34 @@ h1 {
   font-size: 12px;
 }
 
+/* Per-field inline validation message (lighter than the boxed .error banner). */
+.field-err {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--tone-critical-fg);
+  font-size: 12.5px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.field-err mat-icon {
+  flex: 0 0 auto;
+  font-size: 15px;
+  width: 15px;
+  height: 15px;
+}
+
+.field input[aria-invalid='true'] {
+  border-color: var(--tone-critical-bd);
+}
+
+.field input[aria-invalid='true']:focus-visible {
+  border-color: var(--tone-critical-fg);
+  box-shadow: 0 0 0 3px var(--tone-critical-bg);
+}
+
 .admin-link {
   display: inline-flex;
   align-items: center;

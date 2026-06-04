@@ -26,6 +26,8 @@
         <div class="thumb">
           @if (photoUrl(evidence); as url) {
             <img [src]="url" alt="Captured evidence" />
+          } @else if (evidence.kind === 'photo' && evidence.uploaded) {
+            <span class="skeleton skeleton--thumb" role="img" aria-label="Loading photo"></span>
           } @else {
             <mat-icon aria-hidden="true">{{ evidence.kind === 'photo' ? 'image' : 'sticky_note_2' }}</mat-icon>
           }
@@ -137,6 +139,10 @@
         <mat-icon aria-hidden="true">add_a_photo</mat-icon>
         <strong>No evidence yet</strong>
         <span>Capture a photo or note to get started.</span>
+        <label class="empty-cta tv-btn tv-btn--cobalt" for="ev-photo">
+          <mat-icon aria-hidden="true">photo_camera</mat-icon>
+          Capture photo
+        </label>
       </div>
     }
   </div>

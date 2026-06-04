@@ -4,6 +4,7 @@ import { MatIconModule } from '@angular/material/icon';
 
 import { AuthService } from '../../core/auth/auth.service';
 import { CapaStatus, FieldCapa, FieldFinding, FieldAuditStore, FindingType, NcStatus } from '../../core/field/field-audit-store';
+import { ToastService } from '../../core/ui/toast.service';
 
 type Tone = 'positive' | 'progress' | 'critical' | 'neutral';
 
@@ -18,6 +19,7 @@ type Tone = 'positive' | 'progress' | 'critical' | 'neutral';
 export class FindingsComponent {
   protected readonly store = inject(FieldAuditStore);
   private readonly auth = inject(AuthService);
+  private readonly toast = inject(ToastService);
 
   protected readonly isLead = computed(() => this.auth.user()?.role === 'leadAuditor');
   /** Lead & auditor may draft a finding with AI assistance (mirrors the report draft gate). */
@@ -47,10 +49,14 @@ export class FindingsComponent {
 
   protected grade(finding: FieldFinding, grade: FindingType, rationale: string, systemic: boolean): void {
     this.store.gradeFinding(finding.id, grade, rationale.trim(), systemic);
+    this.toast.saved('Finding graded');
   }
 
   protected saveStatement(finding: FieldFinding, statement: string): void {
-    this.store.editFinding(finding.id, { description: statement.trim() });
+    const next = statement.trim();
+    if (next === (finding.description ?? '')) return;
+    this.store.editFinding(finding.id, { description: next });
+    this.toast.saved('Finding updated');
   }
 
   /** Auto-draft this finding (statement, requirement, evidence, grade) — AI when live, deterministic offline. */
@@ -81,7 +87,10 @@ export class FindingsComponent {
   }
 
   protected saveObjectiveEvidence(finding: FieldFinding, text: string): void {
-    this.store.editFinding(finding.id, { objectiveEvidence: text.trim() });
+    const next = text.trim();
+    if (next === (finding.objectiveEvidence ?? '')) return;
+    this.store.editFinding(finding.id, { objectiveEvidence: next });
+    this.toast.saved('Finding updated');
   }
 
   protected startCapa(finding: FieldFinding): void {
@@ -89,15 +98,20 @@ export class FindingsComponent {
   }
 
   protected saveCapaField(capa: FieldCapa, field: 'correction' | 'rootCause' | 'action' | 'owner' | 'dueDate', value: string): void {
-    this.store.updateCapa(capa.id, { [field]: value.trim() || undefined });
+    const next = value.trim();
+    if (next === ((capa[field] as string | undefined) ?? '')) return;
+    this.store.updateCapa(capa.id, { [field]: next || undefined });
+    this.toast.saved('Action plan saved');
   }
 
   protected markImplemented(capa: FieldCapa): void {
     this.store.updateCapa(capa.id, { implementationEvidenceIds: ['implementation-recorded'] });
+    this.toast.saved('Marked implemented');
   }
 
   protected async verify(capa: FieldCapa, effective: boolean, verification: string): Promise<void> {
     await this.store.verifyCapa(capa.id, { verification: verification.trim() || 'Effectiveness reviewed.', effective });
+    this.toast.saved('Verification recorded');
   }
 
   protected typeLabel(type: FindingType): string {

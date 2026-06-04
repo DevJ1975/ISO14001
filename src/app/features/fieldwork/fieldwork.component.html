@@ -10,6 +10,23 @@
     </div>
   </header>
 
+  @if (showCelebration()) {
+    <article class="panel fw-done" role="status">
+      <span class="fw-done-mark"><mat-icon aria-hidden="true">verified</mat-icon></span>
+      <div class="fw-done-text">
+        <strong>All clauses answered</strong>
+        <span>Every check on this audit has a decision. Ready to wrap up?</span>
+      </div>
+      <div class="fw-done-actions">
+        <a mat-flat-button color="primary" routerLink="/report">
+          <mat-icon aria-hidden="true">description</mat-icon>
+          Go to report
+        </a>
+        <button mat-button type="button" (click)="showCelebration.set(false)">Dismiss</button>
+      </div>
+    </article>
+  }
+
   @if (missingCount() > 0) {
     <div class="fw-missing">
       <span><mat-icon aria-hidden="true">info</mat-icon>Only part of the standard is loaded — {{ missingCount() }} ISO 45001 clauses are not yet on this checklist.</span>
@@ -165,24 +182,34 @@
 
     <div class="fw-actions">
       <div class="decisions">
-        @for (decision of decisions; track decision.value) {
+        @for (decision of decisions; track decision.value; let i = $index) {
           <button
             type="button"
             class="decide {{ decision.tone }}"
             [class.sel]="item.result === decision.value"
+            [attr.aria-keyshortcuts]="i + 1"
             (click)="choose(item, decision.value)"
           >
+            <kbd class="key" aria-hidden="true">{{ i + 1 }}</kbd>
             <mat-icon aria-hidden="true">{{ decision.icon }}</mat-icon>
             {{ decision.label }}
           </button>
         }
       </div>
       <div class="nav-row">
-        <button mat-stroked-button type="button" (click)="prev()" [disabled]="position() <= 1">
+        <button mat-stroked-button type="button" (click)="prev()" [disabled]="position() <= 1" aria-keyshortcuts="ArrowLeft">
           <mat-icon aria-hidden="true">chevron_left</mat-icon>
           Prev
         </button>
-        <button mat-flat-button color="primary" type="button" (click)="next()" [disabled]="position() >= visibleItems().length">
+        <span class="kbd-hint" aria-hidden="true">Use <kbd>←</kbd> <kbd>→</kbd> and <kbd>1</kbd>–<kbd>5</kbd></span>
+        <button
+          mat-flat-button
+          color="primary"
+          type="button"
+          (click)="next()"
+          [disabled]="position() >= visibleItems().length"
+          aria-keyshortcuts="ArrowRight"
+        >
           Next
           <mat-icon aria-hidden="true">chevron_right</mat-icon>
         </button>
@@ -193,6 +220,12 @@
       <mat-icon aria-hidden="true">task_alt</mat-icon>
       <strong>All clear</strong>
       <span>No clauses match this filter.</span>
+      @if (filter() !== 'all') {
+        <button class="empty-cta" mat-stroked-button type="button" (click)="setFilter('all')">
+          <mat-icon aria-hidden="true">list</mat-icon>
+          Show all clauses
+        </button>
+      }
     </div>
   }
 </section>

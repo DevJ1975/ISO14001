@@ -538,3 +538,100 @@
   width: 17px;
   height: 17px;
 }
+
+/* --- Keyboard affordances --- */
+.decide {
+  position: relative;
+}
+
+.decide .key {
+  position: absolute;
+  top: 5px;
+  right: 6px;
+  font-family: var(--tv-font-mono);
+  font-size: 10px;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: 5px;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--text) 7%, transparent);
+}
+
+.nav-row {
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+}
+
+.kbd-hint {
+  color: var(--muted);
+  font-size: 12px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.kbd-hint kbd {
+  font-family: var(--tv-font-mono);
+  font-size: 11px;
+  border: 1px solid var(--border-strong);
+  border-radius: 5px;
+  padding: 1px 5px;
+}
+
+@media (max-width: 560px) {
+  .kbd-hint {
+    display: none;
+  }
+
+  .nav-row {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* --- Completion moment --- */
+.fw-done {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  border-color: var(--tone-positive-bd);
+}
+
+.fw-done-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--tone-positive-bg);
+  color: var(--tone-positive-fg);
+  animation: celebrate 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.fw-done-mark mat-icon {
+  font-size: 28px;
+  width: 28px;
+  height: 28px;
+}
+
+.fw-done-text {
+  flex: 1 1 220px;
+  display: grid;
+  gap: 2px;
+}
+
+.fw-done-text strong {
+  font-size: 16px;
+}
+
+.fw-done-text span {
+  color: var(--muted);
+  font-size: 13.5px;
+}
+
+.fw-done-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
