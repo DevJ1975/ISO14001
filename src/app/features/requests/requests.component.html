@@ -1,0 +1,133 @@
+<section class="screen requests">
+  <header class="screen-head">
+    <h1>Evidence requests</h1>
+    <p>{{ store.auditee() }} · {{ store.criteria() }}</p>
+  </header>
+
+  <div class="kpis">
+    <div class="kpi" [class.warn]="summary().awaitingReview > 0">
+      <strong>{{ summary().awaitingReview }}</strong><span>To review</span>
+    </div>
+    <div class="kpi"><strong>{{ summary().toUpload }}</strong><span>With the client</span></div>
+    <div class="kpi crit" [class.crit]="summary().overdue > 0"><strong>{{ summary().overdue }}</strong><span>Overdue</span></div>
+    <div class="kpi ok"><strong>{{ summary().accepted }}</strong><span>Accepted</span></div>
+  </div>
+
+  <article class="panel">
+    <h2>Request evidence from the client</h2>
+    <form class="new-req" (submit)="$event.preventDefault(); create()">
+      <label class="fld span2">
+        <span>What do you need?</span>
+        <input [value]="title()" (input)="title.set($any($event.target).value)" placeholder="e.g. Current calibration certificate for gas detector GD-03" />
+      </label>
+      <label class="fld span2">
+        <span>Detail / instructions <em>(optional)</em></span>
+        <textarea rows="2" [value]="detail()" (input)="detail.set($any($event.target).value)" placeholder="Tell the client exactly what evidence will satisfy this request…"></textarea>
+      </label>
+      <label class="fld">
+        <span>Clause <em>(optional)</em></span>
+        <input [value]="clauseId()" (input)="clauseId.set($any($event.target).value)" placeholder="9.1.1" />
+      </label>
+      <label class="fld">
+        <span>Clause title <em>(optional)</em></span>
+        <input [value]="clauseTitle()" (input)="clauseTitle.set($any($event.target).value)" placeholder="Monitoring & measurement" />
+      </label>
+      <label class="fld">
+        <span>Due date <em>(optional)</em></span>
+        <input type="date" [value]="dueDate()" (input)="dueDate.set($any($event.target).value)" />
+      </label>
+      <div class="actions">
+        <button mat-flat-button color="primary" type="submit" [disabled]="title().trim().length < 3">
+          <mat-icon aria-hidden="true">add</mat-icon>Raise request
+        </button>
+      </div>
+    </form>
+  </article>
+
+  <article class="panel">
+    <h2>Requests ({{ requests().length }})</h2>
+    @for (r of requests(); track r.id) {
+      <div class="req {{ statusTone(r) }}">
+        <div class="r-head">
+          <span class="status {{ statusTone(r) }}">{{ statusLabel(r) }}</span>
+          @if (r.clauseId) { <span class="clause">Clause {{ r.clauseId }}{{ r.clauseTitle ? ' — ' + r.clauseTitle : '' }}</span> }
+          @if (r.dueDate) { <span class="due" [class.overdue]="overdue(r)"><mat-icon aria-hidden="true">event</mat-icon>Due {{ formatDate(r.dueDate) }}</span> }
+        </div>
+        <h3 class="r-title">{{ r.title }}</h3>
+        @if (r.detail) { <p class="r-detail">{{ r.detail }}</p> }
+
+        <div class="r-subs">
+          <strong class="subs-label">Submitted evidence</strong>
+          @for (s of r.submissions; track s.id) {
+            <div class="sub">
+              <mat-icon aria-hidden="true">description</mat-icon>
+              <div class="sub-body">
+                <strong>{{ s.fileName || 'Note' }}</strong>
+                @if (s.size) { <span class="sub-meta">{{ formatSize(s.size) }}</span> }
+                <span class="sub-meta">{{ s.submittedByName }} · {{ formatTime(s.submittedAt) }}</span>
+                @if (s.note) { <p class="sub-note">{{ s.note }}</p> }
+              </div>
+            </div>
+          } @empty {
+            <p class="muted">Nothing submitted yet.</p>
+          }
+        </div>
+
+        @if (r.messages.length > 0) {
+          <div class="thread">
+            @for (m of r.messages; track m.id) {
+              <div class="msg {{ m.author }}">
+                <span class="msg-who">{{ m.authorName }} · {{ formatTime(m.at) }}</span>
+                <p>{{ m.body }}</p>
+              </div>
+            }
+          </div>
+        }
+
+        <div class="r-actions">
+          @if (r.status !== 'accepted') {
+            <button mat-flat-button color="primary" type="button" (click)="accept(r)" [disabled]="r.submissions.length === 0">
+              <mat-icon aria-hidden="true">check</mat-icon>Accept
+            </button>
+            @if (returningId() === r.id) {
+              <div class="return-box">
+                <textarea
+                  rows="2"
+                  [value]="returnReason(r.id)"
+                  (input)="setReturnReason(r.id, $any($event.target).value)"
+                  placeholder="Explain what's still needed (sent to the client)…"
+                ></textarea>
+                <div class="return-actions">
+                  <button mat-stroked-button type="button" (click)="cancelReturn()">Cancel</button>
+                  <button mat-flat-button color="warn" type="button" [disabled]="returnReason(r.id).trim().length < 5" (click)="confirmReturn(r)">
+                    <mat-icon aria-hidden="true">undo</mat-icon>Return for follow-up
+                  </button>
+                </div>
+              </div>
+            } @else {
+              <button mat-stroked-button type="button" (click)="startReturn(r.id)">
+                <mat-icon aria-hidden="true">undo</mat-icon>Return for follow-up
+              </button>
+            }
+          } @else {
+            <span class="accepted-tag"><mat-icon aria-hidden="true">verified</mat-icon>Evidence accepted</span>
+          }
+        </div>
+
+        <div class="reply">
+          <input
+            [value]="reply(r.id)"
+            (input)="setReply(r.id, $any($event.target).value)"
+            (keydown.enter)="sendReply(r)"
+            placeholder="Message the client…"
+          />
+          <button mat-icon-button type="button" aria-label="Send message" [disabled]="reply(r.id).trim().length === 0" (click)="sendReply(r)">
+            <mat-icon aria-hidden="true">send</mat-icon>
+          </button>
+        </div>
+      </div>
+    } @empty {
+      <div class="empty"><mat-icon aria-hidden="true">inbox</mat-icon><strong>No evidence requested yet</strong><span>Raise a request above to ask the client for documents and records.</span></div>
+    }
+  </article>
+</section>

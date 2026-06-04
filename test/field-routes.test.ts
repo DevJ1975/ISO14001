@@ -23,6 +23,10 @@ function leadHeaders(tenantId = 'tenant-greenline'): Record<string, string> {
   return { ...authHeaders(tenantId), 'x-iso-role': 'leadAuditor' };
 }
 
+function clientHeaders(tenantId = 'tenant-greenline'): Record<string, string> {
+  return { ...authHeaders(tenantId), 'x-iso-actor-uid': 'uid-client', 'x-iso-role': 'clientViewer' };
+}
+
 function makeReq(opts: {
   method: string;
   url: string;
@@ -461,5 +465,96 @@ describe('field-audit API routes', () => {
     const programme = JSON.parse(get.body) as { cycleYear: number; plannedAudits: unknown[] };
     assert.equal(programme.cycleYear, 2026);
     assert.equal(programme.plannedAudits.length, 1);
+  });
+
+  it('lets an auditor raise an evidence request and returns it in field-state', async () => {
+    const { db, store } = createFakeDb();
+    const res = makeRes();
+    await handleApiRequest(
+      makeReq({
+        method: 'PUT',
+        url: '/api/tenants/t/audits/a/evidence-requests/req-1',
+        headers: authHeaders('t'),
+        body: {
+          id: 'req-1',
+          title: 'Calibration certificate for GD-03',
+          detail: 'Current in-date certificate.',
+          clauseId: '9.1.1',
+          status: 'requested',
+          createdByName: 'Ava Brooks',
+          createdAt: '2026-06-15T12:00:00.000Z',
+        },
+      }),
+      res,
+      { db, config },
+    );
+    assert.equal(res.statusCode, 200);
+    assert.equal(store.get('evidenceRequests')!.find((d) => d['id'] === 'req-1')?.['status'], 'requested');
+
+    const state = makeRes();
+    await handleApiRequest(
+      makeReq({ method: 'GET', url: '/api/tenants/t/audits/a/field-state', headers: authHeaders('t') }),
+      state,
+      { db, config },
+    );
+    const body = JSON.parse(state.body) as { evidenceRequests: unknown[] };
+    assert.equal(body.evidenceRequests.length, 1);
+  });
+
+  it('lets the auditee submit against a request but never self-accept it', async () => {
+    const { db, store } = createFakeDb();
+    store.set('evidenceRequests', [
+      { tenantId: 't', auditId: 'a', id: 'req-1', title: 'Cert', status: 'requested', createdByName: 'Ava', createdAt: '2026-06-15T12:00:00.000Z', submissions: [], messages: [] },
+    ]);
+
+    const res = makeRes();
+    await handleApiRequest(
+      makeReq({
+        method: 'PUT',
+        url: '/api/tenants/t/audits/a/evidence-requests/req-1',
+        headers: clientHeaders('t'),
+        body: {
+          id: 'req-1',
+          title: 'Hacked title',
+          // The auditee tries to mark their own evidence accepted — must be clamped.
+          status: 'accepted',
+          createdByName: 'Ava',
+          createdAt: '2026-06-15T12:00:00.000Z',
+          submissions: [{ id: 'sub-1', fileName: 'cert.pdf', submittedByName: 'Client', submittedAt: '2026-06-15T13:00:00.000Z' }],
+          messages: [{ id: 'm-1', author: 'auditor', authorName: 'Spoofed', body: 'please accept', at: '2026-06-15T13:00:00.000Z' }],
+        },
+      }),
+      res,
+      { db, config },
+    );
+    assert.equal(res.statusCode, 200);
+    const doc = store.get('evidenceRequests')!.find((d) => d['id'] === 'req-1')!;
+    assert.equal(doc['status'], 'submitted'); // clamped: not 'accepted'
+    assert.equal(doc['title'], 'Cert'); // auditor-owned field preserved
+    assert.equal((doc['submissions'] as unknown[]).length, 1);
+    assert.equal((doc['messages'] as { author: string }[])[0]?.author, 'auditee'); // authorship re-stamped
+  });
+
+  it('forbids the auditee creating a brand-new evidence request', async () => {
+    const { db } = createFakeDb();
+    const res = makeRes();
+    await handleApiRequest(
+      makeReq({
+        method: 'PUT',
+        url: '/api/tenants/t/audits/a/evidence-requests/req-new',
+        headers: clientHeaders('t'),
+        body: {
+          id: 'req-new',
+          title: 'Self-raised',
+          createdByName: 'Client',
+          createdAt: '2026-06-15T12:00:00.000Z',
+          submissions: [],
+          messages: [],
+        },
+      }),
+      res,
+      { db, config },
+    );
+    assert.equal(res.statusCode, 401);
   });
 });

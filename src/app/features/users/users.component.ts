@@ -39,8 +39,8 @@ export class UsersComponent {
   protected readonly showInvite = signal(false);
   protected readonly inviting = signal(false);
   protected readonly inviteRole = signal('auditor');
-  /** One-time credential to share with a newly invited / reset user. */
-  protected readonly handoff = signal<{ email: string; password: string } | null>(null);
+  /** Set-password link to share with a newly invited / reset user (dev exposes it inline). */
+  protected readonly handoff = signal<{ email: string; link?: string } | null>(null);
 
   protected readonly changingPw = signal(false);
   protected readonly pwMessage = signal<string | null>(null);
@@ -85,7 +85,7 @@ export class UsersComponent {
     this.inviting.set(true);
     try {
       const result = await this.api.createMember({ email: email.trim(), displayName: displayName.trim(), role: this.inviteRole() });
-      if (result.tempPassword) this.handoff.set({ email: result.member.email, password: result.tempPassword });
+      this.handoff.set({ email: result.member.email, link: result.setPasswordLink });
       this.showInvite.set(false);
       await this.load();
     } catch (err: unknown) {
@@ -122,7 +122,7 @@ export class UsersComponent {
     this.error.set(null);
     try {
       const result = await this.api.resetMemberPassword(member.uid);
-      if (result.tempPassword) this.handoff.set({ email: member.email, password: result.tempPassword });
+      this.handoff.set({ email: member.email, link: result.setPasswordLink });
     } catch (err: unknown) {
       this.error.set(this.messageFrom(err, 'Could not reset the password.'));
     }

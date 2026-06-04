@@ -167,6 +167,27 @@ async function main(): Promise<void> {
 
   await seedDemoAudit(db);
 
+  // Optional first-superadmin bootstrap. The superadmin has no tenant and is
+  // created active (it is the one account not stood up via an invite link).
+  let superadminEmail: string | undefined;
+  if (config.superadminEmail && config.superadminPassword) {
+    superadminEmail = config.superadminEmail.toLowerCase();
+    await db.collection(mongoCollections.members).updateOne(
+      { uid: 'uid-superadmin' },
+      {
+        $set: { passwordHash: hashPassword(config.superadminPassword), status: 'active' },
+        $setOnInsert: {
+          uid: 'uid-superadmin',
+          tenantId: null,
+          role: 'platformSuperadmin',
+          profile: { email: superadminEmail, displayName: 'Platform Superadmin' },
+          createdAt: now,
+        },
+      },
+      { upsert: true },
+    );
+  }
+
   console.log(
     JSON.stringify(
       {
@@ -174,6 +195,7 @@ async function main(): Promise<void> {
         database: db.databaseName,
         collections: Object.values(mongoCollections),
         demoLogin: { email: DEMO_EMAIL, password: DEMO_PASSWORD },
+        superadmin: superadminEmail ? { email: superadminEmail } : 'not seeded (set SUPERADMIN_EMAIL + SUPERADMIN_PASSWORD)',
         seededAudit: AUDIT_ID,
       },
       null,

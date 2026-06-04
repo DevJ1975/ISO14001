@@ -27,6 +27,7 @@ import type {
   FieldCapa,
   FieldChecklistItem,
   FieldEvidence,
+  FieldEvidenceRequest,
   FieldFinding,
   FieldResult,
   InterestedParty,
@@ -53,6 +54,7 @@ export interface FieldStatePayload {
   audit?: AuditSummary | null;
   items: Array<Omit<FieldChecklistItem, 'sync'>>;
   evidence: Array<Omit<FieldEvidence, 'sync' | 'thumbUrl'>>;
+  evidenceRequests?: Array<Omit<FieldEvidenceRequest, 'sync'>>;
   findings: Array<Omit<FieldFinding, 'sync'>>;
   capas?: Array<Omit<FieldCapa, 'sync'>>;
   auditStatus?: AuditStatus;
@@ -115,16 +117,16 @@ export class FieldApiService {
     return result?.members ?? [];
   }
 
-  createMember(body: { email: string; displayName: string; role: string }): Promise<{ member: Member; tempPassword?: string }> {
-    return firstValueFrom(this.http.post<{ member: Member; tempPassword?: string }>(`${this.tenantBase()}/members`, body));
+  createMember(body: { email: string; displayName: string; role: string }): Promise<{ member: Member; setPasswordLink?: string }> {
+    return firstValueFrom(this.http.post<{ member: Member; setPasswordLink?: string }>(`${this.tenantBase()}/members`, body));
   }
 
   updateMember(uid: string, patch: { role?: string; status?: string; displayName?: string }): Promise<{ member: Member }> {
     return firstValueFrom(this.http.put<{ member: Member }>(`${this.tenantBase()}/members/${encodeURIComponent(uid)}`, patch));
   }
 
-  resetMemberPassword(uid: string): Promise<{ tempPassword?: string }> {
-    return firstValueFrom(this.http.post<{ tempPassword?: string }>(`${this.tenantBase()}/members/${encodeURIComponent(uid)}/password`, {}));
+  resetMemberPassword(uid: string): Promise<{ setPasswordLink?: string }> {
+    return firstValueFrom(this.http.post<{ setPasswordLink?: string }>(`${this.tenantBase()}/members/${encodeURIComponent(uid)}/password`, {}));
   }
 
   changeOwnPassword(currentPassword: string, newPassword: string): Promise<unknown> {
@@ -204,6 +206,10 @@ export class FieldApiService {
 
   upsertFinding(body: Omit<FieldFinding, 'sync'>): Promise<unknown> {
     return firstValueFrom(this.http.put(`${this.base()}/findings/${encodeURIComponent(body.id)}`, body));
+  }
+
+  upsertEvidenceRequest(body: Omit<FieldEvidenceRequest, 'sync'>): Promise<unknown> {
+    return firstValueFrom(this.http.put(`${this.base()}/evidence-requests/${encodeURIComponent(body.id)}`, body));
   }
 
   upsertCapa(body: Omit<FieldCapa, 'sync'>): Promise<unknown> {

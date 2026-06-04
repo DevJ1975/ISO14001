@@ -84,6 +84,30 @@ export function issueMemberToken(
   return { token, expiresAt: new Date(Date.now() + config.jwtTtlSeconds * 1000).toISOString() };
 }
 
+/**
+ * Mint a platform-superadmin token: `platform: true` and NO tenantId, matching
+ * the discriminated actorContextSchema. Symmetric with issueMemberToken so the
+ * platform/no-tenant invariant lives in exactly one place.
+ */
+export function issuePlatformToken(
+  member: { uid: string },
+  config: ServerConfig,
+): { token: string; expiresAt: string } {
+  const token = signJwt(
+    { sub: member.uid, role: 'platformSuperadmin', platform: true },
+    config.jwtSecret,
+    config.jwtTtlSeconds,
+  );
+  return { token, expiresAt: new Date(Date.now() + config.jwtTtlSeconds * 1000).toISOString() };
+}
+
+/** Gate for the /api/admin/* surface. Tenant routes must keep using requireTenant. */
+export function requireSuperadmin(actor: ActorContext): void {
+  if (!actor.platform) {
+    throw new ApiAuthError('Platform superadmin access is required.');
+  }
+}
+
 export function requireTenant(actor: ActorContext, tenantId: string): void {
   if (actor.platform || actor.tenantId !== tenantId) {
     throw new ApiAuthError('Actor is not scoped to this tenant.');

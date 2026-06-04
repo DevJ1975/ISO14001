@@ -86,9 +86,18 @@ export class ShellComponent {
     { path: '/registers', label: 'Registers', icon: 'health_and_safety', exact: false },
     { path: '/report', label: 'Report', icon: 'description', exact: false },
     { path: '/programme', label: 'Programme', icon: 'calendar_month', exact: false },
-    { path: '/portal', label: 'Auditee', icon: 'handshake', exact: false },
+    { path: '/requests', label: 'Requests', icon: 'cloud_upload', exact: false },
+    { path: '/portal', label: 'Client portal', icon: 'handshake', exact: false },
     { path: '/users', label: 'Users', icon: 'group', exact: false },
   ];
+
+  /**
+   * Navigation scoped to the signed-in role: auditees (clientViewer) only ever
+   * see the client portal; auditor roles get the full workspace.
+   */
+  protected readonly visibleNav = computed<NavItem[]>(() =>
+    this.auth.isAuditee() ? this.nav.filter((item) => item.path === '/portal') : this.nav,
+  );
 
   protected toggleTheme(): void {
     this.theme.toggle();
