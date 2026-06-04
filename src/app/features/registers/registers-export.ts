@@ -6,6 +6,7 @@ import type {
   Hazard,
   HiraEntry,
   Incident,
+  LeadershipItem,
   ManagementOfChangeRecord,
   OperationalControl,
   Permit,
@@ -75,6 +76,29 @@ export const operationalControlColumns: CsvColumn<OperationalControl>[] = [
   { header: 'Procedure / permit ref', value: (r) => r.procedureRef },
   { header: 'Verified in use', value: (r) => (r.verified ? 'yes' : 'no') },
   { header: 'Effectiveness', value: (r) => r.effectiveness },
+  { header: 'Related clause', value: (r) => r.relatedClause },
+  { header: 'Result', value: (r) => r.result },
+];
+
+const LEADERSHIP_KIND_LABELS: Record<LeadershipItem['kind'], string> = {
+  commitment: 'Leadership commitment',
+  policyAttribute: 'Policy attribute',
+  roleAssignment: 'Role & responsibility',
+};
+
+/** Per-group label for the leadership row's yes/no flag (verified / present / communicated). */
+const LEADERSHIP_FLAG_LABELS: Record<LeadershipItem['kind'], string> = {
+  commitment: 'Verified in interview',
+  policyAttribute: 'Present',
+  roleAssignment: 'Communicated',
+};
+
+export const leadershipColumns: CsvColumn<LeadershipItem>[] = [
+  { header: 'Group', value: (r) => LEADERSHIP_KIND_LABELS[r.kind] },
+  { header: 'Item', value: (r) => r.label },
+  { header: 'Person / owner', value: (r) => r.owner },
+  { header: 'Evidence / notes', value: (r) => r.notes },
+  { header: 'Flag', value: (r) => `${LEADERSHIP_FLAG_LABELS[r.kind]}: ${r.flag ? 'yes' : 'no'}` },
   { header: 'Related clause', value: (r) => r.relatedClause },
   { header: 'Result', value: (r) => r.result },
 ];

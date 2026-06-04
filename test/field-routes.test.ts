@@ -461,6 +461,42 @@ describe('field-audit API routes', () => {
     assert.equal(body.operationalControls.length, 1);
   });
 
+  it('upserts a leadership & policy item (cl. 5.1/5.2/5.3) and returns it in field-state', async () => {
+    const { db, store } = createFakeDb();
+    const res = makeRes();
+    await handleApiRequest(
+      makeReq({
+        method: 'PUT',
+        url: '/api/tenants/t/audits/a/leadership/lead-1',
+        headers: authHeaders('t'),
+        body: {
+          id: 'lead-1',
+          kind: 'policyAttribute',
+          label: 'Framework for setting OH&S objectives',
+          notes: 'Policy gives a framework objectives are derived from.',
+          flag: true,
+          relatedClause: '5.2',
+          result: 'conforming',
+        },
+      }),
+      res,
+      { db, config },
+    );
+    assert.equal(res.statusCode, 200);
+    const saved = store.get('leadership')!.find((d) => d['id'] === 'lead-1');
+    assert.equal(saved?.['kind'], 'policyAttribute');
+    assert.equal(saved?.['flag'], true);
+
+    const state = makeRes();
+    await handleApiRequest(
+      makeReq({ method: 'GET', url: '/api/tenants/t/audits/a/field-state', headers: authHeaders('t') }),
+      state,
+      { db, config },
+    );
+    const body = JSON.parse(state.body) as { leadership: unknown[] };
+    assert.equal(body.leadership.length, 1);
+  });
+
   it('lets lead/admin manage the tenant audit programme', async () => {
     const { db } = createFakeDb();
     const denied = makeRes();

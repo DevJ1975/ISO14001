@@ -931,6 +931,77 @@
         }
       </div>
     }
+    @case ('leadership') {
+      <div class="reg">
+        <div class="reg-head">
+          <h2>Leadership commitments (cl. 5.1)</h2>
+          <button mat-flat-button color="primary" type="button" (click)="store.addLeadershipItem('commitment')"><mat-icon aria-hidden="true">add</mat-icon>Add</button>
+        </div>
+        @for (row of leadershipByKind('commitment'); track row.id) {
+          <article class="tile row">
+            <label class="fld"><span>Commitment area</span><input [value]="row.label" placeholder="Accountability for OH&amp;S, Resources provided, Worker consultation supported…" (change)="store.updateLeadershipItem(row.id, { label: $any($event.target).value })" /></label>
+            <label class="fld"><span>Evidence / notes</span><input [value]="row.notes || ''" (change)="store.updateLeadershipItem(row.id, { notes: $any($event.target).value })" /></label>
+            <div class="grid2">
+              <label class="fld"><span>Related clause</span><input [value]="row.relatedClause || ''" placeholder="5.1" (change)="store.updateLeadershipItem(row.id, { relatedClause: $any($event.target).value })" /></label>
+              <label class="chk2"><input type="checkbox" [checked]="row.flag || false" (change)="store.updateLeadershipItem(row.id, { flag: $any($event.target).checked })" /> Verified in interview</label>
+            </div>
+            <div class="results">
+              @for (r of results; track r.value) {
+                <button type="button" class="rp {{ r.tone }}" [class.on]="row.result === r.value" (click)="store.updateLeadershipItem(row.id, { result: r.value })">{{ r.label }}</button>
+              }
+              <button type="button" class="att-del" aria-label="Remove leadership commitment" (click)="confirmRemoveLeadership(row)"><mat-icon aria-hidden="true">delete</mat-icon></button>
+            </div>
+          </article>
+        } @empty {
+          <div class="panel empty"><mat-icon aria-hidden="true">supervisor_account</mat-icon><strong>No leadership commitments yet</strong><span>Record evidence that top management demonstrates leadership and commitment — accountability, resourcing and support for consultation (cl. 5.1).</span></div>
+        }
+        <div class="reg-head">
+          <h2>OH&amp;S policy attributes (cl. 5.2)</h2>
+          <button mat-flat-button color="primary" type="button" (click)="store.addLeadershipItem('policyAttribute')"><mat-icon aria-hidden="true">add</mat-icon>Add</button>
+        </div>
+        @for (row of leadershipByKind('policyAttribute'); track row.id) {
+          <article class="tile row">
+            <label class="fld"><span>Policy attribute</span><input [value]="row.label" placeholder="Commitment to safe &amp; healthy conditions, Framework for objectives, Continual improvement…" (change)="store.updateLeadershipItem(row.id, { label: $any($event.target).value })" /></label>
+            <label class="fld"><span>Evidence / notes</span><input [value]="row.notes || ''" (change)="store.updateLeadershipItem(row.id, { notes: $any($event.target).value })" /></label>
+            <div class="grid2">
+              <label class="fld"><span>Related clause</span><input [value]="row.relatedClause || ''" placeholder="5.2" (change)="store.updateLeadershipItem(row.id, { relatedClause: $any($event.target).value })" /></label>
+              <label class="chk2"><input type="checkbox" [checked]="row.flag || false" (change)="store.updateLeadershipItem(row.id, { flag: $any($event.target).checked })" /> Present in the policy</label>
+            </div>
+            <div class="results">
+              @for (r of results; track r.value) {
+                <button type="button" class="rp {{ r.tone }}" [class.on]="row.result === r.value" (click)="store.updateLeadershipItem(row.id, { result: r.value })">{{ r.label }}</button>
+              }
+              <button type="button" class="att-del" aria-label="Remove policy attribute" (click)="confirmRemoveLeadership(row)"><mat-icon aria-hidden="true">delete</mat-icon></button>
+            </div>
+          </article>
+        } @empty {
+          <div class="panel empty"><mat-icon aria-hidden="true">policy</mat-icon><strong>No policy attributes yet</strong><span>Check the OH&amp;S policy against its required attributes and mark each as present with supporting evidence (cl. 5.2).</span></div>
+        }
+        <div class="reg-head">
+          <h2>Roles &amp; responsibilities (cl. 5.3)</h2>
+          <button mat-flat-button color="primary" type="button" (click)="store.addLeadershipItem('roleAssignment')"><mat-icon aria-hidden="true">add</mat-icon>Add</button>
+        </div>
+        @for (row of leadershipByKind('roleAssignment'); track row.id) {
+          <article class="tile row">
+            <label class="fld"><span>Role / function</span><input [value]="row.label" placeholder="Management representative, Incident investigation lead…" (change)="store.updateLeadershipItem(row.id, { label: $any($event.target).value })" /></label>
+            <div class="grid2">
+              <label class="fld"><span>Person / owner</span><input [value]="row.owner || ''" (change)="store.updateLeadershipItem(row.id, { owner: $any($event.target).value })" /></label>
+              <label class="fld"><span>Related clause</span><input [value]="row.relatedClause || ''" placeholder="5.3" (change)="store.updateLeadershipItem(row.id, { relatedClause: $any($event.target).value })" /></label>
+            </div>
+            <label class="fld"><span>Assigned responsibility / notes</span><input [value]="row.notes || ''" (change)="store.updateLeadershipItem(row.id, { notes: $any($event.target).value })" /></label>
+            <label class="chk2"><input type="checkbox" [checked]="row.flag || false" (change)="store.updateLeadershipItem(row.id, { flag: $any($event.target).checked })" /> Communicated within the organisation</label>
+            <div class="results">
+              @for (r of results; track r.value) {
+                <button type="button" class="rp {{ r.tone }}" [class.on]="row.result === r.value" (click)="store.updateLeadershipItem(row.id, { result: r.value })">{{ r.label }}</button>
+              }
+              <button type="button" class="att-del" aria-label="Remove role assignment" (click)="confirmRemoveLeadership(row)"><mat-icon aria-hidden="true">delete</mat-icon></button>
+            </div>
+          </article>
+        } @empty {
+          <div class="panel empty"><mat-icon aria-hidden="true">assignment_ind</mat-icon><strong>No role assignments yet</strong><span>Record how OH&amp;S roles, responsibilities and authorities are assigned and communicated (cl. 5.3).</span></div>
+        }
+      </div>
+    }
     @case ('review') {
       <div class="reg">
         <div class="reg-head">

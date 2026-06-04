@@ -466,6 +466,29 @@ export interface OperationalControl {
   sync: SyncState;
 }
 
+/**
+ * Leadership & policy register row (ISO 45001 cl. 5.1 / 5.2 / 5.3). A single
+ * shape with a `kind` discriminator covers three logical groups:
+ * - `commitment`     — top-management leadership & commitment evidence (cl. 5.1)
+ * - `policyAttribute`— required attributes of the OH&S policy (cl. 5.2)
+ * - `roleAssignment` — assignment of roles, responsibilities & authorities (cl. 5.3)
+ * Shared fields keep the store threading to a single new register; the `flag`
+ * boolean carries the group-specific yes/no (verified-in-interview / present /
+ * communicated) and `owner` the person or function where relevant.
+ */
+export interface LeadershipItem {
+  id: string;
+  kind: 'commitment' | 'policyAttribute' | 'roleAssignment';
+  label: string;
+  notes?: string;
+  owner?: string;
+  flag?: boolean;
+  relatedClause?: string;
+  result: RegisterResult;
+  updatedAt: string;
+  sync: SyncState;
+}
+
 /** Monitoring & measuring equipment calibration (ISO 45001 cl. 9.1.1). */
 export interface CalibrationRecord {
   id: string;
@@ -671,6 +694,7 @@ interface PersistedState {
   suppliers: SupplierRecord[];
   changes: ManagementOfChangeRecord[];
   operationalControls: OperationalControl[];
+  leadership: LeadershipItem[];
   reportMeta: ReportMeta;
   reportSignedAt: string | null;
   reportSignature?: ReportSignature | null;
@@ -803,6 +827,31 @@ function seedOperationalControls(): OperationalControl[] {
     base({ activity: 'Forklift / pedestrian movement in warehouse', controlDescription: 'Segregated walkways with barriers; banksman for blind corners.', controlType: 'engineering', procedureRef: 'SSOW-FLT-01', verified: false, effectiveness: 'partial', relatedClause: '8.1.2', result: 'needsFollowUp' }),
     base({ activity: 'Hot work / welding on line 2', controlDescription: 'Hot-work permit, fire watch and screens; relies on operator compliance.', controlType: 'administrative', procedureRef: 'PTW-HOT-07', verified: true, effectiveness: 'partial', relatedClause: '8.1.2', result: 'needsFollowUp' }),
     base({ activity: 'Solvent degreasing', controlDescription: 'Local exhaust ventilation at the bench; PPE as last resort.', controlType: 'engineering', procedureRef: 'COSHH-DEG-03', verified: false, effectiveness: 'ineffective', relatedClause: '8.1.2', result: 'nonconforming' }),
+  ];
+}
+
+/** Demonstration leadership & policy records spanning commitments (5.1), policy attributes (5.2) and role assignments (5.3). */
+function seedLeadership(): LeadershipItem[] {
+  const now = '2026-06-15T15:00:00.000Z';
+  const base = (extra: Partial<LeadershipItem>): LeadershipItem => ({
+    id: uid('leadership'),
+    kind: 'commitment',
+    label: '',
+    result: 'notStarted',
+    updatedAt: now,
+    sync: 'synced',
+    ...extra,
+  });
+  return [
+    base({ kind: 'commitment', label: 'Accountability for OH&S', notes: 'Top management takes overall accountability for the OH&S management system and reviews performance each quarter.', flag: true, relatedClause: '5.1', result: 'conforming' }),
+    base({ kind: 'commitment', label: 'Resources provided', notes: 'Budget and people confirmed for the OH&S programme; interviewed the operations director.', flag: true, relatedClause: '5.1', result: 'conforming' }),
+    base({ kind: 'commitment', label: 'Worker consultation supported', notes: 'Leadership funds the safety committee but attendance evidence for the last meeting is outstanding.', flag: false, relatedClause: '5.1', result: 'needsFollowUp' }),
+    base({ kind: 'policyAttribute', label: 'Commitment to safe & healthy working conditions', notes: 'Policy states the intent to prevent work-related injury and ill health.', flag: true, relatedClause: '5.2', result: 'conforming' }),
+    base({ kind: 'policyAttribute', label: 'Framework for setting OH&S objectives', notes: 'Policy gives a framework that objectives are derived from.', flag: true, relatedClause: '5.2', result: 'conforming' }),
+    base({ kind: 'policyAttribute', label: 'Commitment to consultation & participation', notes: 'Policy references worker consultation; wording could be clearer on participation of worker representatives.', flag: false, relatedClause: '5.2', result: 'needsFollowUp' }),
+    base({ kind: 'roleAssignment', label: 'Management representative for OH&S', owner: 'J. Okafor (H&S Manager)', notes: 'Responsibility for maintaining the OH&S management system is assigned and recorded in the role profile.', flag: true, relatedClause: '5.3', result: 'conforming' }),
+    base({ kind: 'roleAssignment', label: 'Reporting OH&S performance to top management', owner: 'Operations Director', notes: 'Authority to report system performance is assigned; communicated at the last management review.', flag: true, relatedClause: '5.3', result: 'conforming' }),
+    base({ kind: 'roleAssignment', label: 'Incident investigation lead', owner: 'Vacant', notes: 'Responsibility not currently assigned following a leaver; cover arrangement not yet communicated.', flag: false, relatedClause: '5.3', result: 'needsFollowUp' }),
   ];
 }
 
@@ -1232,6 +1281,7 @@ export class FieldAuditStore {
   readonly suppliers = signal<SupplierRecord[]>(seedSuppliers());
   readonly changes = signal<ManagementOfChangeRecord[]>(seedChanges());
   readonly operationalControls = signal<OperationalControl[]>(seedOperationalControls());
+  readonly leadership = signal<LeadershipItem[]>(seedLeadership());
   readonly reportMeta = signal<ReportMeta>(defaultReportMeta());
   /** Read-only audit trail from the backend (not synced upward). */
   readonly changeLog = signal<ChangeLogEntry[]>([]);
@@ -1299,6 +1349,7 @@ export class FieldAuditStore {
       this.suppliers().filter((s) => s.sync !== 'synced').length +
       this.changes().filter((c) => c.sync !== 'synced').length +
       this.operationalControls().filter((c) => c.sync !== 'synced').length +
+      this.leadership().filter((l) => l.sync !== 'synced').length +
       (this.conclusion() && this.conclusion()!.sync !== 'synced' ? 1 : 0) +
       (this.reportMeta().sync !== 'synced' ? 1 : 0),
   );
@@ -2559,6 +2610,29 @@ export class FieldAuditStore {
     this.persist();
   }
 
+  addLeadershipItem(kind: LeadershipItem['kind']): void {
+    const relatedClause = kind === 'commitment' ? '5.1' : kind === 'policyAttribute' ? '5.2' : '5.3';
+    this.leadership.update((list) => [
+      { id: uid('leadership'), kind, label: '', relatedClause, result: 'notStarted', updatedAt: new Date().toISOString(), sync: 'queued' },
+      ...list,
+    ]);
+    this.persist();
+    this.autoFlush();
+  }
+
+  updateLeadershipItem(id: string, patch: Partial<LeadershipItem>): void {
+    this.leadership.update((list) =>
+      list.map((entry) => (entry.id === id ? { ...entry, ...patch, updatedAt: new Date().toISOString(), sync: 'queued' } : entry)),
+    );
+    this.persist();
+    this.autoFlush();
+  }
+
+  removeLeadershipItem(id: string): void {
+    this.leadership.update((list) => list.filter((entry) => entry.id !== id));
+    this.persist();
+  }
+
   /** The order-stable view of the report that an e-signature attests to. */
   signableReport(): SignableReport {
     const conclusion = this.conclusion();
@@ -2683,6 +2757,7 @@ export class FieldAuditStore {
     this.suppliers.set(seedSuppliers());
     this.changes.set(seedChanges());
     this.operationalControls.set(seedOperationalControls());
+    this.leadership.set(seedLeadership());
     this.reportMeta.set(defaultReportMeta());
     this.reportSignedAt.set(null);
     this.reportSignature.set(null);
@@ -3106,6 +3181,17 @@ export class FieldAuditStore {
           this.setSync('operationalControls', record.id, 'queued');
         }
       }
+      for (const record of this.leadership().filter((entry) => entry.sync !== 'synced')) {
+        this.setSync('leadership', record.id, 'syncing');
+        try {
+          const { sync, ...payload } = record;
+          void sync;
+          await this.api.upsertLeadershipItem(payload);
+          this.setSync('leadership', record.id, 'synced');
+        } catch {
+          this.setSync('leadership', record.id, 'queued');
+        }
+      }
       this.persist();
     } finally {
       this.flushing = false;
@@ -3143,7 +3229,8 @@ export class FieldAuditStore {
       | 'training'
       | 'suppliers'
       | 'changes'
-      | 'operationalControls',
+      | 'operationalControls'
+      | 'leadership',
     id: string,
     sync: SyncState,
   ): void {
@@ -3179,6 +3266,7 @@ export class FieldAuditStore {
       suppliers: this.suppliers,
       changes: this.changes,
       operationalControls: this.operationalControls,
+      leadership: this.leadership,
     };
     const ref = map[collection] as unknown as {
       update: (fn: (list: SyncRecord[]) => SyncRecord[]) => void;
@@ -3248,6 +3336,7 @@ export class FieldAuditStore {
       suppliers: this.suppliers(),
       changes: this.changes(),
       operationalControls: this.operationalControls(),
+      leadership: this.leadership(),
       reportMeta: this.reportMeta(),
       reportSignedAt: this.reportSignedAt(),
       reportSignature: this.reportSignature(),
@@ -3294,6 +3383,7 @@ export class FieldAuditStore {
       this.suppliers.set((payload.suppliers ?? []).map((s) => ({ ...s, sync: 'synced' as const })));
       this.changes.set((payload.changes ?? []).map((c) => ({ ...c, sync: 'synced' as const })));
       this.operationalControls.set((payload.operationalControls ?? []).map((c) => ({ ...c, sync: 'synced' as const })));
+      this.leadership.set((payload.leadership ?? []).map((l) => ({ ...l, sync: 'synced' as const })));
       // Report front-matter: prefer the server copy (shared across the team),
       // falling back to defaults, then overlay scope/dates from the audit record.
       this.reportMeta.set(
@@ -3357,6 +3447,7 @@ export class FieldAuditStore {
     this.suppliers.set(saved.suppliers ?? seedSuppliers());
     this.changes.set(saved.changes ?? seedChanges());
     this.operationalControls.set(saved.operationalControls ?? seedOperationalControls());
+    this.leadership.set(saved.leadership ?? seedLeadership());
     if (saved.reportMeta) this.reportMeta.set({ ...defaultReportMeta(), ...saved.reportMeta });
     this.reportSignedAt.set(saved.reportSignedAt ?? null);
     this.reportSignature.set(saved.reportSignature ?? null);
