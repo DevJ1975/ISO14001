@@ -123,7 +123,12 @@ export const routes: Routes = [
       {
         path: 'manual',
         loadComponent: () => import('./features/manual/manual.component').then((m) => m.ManualComponent),
-        title: 'User manual',
+        title: "Auditor's manual",
+      },
+      {
+        path: 'copilot',
+        loadComponent: () => import('./features/copilot/copilot.component').then((m) => m.CopilotComponent),
+        title: 'Auditor copilot',
       },
       { path: '**', redirectTo: '' },
     ],

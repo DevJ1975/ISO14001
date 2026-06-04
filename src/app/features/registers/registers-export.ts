@@ -1,8 +1,10 @@
+import { evaluateRiskRating } from '../../core/domain';
 import { CsvColumn } from '../../core/export/csv';
 import type {
   CalibrationRecord,
   DocumentedInfoRecord,
   Hazard,
+  HiraEntry,
   Incident,
   ManagementOfChangeRecord,
   Permit,
@@ -72,6 +74,23 @@ export const hazardColumns: CsvColumn<Hazard>[] = [
   { header: 'Risk', value: (r) => r.significance },
   { header: 'Control type', value: (r) => r.controlType },
   { header: 'Controls', value: (r) => r.controls },
+  { header: 'Result', value: (r) => r.result },
+];
+
+export const hiraColumns: CsvColumn<HiraEntry>[] = [
+  { header: 'Activity / task', value: (r) => r.activity },
+  { header: 'Routineness', value: (r) => r.routineness },
+  { header: 'Hazard', value: (r) => r.hazard },
+  { header: 'Who at harm', value: (r) => r.whoAtHarm },
+  { header: 'Existing controls', value: (r) => r.existingControls },
+  { header: 'Severity', value: (r) => r.severity },
+  { header: 'Likelihood', value: (r) => r.likelihood },
+  { header: 'Initial band', value: (r) => evaluateRiskRating({ severity: r.severity, likelihood: r.likelihood }).band },
+  { header: 'Additional controls', value: (r) => r.additionalControls },
+  { header: 'Control type', value: (r) => r.controlType },
+  { header: 'Residual severity', value: (r) => r.residualSeverity },
+  { header: 'Residual likelihood', value: (r) => r.residualLikelihood },
+  { header: 'Residual band', value: (r) => evaluateRiskRating({ severity: r.residualSeverity, likelihood: r.residualLikelihood }).band },
   { header: 'Result', value: (r) => r.result },
 ];
 

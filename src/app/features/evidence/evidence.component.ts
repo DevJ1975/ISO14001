@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/cor
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 
+import type { PhotoAnalysisResult } from '../../core/domain';
 import { FieldAuditStore, type FieldEvidence, SyncState } from '../../core/field/field-audit-store';
 
 @Component({
@@ -45,6 +46,23 @@ export class EvidenceComponent {
     if (note) {
       this.store.addNoteEvidence({ text: note });
     }
+  }
+
+  /** The AI analysis state for a photo, if any has been requested. */
+  protected analysis(evidence: FieldEvidence): PhotoAnalysisResult | undefined {
+    return this.store.photoAnalysis()[evidence.id];
+  }
+
+  protected requestAnalysis(evidence: FieldEvidence): void {
+    void this.store.requestAnalysis(evidence.id);
+  }
+
+  protected acceptAnalysis(evidence: FieldEvidence): void {
+    this.store.acceptAnalysis(evidence.id);
+  }
+
+  protected rejectAnalysis(evidence: FieldEvidence): void {
+    this.store.rejectAnalysis(evidence.id);
   }
 
   protected syncTone(sync: SyncState): 'positive' | 'progress' | 'critical' {

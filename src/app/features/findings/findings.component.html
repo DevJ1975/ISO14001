@@ -25,6 +25,21 @@
 
         @if (selectedId() === finding.id) {
           <div class="nc-detail">
+            @if (canDraft()) {
+              <div class="ai-draft">
+                <button mat-stroked-button type="button" [disabled]="isDrafting(finding.id)" (click)="draftFinding(finding)">
+                  <mat-icon aria-hidden="true">auto_awesome</mat-icon>{{ isDrafting(finding.id) ? 'Drafting…' : 'Draft this finding' }}
+                </button>
+                @if (draftInfo(finding.id); as info) {
+                  <p class="ai-note">
+                    <mat-icon aria-hidden="true">info</mat-icon>
+                    Draft composed from this finding's data ({{ info.source === 'ai' ? 'AI' : 'auto-draft' }}, {{ formatTime(info.generatedAt) }}) — review and edit every field before issuing.
+                  </p>
+                } @else {
+                  <p class="ai-hint">Auto-write the statement, requirement, evidence and a suggested grade from this finding's data, then review and edit before issuing.</p>
+                }
+              </div>
+            }
             <div class="fld"><span>Requirement</span><div class="ro">{{ finding.requirementSummary || '—' }}</div></div>
             <label class="fld">
               <span>Nonconformity statement</span>
