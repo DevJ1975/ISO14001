@@ -31,6 +31,7 @@ export * from './hardening.js';
 export * from './models.js';
 export * from './photo-analysis.js';
 export * from './photo-evidence.js';
+export * from './portfolio-analytics.js';
 export * from './production-backend.js';
 export * from './reports-capa.js';
 export * from './report-draft.js';
