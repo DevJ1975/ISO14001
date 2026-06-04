@@ -21,8 +21,54 @@ export const plannedAuditSchema = z.object({
   status: plannedAuditStatusSchema.default('planned'),
   auditId: z.string().min(1).optional(),
   priorAuditId: z.string().min(1).optional(),
+  /** Justified planned audit-days for this certification audit (IAF MD 5). */
+  plannedDays: z.number().min(0).max(1000).optional(),
+  /** Audit-days actually spent, reconciled against the plan. */
+  actualDays: z.number().min(0).max(1000).optional(),
 });
 export type PlannedAudit = z.infer<typeof plannedAuditSchema>;
+
+/**
+ * Audit-day variance = actual − planned. Positive means the audit ran over its
+ * justified time; negative means under. Returns 0 when either side is unset so
+ * an unplanned/unrecorded row contributes nothing to a roll-up.
+ */
+export function auditDayVariance(planned?: number, actual?: number): number {
+  if (!Number.isFinite(planned) || !Number.isFinite(actual)) return 0;
+  return (actual as number) - (planned as number);
+}
+
+export interface PlannedTimeSummary {
+  totalPlanned: number;
+  totalActual: number;
+  variance: number;
+  overCount: number;
+  underCount: number;
+}
+
+/**
+ * Roll-up of planned vs actual audit-days across the planned-audit entries:
+ * totals, net variance (actual − planned) and counts of rows over/under their plan.
+ * Undefined-safe: rows missing either figure simply add nothing.
+ */
+export function summarisePlannedTime(
+  plannedAudits: readonly { plannedDays?: number; actualDays?: number }[] = [],
+): PlannedTimeSummary {
+  let totalPlanned = 0;
+  let totalActual = 0;
+  let overCount = 0;
+  let underCount = 0;
+  for (const audit of plannedAudits) {
+    if (Number.isFinite(audit.plannedDays)) totalPlanned += audit.plannedDays as number;
+    if (Number.isFinite(audit.actualDays)) totalActual += audit.actualDays as number;
+    if (Number.isFinite(audit.plannedDays) && Number.isFinite(audit.actualDays)) {
+      const variance = auditDayVariance(audit.plannedDays, audit.actualDays);
+      if (variance > 0) overCount += 1;
+      else if (variance < 0) underCount += 1;
+    }
+  }
+  return { totalPlanned, totalActual, variance: totalActual - totalPlanned, overCount, underCount };
+}
 
 export const auditProgrammeSchema = z.object({
   id: z.string().min(1),

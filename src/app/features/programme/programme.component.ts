@@ -17,15 +17,17 @@ import {
   type InternalAudit,
   type InternalAuditStatus,
   CERTIFICATE_TRANSITIONS,
+  auditDayVariance,
   calculateAuditDuration,
   isComplaintOverdue,
   isInternalAuditOverdue,
   recertificationDue,
   sampleSiteCount,
   selectSampleSites,
+  summarisePlannedTime,
   surveillanceDue,
 } from '../../core/domain';
-import { AuditTypeKind, PlannedStatus, ProgrammeStore } from '../../core/programme/programme-store';
+import { AuditTypeKind, type PlannedAudit, PlannedStatus, ProgrammeStore } from '../../core/programme/programme-store';
 import { ConfirmService } from '../../core/ui/confirm.service';
 
 @Component({
@@ -126,6 +128,27 @@ export class ProgrammeComponent {
     if (type === 'recertification') return recertificationDue(now).slice(0, 10);
     return now.slice(0, 10);
   }
+
+  // --- Audit-time planning & actuals (IAF MD 5 reconciliation) ---
+
+  /** Per-row audit-day variance (actual − planned), or null when either side is unset. */
+  protected rowVariance(audit: PlannedAudit): number | null {
+    if (!Number.isFinite(audit.plannedDays) || !Number.isFinite(audit.actualDays)) return null;
+    return auditDayVariance(audit.plannedDays, audit.actualDays);
+  }
+
+  protected varianceTone(variance: number): 'warning' | 'positive' | 'neutral' {
+    if (variance > 0) return 'warning';
+    if (variance < 0) return 'positive';
+    return 'neutral';
+  }
+
+  /** Roll-up of planned vs actual audit-days across the programme's planned audits. */
+  protected readonly timeSummary = computed(() => {
+    const programme = this.store.programme();
+    if (!programme) return null;
+    return summarisePlannedTime(programme.plannedAudits);
+  });
 
   // --- Internal-audit programme (ISO 45001 cl. 9.2) ---
 
