@@ -79,6 +79,21 @@ export function evaluateRiskRating(input: RiskRatingInput): RiskRatingResult {
 
 export const complianceStatusSchema = z.enum(['compliant', 'nonCompliant', 'toVerify']);
 
+/**
+ * A single timestamped compliance evaluation for an obligation (ISO 45001
+ * cl. 9.1.2 — periodic evaluation of compliance). Keeping a history of these
+ * lets an auditor see how an obligation's compliance status changed across
+ * audit cycles (the compliance trend), rather than only its current state.
+ */
+export const complianceEvaluationSchema = z.object({
+  id: z.string().min(1),
+  evaluatedAt: timestampSchema,
+  complianceStatus: complianceStatusSchema,
+  evaluatedBy: z.string().max(200).optional(),
+  note: z.string().max(2000).optional(),
+});
+export type ComplianceEvaluation = z.infer<typeof complianceEvaluationSchema>;
+
 /** OH&S legal & other requirements register + evaluation of compliance (ISO 45001 cl. 6.1.3 / 9.1.2). */
 export const complianceObligationSchema = z.object({
   id: z.string().min(1),
@@ -90,6 +105,8 @@ export const complianceObligationSchema = z.object({
   complianceStatus: complianceStatusSchema.default('toVerify'),
   evidenceIds: z.array(z.string().min(1)).default([]),
   lastEvaluatedAt: timestampSchema.optional(),
+  /** Timestamped history of compliance evaluations, newest first (cl. 9.1.2). */
+  evaluations: z.array(complianceEvaluationSchema).default([]),
   result: checklistItemResultSchema.default('notStarted'),
   updatedAt: timestampSchema,
 });

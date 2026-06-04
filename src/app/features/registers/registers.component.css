@@ -667,3 +667,75 @@
   min-height: 40px;
   border-radius: 10px;
 }
+
+/* Compliance-evaluation history (cl. 9.1.2) */
+.eval {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 12px;
+  margin-top: 4px;
+  border-top: 1px solid var(--border);
+}
+
+.eval-h {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.eval-add {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.eval-add .fld.grow {
+  flex: 1 1 200px;
+}
+
+.eval-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.eval-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.ev-date {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.ev-status {
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.ev-status.positive { background: var(--tone-positive-bg); color: var(--tone-positive-fg); }
+.ev-status.critical { background: var(--tone-critical-bg); color: var(--tone-critical-fg); }
+.ev-status.progress { background: var(--tone-progress-bg); color: var(--tone-progress-fg); }
+
+.ev-note {
+  color: var(--text);
+}
+
+.eval-empty {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}

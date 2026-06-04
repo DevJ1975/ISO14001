@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { checklistItemResultSchema } from './checklists.js';
-import { complianceStatusSchema } from './ohs-registers.js';
+import { ComplianceEvaluation, complianceStatusSchema } from './ohs-registers.js';
 import { timestampSchema } from './models.js';
 
 /**
@@ -70,4 +70,23 @@ export function permitDaysUntilExpiry(
   const expires = new Date(permit.expiresAt).getTime();
   if (Number.isNaN(expires)) return null;
   return Math.floor((expires - new Date(now).getTime()) / DAY_MS);
+}
+
+/**
+ * Pure derivation: prepend an evaluation to an obligation's history (newest
+ * first) and derive the obligation's current `complianceStatus`/`lastEvaluatedAt`
+ * to match the newly recorded evaluation. Returns the patch to apply — no
+ * mutation, no I/O — so it is trivially unit-testable and reused by the store.
+ */
+export function appendComplianceEvaluation<
+  E extends Pick<ComplianceEvaluation, 'complianceStatus' | 'evaluatedAt'>,
+>(
+  history: readonly E[] | undefined,
+  entry: E,
+): { evaluations: E[]; complianceStatus: E['complianceStatus']; lastEvaluatedAt: E['evaluatedAt'] } {
+  return {
+    evaluations: [entry, ...(history ?? [])],
+    complianceStatus: entry.complianceStatus,
+    lastEvaluatedAt: entry.evaluatedAt,
+  };
 }

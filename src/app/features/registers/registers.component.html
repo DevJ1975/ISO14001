@@ -140,6 +140,31 @@
                 <button type="button" class="rp {{ r.tone }}" [class.on]="row.result === r.value" (click)="store.updateObligation(row.id, { result: r.value })">{{ r.label }}</button>
               }
             </div>
+            <div class="eval">
+              <span class="eval-h">Evaluation of compliance (cl. 9.1.2)</span>
+              <div class="eval-add">
+                <label class="fld"><span>Status</span>
+                  <select #evalStatus>
+                    <option value="compliant">Compliant</option><option value="nonCompliant">Non-compliant</option><option value="toVerify">To verify</option>
+                  </select>
+                </label>
+                <label class="fld grow"><span>Note</span><input #evalNote placeholder="Evidence / basis (optional)" /></label>
+                <button mat-stroked-button type="button" (click)="recordEvaluation(row.id, evalStatus.value, evalNote)"><mat-icon aria-hidden="true">history_edu</mat-icon>Add evaluation</button>
+              </div>
+              @if (row.evaluations.length) {
+                <ul class="eval-list">
+                  @for (ev of row.evaluations; track ev.id) {
+                    <li>
+                      <span class="ev-date">{{ ev.evaluatedAt | date: 'd MMM y, HH:mm' }}</span>
+                      <span class="ev-status {{ complianceTone(ev.complianceStatus) }}">{{ complianceLabel(ev.complianceStatus) }}</span>
+                      @if (ev.note) { <span class="ev-note">{{ ev.note }}</span> }
+                    </li>
+                  }
+                </ul>
+              } @else {
+                <p class="eval-empty">No evaluations recorded yet.</p>
+              }
+            </div>
           </article>
         } @empty {
           <div class="panel empty"><mat-icon aria-hidden="true">gavel</mat-icon><strong>No obligations yet</strong><span>Add compliance obligations and record evaluation.</span></div>

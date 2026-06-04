@@ -1,3 +1,4 @@
+import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { MatButtonModule } from '@angular/material/button';
@@ -24,7 +25,7 @@ import {
   trainingStatus,
 } from '../../core/domain';
 import { CsvExportService } from '../../core/export/csv-export.service';
-import { Hazard, FieldAuditStore, HiraEntry, Permit, RegisterResult } from '../../core/field/field-audit-store';
+import { ComplianceEvaluation, Hazard, FieldAuditStore, HiraEntry, Permit, RegisterResult } from '../../core/field/field-audit-store';
 import { ConfirmService } from '../../core/ui/confirm.service';
 import {
   calibrationColumns,
@@ -66,7 +67,7 @@ type Tone = 'positive' | 'progress' | 'critical' | 'neutral';
 @Component({
   selector: 'app-registers',
   standalone: true,
-  imports: [MatButtonModule, MatIconModule, RouterLink],
+  imports: [DatePipe, MatButtonModule, MatIconModule, RouterLink],
   templateUrl: './registers.component.html',
   styleUrl: './registers.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -230,6 +231,32 @@ export class RegistersComponent {
     if (result === 'nonconforming') return 'critical';
     if (result === 'needsFollowUp') return 'progress';
     return 'neutral';
+  }
+
+  /** Human-readable label for a compliance status (cl. 9.1.2 evaluation history). */
+  protected complianceLabel(status: ComplianceEvaluation['complianceStatus']): string {
+    if (status === 'compliant') return 'Compliant';
+    if (status === 'nonCompliant') return 'Non-compliant';
+    return 'To verify';
+  }
+
+  /** Badge tone for a compliance status. */
+  protected complianceTone(status: ComplianceEvaluation['complianceStatus']): Tone {
+    if (status === 'compliant') return 'positive';
+    if (status === 'nonCompliant') return 'critical';
+    return 'progress';
+  }
+
+  /**
+   * Record a timestamped compliance evaluation for an obligation (cl. 9.1.2),
+   * then clear the note input for the next entry.
+   */
+  protected recordEvaluation(obligationId: string, status: string, noteInput: HTMLInputElement): void {
+    this.store.addComplianceEvaluation(obligationId, {
+      complianceStatus: status as ComplianceEvaluation['complianceStatus'],
+      note: noteInput.value,
+    });
+    noteInput.value = '';
   }
 
   /** Suggested OH&S risk band/score from the hazard's scored criteria (cl. 6.1.2). */

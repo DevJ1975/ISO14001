@@ -14,6 +14,7 @@ import {
   StandardChecklistRow,
   StandardEdition,
   analysisCandidateToFinding,
+  appendComplianceEvaluation,
   composeAuditAgenda,
   composeFindingDraft,
   composeMeetingScripts,
@@ -154,6 +155,15 @@ export interface Hazard {
   sync: SyncState;
 }
 
+/** One timestamped compliance evaluation in an obligation's history (ISO 45001 cl. 9.1.2). */
+export interface ComplianceEvaluation {
+  id: string;
+  evaluatedAt: string;
+  complianceStatus: 'compliant' | 'nonCompliant' | 'toVerify';
+  evaluatedBy?: string;
+  note?: string;
+}
+
 export interface ComplianceObligation {
   id: string;
   obligation: string;
@@ -162,6 +172,8 @@ export interface ComplianceObligation {
   complianceStatus: 'compliant' | 'nonCompliant' | 'toVerify';
   result: RegisterResult;
   lastEvaluatedAt?: string;
+  /** Timestamped history of compliance evaluations, newest first (cl. 9.1.2). */
+  evaluations: ComplianceEvaluation[];
   updatedAt: string;
   sync: SyncState;
 }
@@ -1711,7 +1723,7 @@ export class FieldAuditStore {
 
   addObligation(): void {
     this.obligations.update((list) => [
-      { id: uid('obligation'), obligation: '', source: 'legal', requirement: '', complianceStatus: 'toVerify', result: 'notStarted', updatedAt: new Date().toISOString(), sync: 'queued' },
+      { id: uid('obligation'), obligation: '', source: 'legal', requirement: '', complianceStatus: 'toVerify', result: 'notStarted', evaluations: [], updatedAt: new Date().toISOString(), sync: 'queued' },
       ...list,
     ]);
     this.persist();
@@ -1721,6 +1733,39 @@ export class FieldAuditStore {
   updateObligation(id: string, patch: Partial<ComplianceObligation>): void {
     this.obligations.update((list) =>
       list.map((entry) => (entry.id === id ? { ...entry, ...patch, updatedAt: new Date().toISOString(), sync: 'queued' } : entry)),
+    );
+    this.persist();
+    this.autoFlush();
+  }
+
+  /**
+   * Record a timestamped compliance evaluation against an obligation (ISO 45001
+   * cl. 9.1.2). Appends to the obligation's evaluation history (newest first)
+   * and updates its current `complianceStatus`/`lastEvaluatedAt` to match, then
+   * persists & syncs. Builds the auditor trend across audit cycles.
+   */
+  addComplianceEvaluation(
+    obligationId: string,
+    entry: { complianceStatus: ComplianceEvaluation['complianceStatus']; evaluatedBy?: string; note?: string },
+  ): void {
+    const evaluation: ComplianceEvaluation = {
+      id: uid('evaluation'),
+      evaluatedAt: new Date().toISOString(),
+      complianceStatus: entry.complianceStatus,
+      evaluatedBy: entry.evaluatedBy?.trim() || AUDITOR,
+      note: entry.note?.trim() || undefined,
+    };
+    this.obligations.update((list) =>
+      list.map((row) =>
+        row.id === obligationId
+          ? {
+              ...row,
+              ...appendComplianceEvaluation(row.evaluations, evaluation),
+              updatedAt: new Date().toISOString(),
+              sync: 'queued',
+            }
+          : row,
+      ),
     );
     this.persist();
     this.autoFlush();
@@ -2743,7 +2788,7 @@ export class FieldAuditStore {
       this.meetings.set((payload.meetings ?? []).map((meeting) => ({ ...meeting, sync: 'synced' as const })));
       this.conclusion.set(payload.conclusion ? { ...payload.conclusion, sync: 'synced' } : null);
       this.aspects.set((payload.aspects ?? []).map((a) => ({ ...a, sync: 'synced' as const })));
-      this.obligations.set((payload.obligations ?? []).map((o) => ({ ...o, sync: 'synced' as const })));
+      this.obligations.set((payload.obligations ?? []).map((o) => ({ ...o, evaluations: o.evaluations ?? [], sync: 'synced' as const })));
       this.emergencyRecords.set((payload.emergencyRecords ?? []).map((e) => ({ ...e, sync: 'synced' as const })));
       this.interestedParties.set((payload.interestedParties ?? []).map((p) => ({ ...p, sync: 'synced' as const })));
       this.objectives.set((payload.objectives ?? []).map((o) => ({ ...o, sync: 'synced' as const })));
@@ -2802,7 +2847,7 @@ export class FieldAuditStore {
     this.meetings.set(saved.meetings ?? []);
     this.conclusion.set(saved.conclusion ?? null);
     this.aspects.set(saved.aspects ?? []);
-    this.obligations.set(saved.obligations ?? []);
+    this.obligations.set((saved.obligations ?? []).map((o) => ({ ...o, evaluations: o.evaluations ?? [] })));
     this.emergencyRecords.set(saved.emergencyRecords ?? []);
     this.interestedParties.set(saved.interestedParties ?? []);
     this.objectives.set(saved.objectives ?? []);
