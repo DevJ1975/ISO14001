@@ -145,3 +145,89 @@
   min-height: 48px;
   border-radius: 11px;
 }
+
+.ai-draft {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.ai-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.ai-buttons button {
+  min-height: 44px;
+  border-radius: 11px;
+}
+
+.ai-note,
+.ai-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.ai-note mat-icon {
+  flex: 0 0 auto;
+  font-size: 17px;
+  width: 17px;
+  height: 17px;
+}
+
+.draft-block {
+  margin-top: 14px;
+}
+
+.draft-block h3 {
+  margin: 14px 0 8px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.draft-block h3:first-child {
+  margin-top: 0;
+}
+
+.draft-block .sub {
+  margin: 12px 0 6px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.itinerary {
+  margin: 0 0 8px;
+  padding-left: 20px;
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.itinerary li {
+  margin-bottom: 6px;
+}
+
+.slot-head {
+  display: block;
+}
+
+.slot-focus {
+  display: block;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.muted {
+  color: var(--muted);
+}

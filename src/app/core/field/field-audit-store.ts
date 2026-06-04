@@ -1,12 +1,17 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 
 import {
+  AuditAgenda,
+  AuditAgendaInput,
+  MeetingScripts,
   ReportDraft,
   ReportDraftInput,
   ReportSignature,
   SignableReport,
   StandardChecklistRow,
   StandardEdition,
+  composeAuditAgenda,
+  composeMeetingScripts,
   composeReportDraft,
   editionFromCriteria,
   reportContentHash,
@@ -554,6 +559,8 @@ interface PersistedState {
   reportMeta: ReportMeta;
   reportSignedAt: string | null;
   reportSignature?: ReportSignature | null;
+  auditAgenda?: AuditAgenda | null;
+  meetingScripts?: MeetingScripts | null;
 }
 
 const AUDIT_STATUS_ORDER: AuditStatus[] = ['draft', 'planned', 'fieldwork', 'reporting', 'followUp', 'closed', 'archived'];
@@ -900,6 +907,12 @@ export class FieldAuditStore {
   readonly reportSignature = signal<ReportSignature | null>(null);
   /** Provenance of the last generated report draft, for the "review before signing" banner. */
   readonly reportDraftInfo = signal<{ source: 'ai' | 'ruleBased'; generatedAt: string } | null>(null);
+  /** AI-assisted audit agenda generated from this audit's data (rule-based offline, AI when configured). */
+  readonly auditAgenda = signal<AuditAgenda | null>(null);
+  /** AI-assisted opening/closing meeting scripts generated from this audit's data. */
+  readonly meetingScripts = signal<MeetingScripts | null>(null);
+  /** Provenance of the last generated agenda + scripts, for the "review before the meeting" banner. */
+  readonly agendaDraftInfo = signal<{ source: 'ai' | 'ruleBased'; generatedAt: string } | null>(null);
   readonly online = signal(typeof navigator === 'undefined' ? true : navigator.onLine);
   readonly source = signal<DataSource>('local');
 
@@ -1353,6 +1366,78 @@ export class FieldAuditStore {
       })),
       evidenceCount: this.evidence().length,
       overdueCapaCount: this.overdueCapas().length,
+    };
+  }
+
+  /**
+   * Generate a tailored audit agenda from this audit's own data. Uses the
+   * server-side AI provider when live & online; otherwise the offline rule-based
+   * composer. The lead auditor reviews it before the audit.
+   */
+  async generateAuditAgenda(): Promise<'ai' | 'ruleBased'> {
+    const input = this.buildAuditAgendaInput();
+    let agenda: AuditAgenda;
+    if (this.source() === 'live' && this.online()) {
+      try {
+        agenda = (await this.api.draftAgenda(input)).agenda;
+      } catch {
+        agenda = composeAuditAgenda(input);
+      }
+    } else {
+      agenda = composeAuditAgenda(input);
+    }
+    this.auditAgenda.set(agenda);
+    this.agendaDraftInfo.set({ source: agenda.source, generatedAt: agenda.generatedAt });
+    this.persist();
+    return agenda.source;
+  }
+
+  /**
+   * Generate opening- and closing-meeting talking-point scripts from this
+   * audit's own data. Uses the server-side AI provider when live & online;
+   * otherwise the offline rule-based composer. Review before the meeting.
+   */
+  async generateMeetingScripts(): Promise<'ai' | 'ruleBased'> {
+    const input = this.buildAuditAgendaInput();
+    let scripts: MeetingScripts;
+    if (this.source() === 'live' && this.online()) {
+      try {
+        scripts = (await this.api.draftAgenda(input)).scripts;
+      } catch {
+        scripts = composeMeetingScripts(input);
+      }
+    } else {
+      scripts = composeMeetingScripts(input);
+    }
+    this.meetingScripts.set(scripts);
+    this.agendaDraftInfo.set({ source: scripts.source, generatedAt: scripts.generatedAt });
+    this.persist();
+    return scripts.source;
+  }
+
+  private buildAuditAgendaInput(): AuditAgendaInput {
+    const labels: Record<AuditType, string> = {
+      internal: 'Internal',
+      stage1: 'Stage 1 certification',
+      stage2: 'Stage 2 certification',
+      surveillance: 'Surveillance',
+      recertification: 'Recertification',
+    };
+    return {
+      auditee: this.auditee(),
+      criteria: this.criteria(),
+      auditTypeLabel: labels[this.reportMeta().auditType] ?? 'Audit',
+      checklist: this.items().map((item) => ({
+        clauseId: item.clauseId,
+        clauseTitle: item.clauseTitle,
+        result: item.result,
+      })),
+      findings: this.findings().map((finding) => ({
+        type: finding.type,
+        clauseId: finding.clauseId,
+        clauseTitle: finding.clauseTitle,
+        status: finding.status,
+      })),
     };
   }
 
@@ -1864,6 +1949,9 @@ export class FieldAuditStore {
     this.reportMeta.set(defaultReportMeta());
     this.reportSignedAt.set(null);
     this.reportSignature.set(null);
+    this.auditAgenda.set(null);
+    this.meetingScripts.set(null);
+    this.agendaDraftInfo.set(null);
     await idbDelete('meta', META_KEY);
   }
 
@@ -2355,6 +2443,8 @@ export class FieldAuditStore {
       reportMeta: this.reportMeta(),
       reportSignedAt: this.reportSignedAt(),
       reportSignature: this.reportSignature(),
+      auditAgenda: this.auditAgenda(),
+      meetingScripts: this.meetingScripts(),
     };
     void idbSet('meta', META_KEY, snapshot);
   }
@@ -2451,6 +2541,15 @@ export class FieldAuditStore {
     if (saved.reportMeta) this.reportMeta.set({ ...defaultReportMeta(), ...saved.reportMeta });
     this.reportSignedAt.set(saved.reportSignedAt ?? null);
     this.reportSignature.set(saved.reportSignature ?? null);
+    this.auditAgenda.set(saved.auditAgenda ?? null);
+    this.meetingScripts.set(saved.meetingScripts ?? null);
+    this.agendaDraftInfo.set(
+      saved.auditAgenda
+        ? { source: saved.auditAgenda.source, generatedAt: saved.auditAgenda.generatedAt }
+        : saved.meetingScripts
+          ? { source: saved.meetingScripts.source, generatedAt: saved.meetingScripts.generatedAt }
+          : null,
+    );
     const restored = await Promise.all(
       saved.evidence.map(async (record) => {
         if (record.kind !== 'photo' || !record.blobKey || typeof URL === 'undefined') return record;
