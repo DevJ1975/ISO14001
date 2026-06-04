@@ -62,6 +62,22 @@ describe('supabase edge-function security & validation', () => {
     assert.equal(capa['status'], 'verificationDue');
   });
 
+  it('defaults CAPA intent to correctiveAction and drops an unknown intent', () => {
+    assert.equal(cleanCapa({ findingId: 'nc-1' }, 'capa-1')['intent'], 'correctiveAction');
+    assert.equal(cleanCapa({ findingId: 'nc-1', intent: 'bogus' }, 'capa-1')['intent'], 'correctiveAction');
+  });
+
+  it('accepts a valid CAPA intent + root-cause method and drops an unknown method', () => {
+    const capa = cleanCapa(
+      { findingId: 'nc-1', intent: 'preventiveAction', rootCauseMethod: 'fiveWhys', rootCause: 'No reminder step.' },
+      'capa-1',
+    );
+    assert.equal(capa['intent'], 'preventiveAction');
+    assert.equal(capa['rootCauseMethod'], 'fiveWhys');
+    assert.equal(capa['rootCause'], 'No reminder step.');
+    assert.equal('rootCauseMethod' in cleanCapa({ findingId: 'nc-1', rootCauseMethod: 'bogus' }, 'capa-1'), false);
+  });
+
   it('coerces an unknown register result to notStarted and drops unknown-typed junk safely', () => {
     const record = cleanRegister({ topic: 'Policy', direction: 'internal', result: 'bogus' }, 'comm-1');
     assert.equal(record['result'], 'notStarted');

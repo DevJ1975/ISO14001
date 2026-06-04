@@ -8,6 +8,9 @@ export class ValidationError extends Error {}
 
 export const FINDING_GRADES = ['minorNc', 'majorNc', 'ofi', 'conformity'];
 export const REGISTER_RESULTS = ['notStarted', 'conforming', 'nonconforming', 'notApplicable', 'needsFollowUp'];
+// ISO 45001 cl. 10.2: CAPA action intent + recognised root-cause methods.
+export const CAPA_INTENTS = ['correction', 'correctiveAction', 'preventiveAction'];
+export const ROOT_CAUSE_METHODS = ['fiveWhys', 'fishbone', 'faultTree', 'other'];
 
 export function str(value: unknown, max: number, field: string): string {
   const out = value == null ? '' : String(value);
@@ -51,10 +54,16 @@ export function cleanCapa(body: Record<string, unknown>, id: string): Record<str
   // Effectiveness verification is lead-only and must go through /verify, so a
   // client-supplied "verified" is clamped to verificationDue here.
   const status = body['status'] === 'verified' ? 'verificationDue' : str(body['status'], 40, 'status') || 'open';
+  const intent = CAPA_INTENTS.includes(body['intent'] as string) ? (body['intent'] as string) : 'correctiveAction';
+  const rootCauseMethod = ROOT_CAUSE_METHODS.includes(body['rootCauseMethod'] as string)
+    ? (body['rootCauseMethod'] as string)
+    : undefined;
   return {
     id,
     findingId: str(body['findingId'], 200, 'findingId'),
+    intent,
     correction: str(body['correction'], 4000, 'correction'),
+    ...(rootCauseMethod ? { rootCauseMethod } : {}),
     rootCause: str(body['rootCause'], 4000, 'rootCause'),
     action: str(body['action'], 4000, 'action'),
     owner: str(body['owner'], 300, 'owner'),

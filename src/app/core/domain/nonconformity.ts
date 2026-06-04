@@ -36,6 +36,48 @@ export type Nonconformity = z.infer<typeof nonconformitySchema>;
 /** Typical corrective-action timelines (days) by grade for certification audits. */
 export const capaTimelineDays = { majorNc: 30, minorNc: 90 } as const;
 
+/**
+ * ISO 45001 cl. 10.2 distinguishes the *intent* of an action: an immediate
+ * correction (containment), a root-cause-driven corrective action, or a
+ * proactive preventive action raised before a nonconformity occurs.
+ */
+export const capaIntentSchema = z.enum(['correction', 'correctiveAction', 'preventiveAction']);
+export type CapaIntent = z.infer<typeof capaIntentSchema>;
+
+/**
+ * Recognised root-cause analysis methods offered on a CAPA. Named distinctly
+ * from the incident-investigation `rootCauseMethodSchema` (cl. 8.2) so both can
+ * coexist with their own option sets.
+ */
+export const capaRootCauseMethodSchema = z.enum(['fiveWhys', 'fishbone', 'faultTree', 'other']);
+export type CapaRootCauseMethod = z.infer<typeof capaRootCauseMethodSchema>;
+
+/** Default CAPA intent when a record is first started. */
+export const DEFAULT_CAPA_INTENT: CapaIntent = 'correctiveAction';
+
+const CAPA_INTENT_LABELS: Record<CapaIntent, string> = {
+  correction: 'Correction',
+  correctiveAction: 'Corrective action',
+  preventiveAction: 'Preventive action',
+};
+
+const CAPA_ROOT_CAUSE_METHOD_LABELS: Record<CapaRootCauseMethod, string> = {
+  fiveWhys: '5 Whys',
+  fishbone: 'Fishbone (Ishikawa)',
+  faultTree: 'Fault tree analysis',
+  other: 'Other',
+};
+
+/** Human-readable label for a CAPA intent (falls back to the default). */
+export function capaIntentLabel(intent: CapaIntent | undefined): string {
+  return CAPA_INTENT_LABELS[intent ?? DEFAULT_CAPA_INTENT];
+}
+
+/** Human-readable label for a CAPA root-cause method (empty when unset). */
+export function capaRootCauseMethodLabel(method: CapaRootCauseMethod | undefined): string {
+  return method ? CAPA_ROOT_CAUSE_METHOD_LABELS[method] : '';
+}
+
 export interface ClassificationInput {
   /** Absence or total breakdown of a required OHSMS process. */
   isAbsentOrTotalBreakdown?: boolean;
