@@ -25,7 +25,7 @@ import {
   trainingStatus,
 } from '../../core/domain';
 import { CsvExportService } from '../../core/export/csv-export.service';
-import { ComplianceEvaluation, Hazard, FieldAuditStore, HiraEntry, OperationalControl, Permit, RegisterResult } from '../../core/field/field-audit-store';
+import { ComplianceEvaluation, Hazard, FieldAuditStore, HiraEntry, LeadershipItem, OperationalControl, Permit, RegisterResult } from '../../core/field/field-audit-store';
 import { ConfirmService } from '../../core/ui/confirm.service';
 import { ToastService } from '../../core/ui/toast.service';
 import {
@@ -36,6 +36,7 @@ import {
   hazardColumns,
   hiraColumns,
   incidentColumns,
+  leadershipColumns,
   operationalControlColumns,
   permitColumns,
   supplierColumns,
@@ -64,6 +65,7 @@ type Tab =
   | 'suppliers'
   | 'changes'
   | 'opcontrols'
+  | 'leadership'
   | 'review';
 type Tone = 'positive' | 'progress' | 'critical' | 'neutral';
 
@@ -121,6 +123,7 @@ export class RegistersComponent {
     suppliers: '8.1.4',
     changes: '8.1.3',
     opcontrols: '8.1.2',
+    leadership: '5.1',
     review: '9.3',
   };
 
@@ -149,6 +152,7 @@ export class RegistersComponent {
     { value: 'suppliers', label: 'Contractors', icon: 'engineering' },
     { value: 'changes', label: 'Change (MoC)', icon: 'published_with_changes' },
     { value: 'opcontrols', label: 'Operational controls', icon: 'rule' },
+    { value: 'leadership', label: 'Leadership & policy', icon: 'supervisor_account' },
     { value: 'review', label: 'Mgmt review', icon: 'fact_check' },
   ];
 
@@ -210,6 +214,22 @@ export class RegistersComponent {
     if (ok) this.store.removeOperationalControl(row.id);
   }
 
+  /** Confirm before removing a leadership & policy row (destructive, no undo). */
+  protected async confirmRemoveLeadership(row: LeadershipItem): Promise<void> {
+    const ok = await this.confirm.ask({
+      title: 'Remove leadership & policy row?',
+      message: `"${row.label || 'This row'}" will be removed from the register.`,
+      confirmLabel: 'Remove',
+      danger: true,
+    });
+    if (ok) this.store.removeLeadershipItem(row.id);
+  }
+
+  /** Leadership & policy rows for one group, in seed order (cl. 5.1 / 5.2 / 5.3). */
+  protected leadershipByKind(kind: LeadershipItem['kind']): LeadershipItem[] {
+    return this.store.leadership().filter((row) => row.kind === kind);
+  }
+
   /**
    * Resolve the active tab to a CSV export spec (label + rows + columns), or null
    * for registers without a structured exporter. Keeps the template a single call.
@@ -230,6 +250,8 @@ export class RegistersComponent {
         return { label: 'Management of change', rows: this.store.changes(), columns: changeColumns };
       case 'opcontrols':
         return { label: 'Operational controls register', rows: this.store.operationalControls(), columns: operationalControlColumns };
+      case 'leadership':
+        return { label: 'Leadership & policy register', rows: this.store.leadership(), columns: leadershipColumns };
       case 'incidents':
         return { label: 'Incident register', rows: this.store.incidents(), columns: incidentColumns };
       case 'hira':

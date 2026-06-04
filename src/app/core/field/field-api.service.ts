@@ -31,6 +31,7 @@ import type {
   FieldFinding,
   FieldResult,
   InterestedParty,
+  LeadershipItem,
   ManagementOfChangeRecord,
   ManagementReviewRecord,
   OperationalControl,
@@ -87,6 +88,7 @@ export interface FieldStatePayload {
   suppliers?: Array<Omit<SupplierRecord, 'sync'>>;
   changes?: Array<Omit<ManagementOfChangeRecord, 'sync'>>;
   operationalControls?: Array<Omit<OperationalControl, 'sync'>>;
+  leadership?: Array<Omit<LeadershipItem, 'sync'>>;
   reportMeta?: Omit<ReportMeta, 'sync'> | null;
   changeLog?: ChangeLogEntry[];
 }
@@ -365,6 +367,10 @@ export class FieldApiService {
 
   upsertOperationalControl(body: Omit<OperationalControl, 'sync'>): Promise<unknown> {
     return firstValueFrom(this.http.put(`${this.base()}/operational-controls/${encodeURIComponent(body.id)}`, body));
+  }
+
+  upsertLeadershipItem(body: Omit<LeadershipItem, 'sync'>): Promise<unknown> {
+    return firstValueFrom(this.http.put(`${this.base()}/leadership/${encodeURIComponent(body.id)}`, body));
   }
 
   private tenantBase(): string {
