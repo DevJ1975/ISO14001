@@ -744,6 +744,20 @@ const programmeUpsertSchema = z.object({
       }),
     )
     .default([]),
+  internalAudits: z
+    .array(
+      z.object({
+        id: z.string().min(1),
+        scopeArea: z.string().max(300).default(''),
+        plannedDate: z.string().max(40).default(''),
+        status: z.enum(['planned', 'inProgress', 'completed', 'overdue']).default('planned'),
+        auditorName: z.string().max(200).optional(),
+        impartialityConfirmed: z.boolean().optional(),
+        findingsSummary: z.string().max(2000).optional(),
+        notes: z.string().max(2000).optional(),
+      }),
+    )
+    .default([]),
   competence: z
     .array(
       z.object({
