@@ -46,6 +46,42 @@
     }
   </article>
 
+  @if (store.programme(); as p) {
+    <article class="panel">
+      <div class="p-head">
+        <h2>Internal audit programme (9.2)</h2>
+        @if (canEdit()) {
+          <button mat-stroked-button type="button" (click)="addInternalAudit()"><mat-icon aria-hidden="true">fact_check</mat-icon>Add internal audit</button>
+        }
+      </div>
+      <p class="muted">The auditee's own risk-based internal-audit schedule covering the whole OH&amp;S system, run by competent and impartial internal auditors, with findings followed up (ISO 45001 cl. 9.2).</p>
+      @for (ia of p.internalAudits; track ia.id) {
+        <div class="tile iarow" [class.overdue]="internalOverdue(ia)">
+          <div class="grid2">
+            <input [value]="ia.scopeArea" (change)="store.updateInternalAudit(ia.id, { scopeArea: $any($event.target).value })" [disabled]="!canEdit()" placeholder="Scope area / process audited" />
+            <input [value]="ia.auditorName || ''" (change)="store.updateInternalAudit(ia.id, { auditorName: $any($event.target).value })" [disabled]="!canEdit()" placeholder="Internal auditor" />
+          </div>
+          <div class="grid3">
+            <label class="fld"><span>Planned {{ internalOverdue(ia) ? '(overdue)' : '' }}</span><input type="date" [value]="ia.plannedDate" (change)="store.updateInternalAudit(ia.id, { plannedDate: $any($event.target).value })" [disabled]="!canEdit()" /></label>
+            <label class="fld"><span>Status</span>
+              <select [value]="ia.status" (change)="store.updateInternalAudit(ia.id, { status: $any($event.target).value })" [disabled]="!canEdit()">
+                @for (s of internalStatuses; track s) { <option [value]="s">{{ s }}</option> }
+              </select>
+            </label>
+            <span class="iastatus" [attr.data-tone]="internalTone(ia)">{{ ia.status }}</span>
+          </div>
+          <label class="chk"><input type="checkbox" [checked]="ia.impartialityConfirmed" (change)="store.updateInternalAudit(ia.id, { impartialityConfirmed: $any($event.target).checked })" [disabled]="!canEdit()" /> Auditor impartiality confirmed</label>
+          <input [value]="ia.findingsSummary || ''" (change)="store.updateInternalAudit(ia.id, { findingsSummary: $any($event.target).value })" [disabled]="!canEdit()" placeholder="Findings summary / follow-up" />
+          @if (canEdit()) {
+            <button class="icon" type="button" (click)="confirmRemoveInternalAudit(ia.id)" aria-label="Remove"><mat-icon aria-hidden="true">delete</mat-icon></button>
+          }
+        </div>
+      } @empty {
+        <p class="muted">No internal audits scheduled yet.</p>
+      }
+    </article>
+  }
+
   @if (schedule().length) {
     <article class="panel">
       <div class="p-head"><h2>Schedule &amp; deadlines</h2></div>

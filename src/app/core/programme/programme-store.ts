@@ -7,6 +7,7 @@ import {
   type CertificateStatus,
   type ComplaintAppeal,
   type ComplaintKind,
+  type InternalAudit,
   transitionCertificate,
 } from '../domain';
 import { AuthService } from '../auth/auth.service';
@@ -49,6 +50,8 @@ export interface Programme {
   cycleYear: number;
   criteria: string;
   plannedAudits: PlannedAudit[];
+  /** Auditee's own internal-audit schedule (ISO 45001 cl. 9.2). */
+  internalAudits: InternalAudit[];
   competence: CompetenceRecord[];
   certificates: Certificate[];
   complaintsAppeals: ComplaintAppeal[];
@@ -69,6 +72,7 @@ function normalize(programme: Programme | null): Programme | null {
   return {
     ...programme,
     plannedAudits: programme.plannedAudits ?? [],
+    internalAudits: programme.internalAudits ?? [],
     competence: programme.competence ?? [],
     certificates: programme.certificates ?? [],
     complaintsAppeals: programme.complaintsAppeals ?? [],
@@ -105,6 +109,7 @@ export class ProgrammeStore {
       cycleYear: new Date().getFullYear(),
       criteria: 'ISO_45001_2018',
       plannedAudits: [],
+      internalAudits: [],
       competence: [],
       certificates: [],
       complaintsAppeals: [],
@@ -143,6 +148,30 @@ export class ProgrammeStore {
   removePlannedAudit(id: string): void {
     const programme = this.ensure();
     this.programme.set({ ...programme, plannedAudits: programme.plannedAudits.filter((entry) => entry.id !== id) });
+    this.save();
+  }
+
+  // --- Internal-audit programme (ISO 45001 cl. 9.2) ---
+
+  addInternalAudit(scopeArea = '', plannedDate = new Date().toISOString().slice(0, 10)): void {
+    const programme = this.ensure();
+    const entry: InternalAudit = { id: uid('ia'), scopeArea, plannedDate, status: 'planned' };
+    this.programme.set({ ...programme, internalAudits: [...programme.internalAudits, entry] });
+    this.save();
+  }
+
+  updateInternalAudit(id: string, patch: Partial<InternalAudit>): void {
+    const programme = this.ensure();
+    this.programme.set({
+      ...programme,
+      internalAudits: programme.internalAudits.map((entry) => (entry.id === id ? { ...entry, ...patch } : entry)),
+    });
+    this.save();
+  }
+
+  removeInternalAudit(id: string): void {
+    const programme = this.ensure();
+    this.programme.set({ ...programme, internalAudits: programme.internalAudits.filter((entry) => entry.id !== id) });
     this.save();
   }
 

@@ -204,14 +204,16 @@
 }
 
 .certrow,
-.caserow {
+.caserow,
+.iarow {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
 .certrow input,
-.caserow > input {
+.caserow > input,
+.iarow > input {
   font: inherit;
   min-height: 40px;
   padding: 0 10px;
@@ -219,6 +221,13 @@
   border-radius: 10px;
   background: var(--surface);
   color: var(--text);
+}
+
+.iastatus {
+  display: inline-flex;
+  align-items: center;
+  font-weight: 700;
+  text-transform: capitalize;
 }
 
 .certfoot {
@@ -268,7 +277,8 @@
   background: var(--tone-positive-bg, var(--surface-guard));
 }
 
-.caserow.overdue {
+.caserow.overdue,
+.iarow.overdue {
   border-color: var(--tone-critical-bd);
 }
 
