@@ -4,6 +4,7 @@ import { firstValueFrom } from 'rxjs';
 
 import { AuthService } from '../auth/auth.service';
 import { APP_CONFIG } from '../config/app-config';
+import type { ReportDraft, ReportDraftInput } from '../domain';
 import { AuditSelectionService } from './audit-selection.service';
 import type {
   AuditConclusion,
@@ -198,6 +199,11 @@ export class FieldApiService {
 
   saveReportMeta(body: Omit<ReportMeta, 'sync'>): Promise<unknown> {
     return firstValueFrom(this.http.put(`${this.base()}/report-meta`, body));
+  }
+
+  /** Generate a first-draft report narrative server-side (AI). Rejects when unavailable so the client falls back. */
+  draftReport(body: ReportDraftInput): Promise<ReportDraft> {
+    return firstValueFrom(this.http.post<ReportDraft>(`${this.base()}/report-draft`, body));
   }
 
   signReport(body: { attestation: string; contentHash?: string }): Promise<{ signedAt?: string }> {

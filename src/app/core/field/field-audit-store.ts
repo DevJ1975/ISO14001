@@ -1,10 +1,13 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 
 import {
+  ReportDraft,
+  ReportDraftInput,
   ReportSignature,
   SignableReport,
   StandardChecklistRow,
   StandardEdition,
+  composeReportDraft,
   editionFromCriteria,
   reportContentHash,
   standardChecklist,
@@ -895,6 +898,8 @@ export class FieldAuditStore {
   readonly reportSignedAt = signal<string | null>(null);
   /** Tamper-evident e-signature captured at sign-off (signer, attestation, content hash). */
   readonly reportSignature = signal<ReportSignature | null>(null);
+  /** Provenance of the last generated report draft, for the "review before signing" banner. */
+  readonly reportDraftInfo = signal<{ source: 'ai' | 'ruleBased'; generatedAt: string } | null>(null);
   readonly online = signal(typeof navigator === 'undefined' ? true : navigator.onLine);
   readonly source = signal<DataSource>('local');
 
@@ -1294,6 +1299,61 @@ export class FieldAuditStore {
     this.conclusion.set({ ...current, ...patch, updatedAt: new Date().toISOString(), sync: 'queued' });
     this.persist();
     this.autoFlush();
+  }
+
+  /**
+   * Auto-draft the audit conclusions from this audit's own data. Uses the
+   * server-side AI provider when live & online; otherwise the offline rule-based
+   * composer. The lead auditor reviews and edits every field before signing.
+   */
+  async generateReportDraft(): Promise<'ai' | 'ruleBased'> {
+    const input = this.buildReportDraftInput();
+    let draft: ReportDraft;
+    if (this.source() === 'live' && this.online()) {
+      try {
+        draft = await this.api.draftReport(input);
+      } catch {
+        draft = composeReportDraft(input);
+      }
+    } else {
+      draft = composeReportDraft(input);
+    }
+    this.saveConclusion({
+      overallConformity: draft.overallConformity,
+      emsEffectivenessOpinion: draft.emsEffectivenessOpinion,
+      criteriaMetStatement: draft.criteriaMetStatement,
+      recommendation: draft.recommendation,
+    });
+    this.reportDraftInfo.set({ source: draft.source, generatedAt: draft.generatedAt });
+    return draft.source;
+  }
+
+  private buildReportDraftInput(): ReportDraftInput {
+    const labels: Record<AuditType, string> = {
+      internal: 'Internal',
+      stage1: 'Stage 1 certification',
+      stage2: 'Stage 2 certification',
+      surveillance: 'Surveillance',
+      recertification: 'Recertification',
+    };
+    return {
+      auditee: this.auditee(),
+      criteria: this.criteria(),
+      auditTypeLabel: labels[this.reportMeta().auditType] ?? 'Audit',
+      checklist: this.items().map((item) => ({
+        clauseId: item.clauseId,
+        clauseTitle: item.clauseTitle,
+        result: item.result,
+      })),
+      findings: this.findings().map((finding) => ({
+        type: finding.type,
+        clauseId: finding.clauseId,
+        clauseTitle: finding.clauseTitle,
+        status: finding.status,
+      })),
+      evidenceCount: this.evidence().length,
+      overdueCapaCount: this.overdueCapas().length,
+    };
   }
 
   /** Update the report front-matter (UK-style report metadata). Synced to the

@@ -93,6 +93,19 @@ stay disabled in production.
 
 ISO standards are copyrighted. This repo stores only clause identifiers and short titles. Checklist content must be customer-authored or properly licensed before public release.
 
+## AI report drafting
+
+The Report screen's **Generate draft** action auto-writes the audit conclusions
+(overall conformity, OH&S effectiveness opinion, criteria-met statement and a
+recommendation) from the audit's own results. By default it uses an **offline,
+rule-based composer** — deterministic, no key, no network — so it works in the
+field. When the backend is configured with `ANTHROPIC_API_KEY` + `ANTHROPIC_MODEL`
+(server-side secrets only), the `/report-draft` endpoint upgrades the same button
+to a Claude-generated draft, and the client falls back to the rule-based composer
+on any error. The lead auditor reviews and edits every field before signing —
+generated text is a draft, never the final record — and the prompt forbids
+verbatim ISO requirement text.
+
 ## Docs
 
 - [Phase 0 Plan](docs/phase-0-plan.md)

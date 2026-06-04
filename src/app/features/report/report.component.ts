@@ -22,6 +22,8 @@ export class ReportComponent {
   protected readonly isLead = computed(() => this.auth.user()?.role === 'leadAuditor');
   protected readonly conclusion = computed(() => this.store.conclusion());
   protected readonly signError = signal<string | null>(null);
+  protected readonly generating = signal(false);
+  protected readonly draftInfo = this.store.reportDraftInfo;
 
   protected readonly meta = this.store.reportMeta;
 
@@ -77,6 +79,16 @@ export class ReportComponent {
 
   protected saveDiverging(text: string): void {
     this.store.saveConclusion({ divergingOpinions: text.trim() });
+  }
+
+  /** Auto-draft the conclusions from the audit data (AI when live, rule-based offline). */
+  protected async generateDraft(): Promise<void> {
+    this.generating.set(true);
+    try {
+      await this.store.generateReportDraft();
+    } finally {
+      this.generating.set(false);
+    }
   }
 
   protected recommendationLabel(value: Recommendation): string {

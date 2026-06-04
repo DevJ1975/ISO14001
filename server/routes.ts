@@ -1382,6 +1382,73 @@ export async function handleApiRequest(
       return;
     }
 
+    // AI report draft (server-side). Inert until ANTHROPIC_API_KEY + ANTHROPIC_MODEL
+    // are set; the client falls back to its offline rule-based composer on any
+    // non-2xx. The prompt forbids verbatim ISO requirement text (copyright guardrail).
+    const reportDraftMatch = matchPath(
+      new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/report-draft$`),
+      url.pathname,
+      ['tenantId', 'auditId'],
+    );
+    if (request.method === 'POST' && reportDraftMatch && actor) {
+      const tenantId = reportDraftMatch.params['tenantId']!;
+      requireTenant(actor, tenantId);
+      requireAnyRole(actor, ['leadAuditor', 'auditor']);
+      const input = await readJson(request, z.object({}).passthrough());
+      const apiKey = process.env['ANTHROPIC_API_KEY'];
+      const model = process.env['ANTHROPIC_MODEL'];
+      if (!apiKey || !model) {
+        sendJson(response, 501, { error: 'ai_not_configured' }, corsOrigin);
+        return;
+      }
+      const system =
+        'You are an ISO 45001 lead auditor assistant drafting an audit report. Use ONLY the audit data provided and ISO 45001 clause numbers and short titles. Do NOT quote or paraphrase verbatim ISO requirement text. Respond with a strict JSON object only, with keys overallConformity, emsEffectivenessOpinion, criteriaMetStatement, recommendation. recommendation must be one of recommend, conditional, notRecommended, satisfactory, actionRequired.';
+      try {
+        const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+          body: JSON.stringify({
+            model,
+            max_tokens: 1200,
+            system,
+            messages: [{ role: 'user', content: `Audit data:\n${JSON.stringify(input)}` }],
+          }),
+        });
+        if (!aiRes.ok) {
+          sendJson(response, 502, { error: 'ai_upstream' }, corsOrigin);
+          return;
+        }
+        const payload = (await aiRes.json()) as { content?: { text?: string }[] };
+        const text = (payload.content ?? []).map((part) => part.text ?? '').join('');
+        const found = text.match(/\{[\s\S]*\}/);
+        const parsed = found ? (JSON.parse(found[0]) as Record<string, unknown>) : null;
+        if (!parsed) {
+          sendJson(response, 502, { error: 'ai_parse' }, corsOrigin);
+          return;
+        }
+        const recs = ['recommend', 'conditional', 'notRecommended', 'satisfactory', 'actionRequired'];
+        const rawRec = parsed['recommendation'];
+        const recommendation = typeof rawRec === 'string' && recs.includes(rawRec) ? rawRec : 'satisfactory';
+        sendJson(
+          response,
+          200,
+          {
+            overallConformity: String(parsed['overallConformity'] ?? ''),
+            emsEffectivenessOpinion: String(parsed['emsEffectivenessOpinion'] ?? ''),
+            criteriaMetStatement: String(parsed['criteriaMetStatement'] ?? ''),
+            recommendation,
+            source: 'ai',
+            generatedAt: new Date().toISOString(),
+          },
+          corsOrigin,
+        );
+        return;
+      } catch {
+        sendJson(response, 502, { error: 'ai_failed' }, corsOrigin);
+        return;
+      }
+    }
+
     const signoffMatch = matchPath(
       new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/reports/signoff$`),
       url.pathname,

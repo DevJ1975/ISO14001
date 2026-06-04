@@ -632,6 +632,53 @@ Deno.serve(async (req) => {
         return json(200, { reportMeta: doc }, req);
       }
 
+      // AI report draft (server-side). Inert until ANTHROPIC_API_KEY + ANTHROPIC_MODEL
+      // are set as function secrets; the client falls back to its offline rule-based
+      // composer on any non-2xx, so the feature still works without a key. The prompt
+      // forbids verbatim ISO requirement text (copyright guardrail).
+      if (method === 'POST' && rest[0] === 'report-draft') {
+        requireRole(actor, ['leadAuditor', 'auditor']);
+        const input = await readJson(req);
+        const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
+        const model = Deno.env.get('ANTHROPIC_MODEL');
+        if (!apiKey || !model) return json(501, { error: 'ai_not_configured' }, req);
+        const system =
+          'You are an ISO 45001 lead auditor assistant drafting an audit report. Use ONLY the audit data provided and ISO 45001 clause numbers and short titles. Do NOT quote or paraphrase verbatim ISO requirement text. Respond with a strict JSON object only, with keys overallConformity, emsEffectivenessOpinion, criteriaMetStatement, recommendation. recommendation must be one of recommend, conditional, notRecommended, satisfactory, actionRequired.';
+        try {
+          const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+            body: JSON.stringify({
+              model,
+              max_tokens: 1200,
+              system,
+              messages: [{ role: 'user', content: `Audit data:\n${JSON.stringify(input)}` }],
+            }),
+          });
+          if (!aiRes.ok) return json(502, { error: 'ai_upstream' }, req);
+          const payload = await aiRes.json();
+          const text = (payload?.content ?? []).map((part: { text?: string }) => part?.text ?? '').join('');
+          const found = text.match(/\{[\s\S]*\}/);
+          if (!found) return json(502, { error: 'ai_parse' }, req);
+          const parsed = JSON.parse(found[0]);
+          const recs = ['recommend', 'conditional', 'notRecommended', 'satisfactory', 'actionRequired'];
+          return json(
+            200,
+            {
+              overallConformity: String(parsed.overallConformity ?? ''),
+              emsEffectivenessOpinion: String(parsed.emsEffectivenessOpinion ?? ''),
+              criteriaMetStatement: String(parsed.criteriaMetStatement ?? ''),
+              recommendation: recs.includes(parsed.recommendation) ? parsed.recommendation : 'satisfactory',
+              source: 'ai',
+              generatedAt: new Date().toISOString(),
+            },
+            req,
+          );
+        } catch {
+          return json(502, { error: 'ai_failed' }, req);
+        }
+      }
+
       if (method === 'POST' && rest[0] === 'reports' && rest[1] === 'signoff') {
         requireRole(actor, ['leadAuditor']);
         const body = await readJson(req);

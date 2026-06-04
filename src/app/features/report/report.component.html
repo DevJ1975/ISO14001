@@ -97,6 +97,19 @@
   <article class="panel">
     <h2>Audit conclusions</h2>
     @if (isLead()) {
+      <div class="ai-draft">
+        <button mat-stroked-button type="button" [disabled]="generating()" (click)="generateDraft()">
+          <mat-icon aria-hidden="true">auto_awesome</mat-icon>{{ generating() ? 'Generating…' : 'Generate draft' }}
+        </button>
+        @if (draftInfo(); as info) {
+          <p class="ai-note">
+            <mat-icon aria-hidden="true">info</mat-icon>
+            Draft composed from this audit's data ({{ info.source === 'ai' ? 'AI' : 'auto-draft' }}, {{ formatTime(info.generatedAt) }}) — review and edit every field before signing.
+          </p>
+        } @else {
+          <p class="ai-hint">Auto-write the conclusions below from this audit's results, then review and edit before signing.</p>
+        }
+      </div>
       <label class="fld"><span>Overall conformity</span>
         <textarea #oc rows="2" [value]="conclusion()?.overallConformity || ''" (change)="saveOverall(oc.value)"
           placeholder="Overall conformity with the audit criteria…"></textarea>
