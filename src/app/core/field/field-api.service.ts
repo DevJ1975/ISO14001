@@ -21,6 +21,7 @@ import type {
   DocumentedInfoRecord,
   EmergencyRecord,
   Hazard,
+  HiraEntry,
   Incident,
   OhsObjective,
   FieldCapa,
@@ -73,6 +74,7 @@ export interface FieldStatePayload {
   performanceMetrics?: Array<Omit<PerformanceMetric, 'sync'>>;
   permits?: Array<Omit<Permit, 'sync'>>;
   incidents?: Array<Omit<Incident, 'sync'>>;
+  hira?: Array<Omit<HiraEntry, 'sync'>>;
   calibration?: Array<Omit<CalibrationRecord, 'sync'>>;
   training?: Array<Omit<TrainingRecord, 'sync'>>;
   suppliers?: Array<Omit<SupplierRecord, 'sync'>>;
@@ -272,6 +274,10 @@ export class FieldApiService {
 
   upsertIncident(body: Omit<Incident, 'sync'>): Promise<unknown> {
     return firstValueFrom(this.http.put(`${this.base()}/incidents/${encodeURIComponent(body.id)}`, body));
+  }
+
+  upsertHira(body: Omit<HiraEntry, 'sync'>): Promise<unknown> {
+    return firstValueFrom(this.http.put(`${this.base()}/hira/${encodeURIComponent(body.id)}`, body));
   }
 
   upsertCalibration(body: Omit<CalibrationRecord, 'sync'>): Promise<unknown> {

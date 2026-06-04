@@ -24,7 +24,7 @@ import {
   trainingStatus,
 } from '../../core/domain';
 import { CsvExportService } from '../../core/export/csv-export.service';
-import { Hazard, FieldAuditStore, Permit, RegisterResult } from '../../core/field/field-audit-store';
+import { Hazard, FieldAuditStore, HiraEntry, Permit, RegisterResult } from '../../core/field/field-audit-store';
 import { ConfirmService } from '../../core/ui/confirm.service';
 import {
   calibrationColumns,
@@ -32,6 +32,7 @@ import {
   consultationColumns,
   documentColumns,
   hazardColumns,
+  hiraColumns,
   incidentColumns,
   permitColumns,
   supplierColumns,
@@ -54,6 +55,7 @@ type Tab =
   | 'performance'
   | 'permits'
   | 'incidents'
+  | 'hira'
   | 'calibration'
   | 'training'
   | 'suppliers'
@@ -107,6 +109,7 @@ export class RegistersComponent {
     performance: '9.1',
     permits: '6.1.3',
     incidents: '10.2',
+    hira: '6.1.2',
     calibration: '9.1',
     training: '7.2',
     suppliers: '8.1.4',
@@ -133,6 +136,7 @@ export class RegistersComponent {
     { value: 'performance', label: 'Performance', icon: 'monitoring' },
     { value: 'permits', label: 'Permits', icon: 'event_available' },
     { value: 'incidents', label: 'Incidents', icon: 'personal_injury' },
+    { value: 'hira', label: 'HIRA (6.1.2)', icon: 'warning' },
     { value: 'calibration', label: 'Calibration', icon: 'straighten' },
     { value: 'training', label: 'Training', icon: 'workspace_premium' },
     { value: 'suppliers', label: 'Contractors', icon: 'engineering' },
@@ -162,6 +166,17 @@ export class RegistersComponent {
     if (ok) this.store.removeDocumentAttachment(rowId, attachmentId);
   }
 
+  /** Confirm before removing a HIRA row (destructive, no undo). */
+  protected async confirmRemoveHira(row: HiraEntry): Promise<void> {
+    const ok = await this.confirm.ask({
+      title: 'Remove HIRA row?',
+      message: `"${row.hazard || row.activity || 'This hazard'}" will be removed from the register.`,
+      confirmLabel: 'Remove',
+      danger: true,
+    });
+    if (ok) this.store.removeHira(row.id);
+  }
+
   /**
    * Resolve the active tab to a CSV export spec (label + rows + columns), or null
    * for registers without a structured exporter. Keeps the template a single call.
@@ -182,6 +197,8 @@ export class RegistersComponent {
         return { label: 'Management of change', rows: this.store.changes(), columns: changeColumns };
       case 'incidents':
         return { label: 'Incident register', rows: this.store.incidents(), columns: incidentColumns };
+      case 'hira':
+        return { label: 'HIRA register', rows: this.store.hira(), columns: hiraColumns };
       case 'permits':
         return { label: 'Permit register', rows: this.store.permits(), columns: permitColumns };
       case 'documents':
@@ -223,6 +240,16 @@ export class RegistersComponent {
       legalConcern: aspect.legalConcern,
       workerConcern: aspect.stakeholderConcern,
     });
+  }
+
+  /** HIRA initial risk band/score from severity × likelihood (cl. 6.1.2). */
+  protected hiraInitialBand(row: HiraEntry): RiskRatingResult {
+    return evaluateRiskRating({ severity: row.severity, likelihood: row.likelihood });
+  }
+
+  /** HIRA residual risk band/score once additional controls are applied (cl. 6.1.2 / 8.1.2). */
+  protected hiraResidualBand(row: HiraEntry): RiskRatingResult {
+    return evaluateRiskRating({ severity: row.residualSeverity, likelihood: row.residualLikelihood });
   }
 
   /** Permit renewal status (valid / expiring soon / expired) for badge display. */
