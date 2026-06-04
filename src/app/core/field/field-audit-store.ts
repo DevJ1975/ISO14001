@@ -3,6 +3,8 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import {
   AuditAgenda,
   AuditAgendaInput,
+  FindingDraft,
+  FindingDraftInput,
   MeetingScripts,
   ReportDraft,
   ReportDraftInput,
@@ -11,6 +13,7 @@ import {
   StandardChecklistRow,
   StandardEdition,
   composeAuditAgenda,
+  composeFindingDraft,
   composeMeetingScripts,
   composeReportDraft,
   editionFromCriteria,
@@ -988,6 +991,8 @@ export class FieldAuditStore {
   readonly meetingScripts = signal<MeetingScripts | null>(null);
   /** Provenance of the last generated agenda + scripts, for the "review before the meeting" banner. */
   readonly agendaDraftInfo = signal<{ source: 'ai' | 'ruleBased'; generatedAt: string } | null>(null);
+  /** Per-finding provenance of the last generated finding draft (findingId → source/time), for the "review before issuing" note. */
+  readonly findingDraftInfo = signal<Record<string, { source: 'ai' | 'ruleBased'; generatedAt: string }>>({});
   readonly online = signal(typeof navigator === 'undefined' ? true : navigator.onLine);
   readonly source = signal<DataSource>('local');
 
@@ -1514,6 +1519,58 @@ export class FieldAuditStore {
         clauseTitle: finding.clauseTitle,
         status: finding.status,
       })),
+    };
+  }
+
+  /**
+   * Auto-draft a single finding (nonconformity statement, requirement summary,
+   * objective evidence, suggested grade and grading rationale) from the
+   * finding's own data plus its linked evidence. Uses the server-side AI
+   * provider when live & online; otherwise the offline deterministic composer.
+   * The auditor reviews and edits every field before issuing (auditor-review
+   * gate); the suggested grade is applied as the finding's type for review.
+   */
+  async generateFindingDraft(findingId: string): Promise<'ai' | 'ruleBased' | null> {
+    const finding = this.findings().find((entry) => entry.id === findingId);
+    if (!finding) return null;
+    const input = this.buildFindingDraftInput(finding);
+    let draft: FindingDraft;
+    if (this.source() === 'live' && this.online()) {
+      try {
+        draft = await this.api.draftFinding(input);
+      } catch {
+        draft = composeFindingDraft(input);
+      }
+    } else {
+      draft = composeFindingDraft(input);
+    }
+    this.updateFinding(findingId, {
+      description: draft.draftStatement,
+      requirementSummary: draft.requirementSummary,
+      objectiveEvidence: draft.objectiveEvidence,
+      gradingRationale: draft.gradingRationale,
+      type: draft.suggestedType,
+    });
+    this.findingDraftInfo.update((map) => ({
+      ...map,
+      [findingId]: { source: draft.source, generatedAt: draft.generatedAt },
+    }));
+    return draft.source;
+  }
+
+  /** Build the finding-draft input from a finding and the labels of its linked evidence. */
+  private buildFindingDraftInput(finding: FieldFinding): FindingDraftInput {
+    const evidenceById = new Map(this.evidence().map((entry) => [entry.id, entry]));
+    const evidenceLabels = finding.evidenceIds
+      .map((id) => evidenceById.get(id)?.label)
+      .filter((label): label is string => !!label);
+    const note = finding.objectiveEvidence?.trim() || finding.description?.trim() || undefined;
+    return {
+      clauseId: finding.clauseId,
+      clauseTitle: finding.clauseTitle,
+      note,
+      result: finding.type,
+      evidenceLabels,
     };
   }
 

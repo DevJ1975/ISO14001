@@ -4,7 +4,7 @@ import { firstValueFrom } from 'rxjs';
 
 import { AuthService } from '../auth/auth.service';
 import { APP_CONFIG } from '../config/app-config';
-import type { AuditAgenda, AuditAgendaInput, ClauseAnswer, MeetingScripts, ReportDraft, ReportDraftInput } from '../domain';
+import type { AuditAgenda, AuditAgendaInput, ClauseAnswer, FindingDraft, FindingDraftInput, MeetingScripts, ReportDraft, ReportDraftInput } from '../domain';
 import { AuditSelectionService } from './audit-selection.service';
 import type {
   AuditConclusion,
@@ -218,6 +218,11 @@ export class FieldApiService {
   /** Ask the standard via the server-side AI copilot. Rejects when unavailable so the client falls back to the field guide. */
   askCopilot(question: string): Promise<ClauseAnswer> {
     return firstValueFrom(this.http.post<ClauseAnswer>(`${this.base()}/copilot/ask`, { question }));
+  }
+
+  /** Generate a first-draft finding (statement, grade, root-cause prompts) server-side (AI). Rejects when unavailable so the client falls back. */
+  draftFinding(body: FindingDraftInput): Promise<FindingDraft> {
+    return firstValueFrom(this.http.post<FindingDraft>(`${this.base()}/finding-draft`, body));
   }
 
   signReport(body: { attestation: string; contentHash?: string }): Promise<{ signedAt?: string }> {

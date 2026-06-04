@@ -3,6 +3,38 @@
   gap: 14px;
 }
 
+.ai-draft {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 4px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.ai-draft button {
+  justify-self: start;
+  min-height: 44px;
+  border-radius: 11px;
+}
+
+.ai-note,
+.ai-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.ai-note mat-icon {
+  flex: 0 0 auto;
+  font-size: 17px;
+  width: 17px;
+  height: 17px;
+}
+
 .nc {
   display: grid;
   gap: 10px;
