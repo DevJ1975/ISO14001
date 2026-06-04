@@ -25,7 +25,7 @@ import {
   trainingStatus,
 } from '../../core/domain';
 import { CsvExportService } from '../../core/export/csv-export.service';
-import { ComplianceEvaluation, ContextItem, Hazard, FieldAuditStore, HiraEntry, LeadershipItem, OperationalControl, Permit, RegisterResult } from '../../core/field/field-audit-store';
+import { ComplianceEvaluation, ContextItem, Hazard, FieldAuditStore, HiraEntry, Interview, LeadershipItem, OperationalControl, Permit, RegisterResult } from '../../core/field/field-audit-store';
 import { ConfirmService } from '../../core/ui/confirm.service';
 import { ToastService } from '../../core/ui/toast.service';
 import {
@@ -37,6 +37,7 @@ import {
   hazardColumns,
   hiraColumns,
   incidentColumns,
+  interviewColumns,
   leadershipColumns,
   operationalControlColumns,
   permitColumns,
@@ -68,6 +69,7 @@ type Tab =
   | 'opcontrols'
   | 'leadership'
   | 'context'
+  | 'interviews'
   | 'review';
 type Tone = 'positive' | 'progress' | 'critical' | 'neutral';
 
@@ -127,6 +129,7 @@ export class RegistersComponent {
     opcontrols: '8.1.2',
     leadership: '5.1',
     context: '4.1',
+    interviews: '9.2',
     review: '9.3',
   };
 
@@ -157,6 +160,7 @@ export class RegistersComponent {
     { value: 'opcontrols', label: 'Operational controls', icon: 'rule' },
     { value: 'leadership', label: 'Leadership & policy', icon: 'supervisor_account' },
     { value: 'context', label: 'Context & scope', icon: 'travel_explore' },
+    { value: 'interviews', label: 'Interviews', icon: 'record_voice_over' },
     { value: 'review', label: 'Mgmt review', icon: 'fact_check' },
   ];
 
@@ -250,6 +254,17 @@ export class RegistersComponent {
     return this.store.context().filter((row) => row.kind === kind);
   }
 
+  /** Confirm before removing an interview row (destructive, no undo). */
+  protected async confirmRemoveInterview(row: Interview): Promise<void> {
+    const ok = await this.confirm.ask({
+      title: 'Remove interview?',
+      message: `"${row.intervieweeName || 'This interview'}" will be removed from the register.`,
+      confirmLabel: 'Remove',
+      danger: true,
+    });
+    if (ok) this.store.removeInterview(row.id);
+  }
+
   /**
    * Resolve the active tab to a CSV export spec (label + rows + columns), or null
    * for registers without a structured exporter. Keeps the template a single call.
@@ -274,6 +289,8 @@ export class RegistersComponent {
         return { label: 'Leadership & policy register', rows: this.store.leadership(), columns: leadershipColumns };
       case 'context':
         return { label: 'Context & scope register', rows: this.store.context(), columns: contextColumns };
+      case 'interviews':
+        return { label: 'Interview register', rows: this.store.interviews(), columns: interviewColumns };
       case 'incidents':
         return { label: 'Incident register', rows: this.store.incidents(), columns: incidentColumns };
       case 'hira':

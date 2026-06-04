@@ -4,7 +4,7 @@ import { firstValueFrom } from 'rxjs';
 
 import { AuthService } from '../auth/auth.service';
 import { APP_CONFIG } from '../config/app-config';
-import type { AuditAgenda, AuditAgendaInput, ClauseAnswer, FindingDraft, FindingDraftInput, MeetingScripts, PhotoAnalysisFindingType, ReportDraft, ReportDraftInput } from '../domain';
+import type { AuditAgenda, AuditAgendaInput, ClauseAnswer, ClientTailoring, ClientTailoringInput, FindingDraft, FindingDraftInput, MeetingScripts, PhotoAnalysisFindingType, ReportDraft, ReportDraftInput } from '../domain';
 import { AuditSelectionService } from './audit-selection.service';
 import type {
   AuditConclusion,
@@ -23,6 +23,7 @@ import type {
   Hazard,
   HiraEntry,
   Incident,
+  Interview,
   OhsObjective,
   FieldCapa,
   FieldChecklistItem,
@@ -91,6 +92,7 @@ export interface FieldStatePayload {
   operationalControls?: Array<Omit<OperationalControl, 'sync'>>;
   leadership?: Array<Omit<LeadershipItem, 'sync'>>;
   context?: Array<Omit<ContextItem, 'sync'>>;
+  interviews?: Array<Omit<Interview, 'sync'>>;
   reportMeta?: Omit<ReportMeta, 'sync'> | null;
   changeLog?: ChangeLogEntry[];
 }
@@ -254,6 +256,11 @@ export class FieldApiService {
     return firstValueFrom(this.http.post<ReportDraft>(`${this.base()}/report-draft`, body));
   }
 
+  /** Generate tailored audit emphasis (prioritised clauses + focus prompts) from client context server-side (AI). Rejects when unavailable so the client falls back. */
+  draftClientTailoring(body: ClientTailoringInput): Promise<ClientTailoring> {
+    return firstValueFrom(this.http.post<ClientTailoring>(`${this.base()}/client-tailoring`, body));
+  }
+
   /** Generate the audit agenda + opening/closing meeting scripts server-side (AI). Rejects when unavailable so the client falls back. */
   draftAgenda(body: AuditAgendaInput): Promise<{ agenda: AuditAgenda; scripts: MeetingScripts }> {
     return firstValueFrom(
@@ -377,6 +384,10 @@ export class FieldApiService {
 
   upsertContextItem(body: Omit<ContextItem, 'sync'>): Promise<unknown> {
     return firstValueFrom(this.http.put(`${this.base()}/context/${encodeURIComponent(body.id)}`, body));
+  }
+
+  upsertInterview(body: Omit<Interview, 'sync'>): Promise<unknown> {
+    return firstValueFrom(this.http.put(`${this.base()}/interviews/${encodeURIComponent(body.id)}`, body));
   }
 
   private tenantBase(): string {

@@ -1071,6 +1071,45 @@
         }
       </div>
     }
+    @case ('interviews') {
+      <div class="reg">
+        <div class="reg-head">
+          <h2>Interviews (cl. 9.2)</h2>
+          <button mat-flat-button color="primary" type="button" (click)="store.addInterview()"><mat-icon aria-hidden="true">add</mat-icon>Add</button>
+        </div>
+        @for (row of store.interviews(); track row.id) {
+          <article class="tile row">
+            <div class="grid2">
+              <label class="fld"><span>Interviewee</span><input [value]="row.intervieweeName" placeholder="Name or group sampled" (change)="store.updateInterview(row.id, { intervieweeName: $any($event.target).value })" /></label>
+              <label class="fld"><span>Role</span><input [value]="row.role" placeholder="Top management, worker, safety rep…" (change)="store.updateInterview(row.id, { role: $any($event.target).value })" /></label>
+            </div>
+            <div class="grid2">
+              <label class="fld"><span>Area / focus</span><input [value]="row.focusArea || ''" placeholder="Leadership, consultation, controls…" (change)="store.updateInterview(row.id, { focusArea: $any($event.target).value })" /></label>
+              <label class="fld"><span>Related clause</span><input [value]="row.relatedClause || ''" placeholder="5.4" (change)="store.updateInterview(row.id, { relatedClause: $any($event.target).value })" /></label>
+            </div>
+            <div class="grid2">
+              <label class="fld"><span>Planned time</span><input type="datetime-local" [value]="row.plannedAt || ''" (change)="store.updateInterview(row.id, { plannedAt: $any($event.target).value })" /></label>
+              <label class="fld"><span>Status</span>
+                <select [value]="row.status" (change)="store.updateInterview(row.id, { status: $any($event.target).value })">
+                  <option value="planned">Planned</option>
+                  <option value="done">Done</option>
+                  <option value="cancelled">Cancelled</option>
+                </select>
+              </label>
+            </div>
+            <label class="fld"><span>Key points captured / notes</span><input [value]="row.keyPoints || ''" (change)="store.updateInterview(row.id, { keyPoints: $any($event.target).value })" /></label>
+            <div class="results">
+              @for (r of results; track r.value) {
+                <button type="button" class="rp {{ r.tone }}" [class.on]="row.result === r.value" (click)="store.updateInterview(row.id, { result: r.value })">{{ r.label }}</button>
+              }
+              <button type="button" class="att-del" aria-label="Remove interview" (click)="confirmRemoveInterview(row)"><mat-icon aria-hidden="true">delete</mat-icon></button>
+            </div>
+          </article>
+        } @empty {
+          <div class="panel empty"><mat-icon aria-hidden="true">record_voice_over</mat-icon><strong>No interviews yet</strong><span>Plan and record who you interview (top management, workers, safety reps), the area or clause in focus, and the key points captured — supporting the audit trail and worker-participation sampling (cl. 9.2 / 5.4).</span></div>
+        }
+      </div>
+    }
     @case ('review') {
       <div class="reg">
         <div class="reg-head">
