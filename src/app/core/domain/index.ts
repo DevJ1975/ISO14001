@@ -1,5 +1,6 @@
 export * from './audit-context.js';
 export * from './audit-guide.js';
+export * from './auditor-manual.js';
 export * from './audit-planning.js';
 export * from './audit-programme.js';
 export * from './audit-time.js';
