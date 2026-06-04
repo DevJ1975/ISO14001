@@ -27,5 +27,6 @@ export const NAV_DESTINATIONS: readonly NavItem[] = [
   { path: '/programme', label: 'Programme', icon: 'calendar_month', exact: false, keywords: ['schedule', 'plan', 'calendar'] },
   { path: '/requests', label: 'Requests', icon: 'cloud_upload', exact: false, keywords: ['evidence', 'upload', 'client'] },
   { path: '/portal', label: 'Client portal', icon: 'handshake', exact: false, keywords: ['client', 'auditee', 'response', 'portal'] },
+  { path: '/retention', label: 'Retention', icon: 'inventory_2', exact: false, keywords: ['records', 'legal hold', 'disposal', 'governance', 'retain'] },
   { path: '/users', label: 'Users', icon: 'group', exact: false, keywords: ['team', 'roles', 'invite', 'members'] },
 ];

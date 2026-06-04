@@ -1,0 +1,72 @@
+<section class="screen retention">
+  <header class="screen-head">
+    <p class="tv-eyebrow">Data governance</p>
+    <h1>Records retention &amp; legal hold</h1>
+    <p>
+      Retention status for the current audit's records · base date
+      <strong>{{ formatDate(summary().baseDate) }}</strong>
+    </p>
+  </header>
+
+  <p class="note">
+    <mat-icon aria-hidden="true">policy</mat-icon>
+    Retention periods are Trainovate-authored defaults and are configurable — tune them to your
+    accreditation and contractual obligations. Legal holds and overrides persist in this browser only
+    (no server sync this iteration).
+  </p>
+
+  @if (summary().baseDateMissing) {
+    <p class="note warn">
+      <mat-icon aria-hidden="true">event_busy</mat-icon>
+      No report sign-off or audit date is available yet, so retain-until dates cannot be computed.
+      Sign the report or set the audit dates to date the retention clock.
+    </p>
+  }
+
+  <!-- Summary KPIs -->
+  <div class="kpis">
+    <div class="kpi"><strong>{{ records().length }}</strong><span>Categories</span></div>
+    <div class="kpi" [class.crit]="summary().eligibleForDisposalCount > 0">
+      <strong>{{ summary().eligibleForDisposalCount }}</strong><span>Eligible for disposal</span>
+    </div>
+    <div class="kpi" [class.warn]="summary().dueForReviewCount > 0">
+      <strong>{{ summary().dueForReviewCount }}</strong><span>Due for review</span>
+    </div>
+    <div class="kpi"><strong>{{ summary().onLegalHoldCount }}</strong><span>On legal hold</span></div>
+  </div>
+
+  <!-- Category table -->
+  <article class="panel">
+    <h2>Record categories</h2>
+    <ul class="rows">
+      @for (r of records(); track r.id) {
+        <li class="row">
+          <div class="row-main">
+            <div class="row-title">
+              <span class="label">{{ r.label }}</span>
+              <span class="badge {{ dispositionTone(r.disposition) }}">{{ dispositionLabel(r.disposition) }}</span>
+            </div>
+            <p class="meta">
+              <span class="ref">{{ r.reference }}</span>
+              <span class="dot">·</span>
+              <span>{{ r.retentionYears }} yr retention@if (r.customised) {<span class="tag"> custom</span>}</span>
+              <span class="dot">·</span>
+              <span>Retain until <strong>{{ formatDate(r.retainUntil) }}</strong></span>
+              <span class="dot">·</span>
+              <span class="muted">{{ remainingLabel(r) }}</span>
+            </p>
+          </div>
+          <label class="hold">
+            <input
+              type="checkbox"
+              [checked]="r.legalHold"
+              (change)="toggleHold(r)"
+              [attr.aria-label]="'Legal hold for ' + r.label"
+            />
+            <span>Legal hold</span>
+          </label>
+        </li>
+      }
+    </ul>
+  </article>
+</section>
