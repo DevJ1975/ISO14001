@@ -571,6 +571,63 @@ describe('field-audit API routes', () => {
     assert.equal(body.interviews.length, 1);
   });
 
+  it('upserts the ISO 14001 environmental registers and returns them in field-state', async () => {
+    const { db, store } = createFakeDb();
+
+    const aspectRes = makeRes();
+    await handleApiRequest(
+      makeReq({
+        method: 'PUT',
+        url: '/api/tenants/t/audits/a/environmental-aspects/ea-1',
+        headers: authHeaders('t'),
+        body: { id: 'ea-1', activity: 'Solvent degreasing', aspect: 'VOC emissions to air', impact: 'Air quality', significance: 'high', lifecycleStage: 'manufacturing', relatedClauseId: '6.1.2', result: 'needsFollowUp' },
+      }),
+      aspectRes,
+      { db, config },
+    );
+    assert.equal(aspectRes.statusCode, 200);
+    assert.equal(store.get('envAspects')!.find((d) => d['id'] === 'ea-1')?.['significance'], 'high');
+
+    const obligationRes = makeRes();
+    await handleApiRequest(
+      makeReq({
+        method: 'PUT',
+        url: '/api/tenants/t/audits/a/environmental-obligations/eo-1',
+        headers: authHeaders('t'),
+        body: { id: 'eo-1', obligation: 'Air emissions permit', obligationType: 'legal', reference: 'EP-118', applicability: 'Emission points', evaluationStatus: 'compliant', relatedClauseId: '6.1.3', result: 'conforming' },
+      }),
+      obligationRes,
+      { db, config },
+    );
+    assert.equal(obligationRes.statusCode, 200);
+    assert.equal(store.get('envObligations')!.find((d) => d['id'] === 'eo-1')?.['obligationType'], 'legal');
+
+    const objectiveRes = makeRes();
+    await handleApiRequest(
+      makeReq({
+        method: 'PUT',
+        url: '/api/tenants/t/audits/a/environmental-objectives/ej-1',
+        headers: authHeaders('t'),
+        body: { id: 'ej-1', objective: 'Reduce VOC emissions', target: '30% reduction', metric: 'kg/yr', dueDate: '2026-12-31', status: 'atRisk', relatedClauseId: '6.2', result: 'needsFollowUp' },
+      }),
+      objectiveRes,
+      { db, config },
+    );
+    assert.equal(objectiveRes.statusCode, 200);
+    assert.equal(store.get('envObjectives')!.find((d) => d['id'] === 'ej-1')?.['status'], 'atRisk');
+
+    const state = makeRes();
+    await handleApiRequest(
+      makeReq({ method: 'GET', url: '/api/tenants/t/audits/a/field-state', headers: authHeaders('t') }),
+      state,
+      { db, config },
+    );
+    const body = JSON.parse(state.body) as { envAspects: unknown[]; envObligations: unknown[]; envObjectives: unknown[] };
+    assert.equal(body.envAspects.length, 1);
+    assert.equal(body.envObligations.length, 1);
+    assert.equal(body.envObjectives.length, 1);
+  });
+
   it('lets lead/admin manage the tenant audit programme', async () => {
     const { db } = createFakeDb();
     const denied = makeRes();

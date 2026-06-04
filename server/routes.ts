@@ -783,6 +783,40 @@ const interviewUpsertCommandSchema = z.object({
   result: registerResultSchema.default('notStarted'),
 });
 
+// ISO 14001:2015 environmental registers.
+const environmentalAspectUpsertCommandSchema = z.object({
+  id: z.string().min(1),
+  activity: z.string().max(300).default(''),
+  aspect: z.string().max(300).default(''),
+  impact: z.string().max(300).default(''),
+  significance: z.enum(['low', 'medium', 'high']).default('medium'),
+  lifecycleStage: z.enum(['rawMaterials', 'manufacturing', 'distribution', 'use', 'endOfLife', 'notAssessed']).default('notAssessed'),
+  relatedClauseId: z.string().max(40).optional(),
+  result: registerResultSchema.default('notStarted'),
+});
+
+const environmentalObligationUpsertCommandSchema = z.object({
+  id: z.string().min(1),
+  obligation: z.string().max(300).default(''),
+  obligationType: z.enum(['legal', 'other']).default('legal'),
+  reference: z.string().max(300).optional(),
+  applicability: z.string().max(2000).optional(),
+  evaluationStatus: z.enum(['compliant', 'nonCompliant', 'toEvaluate']).default('toEvaluate'),
+  relatedClauseId: z.string().max(40).optional(),
+  result: registerResultSchema.default('notStarted'),
+});
+
+const environmentalObjectiveUpsertCommandSchema = z.object({
+  id: z.string().min(1),
+  objective: z.string().max(300).default(''),
+  target: z.string().max(1000).optional(),
+  metric: z.string().max(300).optional(),
+  dueDate: z.string().max(40).optional(),
+  status: z.enum(['notStarted', 'onTrack', 'atRisk', 'achieved']).default('notStarted'),
+  relatedClauseId: z.string().max(40).optional(),
+  result: registerResultSchema.default('notStarted'),
+});
+
 const programmeUpsertSchema = z.object({
   cycleYear: z.number().int(),
   criteria: z.string().min(1),
@@ -2059,6 +2093,18 @@ export async function handleApiRequest(
         .collection(mongoCollections.interviews)
         .find({ tenantId, auditId }, { projection: { _id: 0 } })
         .toArray();
+      const envAspects = await dependencies.db
+        .collection(mongoCollections.envAspects)
+        .find({ tenantId, auditId }, { projection: { _id: 0 } })
+        .toArray();
+      const envObligations = await dependencies.db
+        .collection(mongoCollections.envObligations)
+        .find({ tenantId, auditId }, { projection: { _id: 0 } })
+        .toArray();
+      const envObjectives = await dependencies.db
+        .collection(mongoCollections.envObjectives)
+        .find({ tenantId, auditId }, { projection: { _id: 0 } })
+        .toArray();
       const workerConsultations = await dependencies.db
         .collection(mongoCollections.workerConsultations)
         .find({ tenantId, auditId }, { projection: { _id: 0 } })
@@ -2122,6 +2168,9 @@ export async function handleApiRequest(
           leadership,
           context,
           interviews,
+          envAspects,
+          envObligations,
+          envObjectives,
           workerConsultations,
           reportMeta,
           changeLog,
@@ -3502,6 +3551,63 @@ export async function handleApiRequest(
         .collection(mongoCollections.interviews)
         .updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
       sendJson(response, 200, { interview: record }, corsOrigin);
+      return;
+    }
+
+    const environmentalAspectMatch = matchPath(
+      new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/environmental-aspects/([^/]+)$`),
+      url.pathname,
+      ['tenantId', 'auditId', 'id'],
+    );
+    if (request.method === 'PUT' && environmentalAspectMatch && actor) {
+      const tenantId = environmentalAspectMatch.params['tenantId']!;
+      const auditId = environmentalAspectMatch.params['auditId']!;
+      requireTenant(actor, tenantId);
+      requireAnyRole(actor, ['leadAuditor', 'auditor']);
+      const command = await readJson(request, environmentalAspectUpsertCommandSchema);
+      const record = { ...command, tenantId, auditId, updatedAt: new Date().toISOString() };
+      await dependencies.db
+        .collection(mongoCollections.envAspects)
+        .updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
+      sendJson(response, 200, { envAspect: record }, corsOrigin);
+      return;
+    }
+
+    const environmentalObligationMatch = matchPath(
+      new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/environmental-obligations/([^/]+)$`),
+      url.pathname,
+      ['tenantId', 'auditId', 'id'],
+    );
+    if (request.method === 'PUT' && environmentalObligationMatch && actor) {
+      const tenantId = environmentalObligationMatch.params['tenantId']!;
+      const auditId = environmentalObligationMatch.params['auditId']!;
+      requireTenant(actor, tenantId);
+      requireAnyRole(actor, ['leadAuditor', 'auditor']);
+      const command = await readJson(request, environmentalObligationUpsertCommandSchema);
+      const record = { ...command, tenantId, auditId, updatedAt: new Date().toISOString() };
+      await dependencies.db
+        .collection(mongoCollections.envObligations)
+        .updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
+      sendJson(response, 200, { envObligation: record }, corsOrigin);
+      return;
+    }
+
+    const environmentalObjectiveMatch = matchPath(
+      new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/environmental-objectives/([^/]+)$`),
+      url.pathname,
+      ['tenantId', 'auditId', 'id'],
+    );
+    if (request.method === 'PUT' && environmentalObjectiveMatch && actor) {
+      const tenantId = environmentalObjectiveMatch.params['tenantId']!;
+      const auditId = environmentalObjectiveMatch.params['auditId']!;
+      requireTenant(actor, tenantId);
+      requireAnyRole(actor, ['leadAuditor', 'auditor']);
+      const command = await readJson(request, environmentalObjectiveUpsertCommandSchema);
+      const record = { ...command, tenantId, auditId, updatedAt: new Date().toISOString() };
+      await dependencies.db
+        .collection(mongoCollections.envObjectives)
+        .updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
+      sendJson(response, 200, { envObjective: record }, corsOrigin);
       return;
     }
 

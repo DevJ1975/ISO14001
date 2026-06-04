@@ -20,6 +20,9 @@ import type {
   ComplianceObligation,
   DocumentedInfoRecord,
   EmergencyRecord,
+  EnvironmentalAspect,
+  EnvironmentalObjective,
+  EnvironmentalObligation,
   Hazard,
   HiraEntry,
   Incident,
@@ -93,6 +96,9 @@ export interface FieldStatePayload {
   leadership?: Array<Omit<LeadershipItem, 'sync'>>;
   context?: Array<Omit<ContextItem, 'sync'>>;
   interviews?: Array<Omit<Interview, 'sync'>>;
+  envAspects?: Array<Omit<EnvironmentalAspect, 'sync'>>;
+  envObligations?: Array<Omit<EnvironmentalObligation, 'sync'>>;
+  envObjectives?: Array<Omit<EnvironmentalObjective, 'sync'>>;
   reportMeta?: Omit<ReportMeta, 'sync'> | null;
   changeLog?: ChangeLogEntry[];
 }
@@ -412,6 +418,18 @@ export class FieldApiService {
 
   upsertInterview(body: Omit<Interview, 'sync'>): Promise<unknown> {
     return firstValueFrom(this.http.put(`${this.base()}/interviews/${encodeURIComponent(body.id)}`, body));
+  }
+
+  upsertEnvironmentalAspect(body: Omit<EnvironmentalAspect, 'sync'>): Promise<unknown> {
+    return firstValueFrom(this.http.put(`${this.base()}/environmental-aspects/${encodeURIComponent(body.id)}`, body));
+  }
+
+  upsertEnvironmentalObligation(body: Omit<EnvironmentalObligation, 'sync'>): Promise<unknown> {
+    return firstValueFrom(this.http.put(`${this.base()}/environmental-obligations/${encodeURIComponent(body.id)}`, body));
+  }
+
+  upsertEnvironmentalObjective(body: Omit<EnvironmentalObjective, 'sync'>): Promise<unknown> {
+    return firstValueFrom(this.http.put(`${this.base()}/environmental-objectives/${encodeURIComponent(body.id)}`, body));
   }
 
   private tenantBase(): string {
