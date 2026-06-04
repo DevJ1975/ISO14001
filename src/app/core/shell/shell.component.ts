@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
@@ -13,6 +13,9 @@ import { CommandPaletteComponent } from '../ui/command-palette.component';
 import { CommandPaletteService } from '../ui/command-palette.service';
 import { ConfirmHostComponent } from '../ui/confirm-host.component';
 import { ToastHostComponent } from '../ui/toast-host.component';
+import { OnboardingService } from '../onboarding/onboarding.service';
+import { TourHostComponent } from '../onboarding/tour-host.component';
+import { TourService } from '../onboarding/tour.service';
 import { WelcomeHostComponent } from '../onboarding/welcome-host.component';
 import { NAV_DESTINATIONS, NavItem } from './nav';
 
@@ -29,6 +32,7 @@ import { NAV_DESTINATIONS, NavItem } from './nav';
     ToastHostComponent,
     CommandPaletteComponent,
     WelcomeHostComponent,
+    TourHostComponent,
   ],
   templateUrl: './shell.component.html',
   styleUrl: './shell.component.css',
@@ -42,10 +46,32 @@ export class ShellComponent {
   protected readonly alerts = inject(AlertsService);
   protected readonly notifications = inject(NotificationsService);
   protected readonly palette = inject(CommandPaletteService);
+  protected readonly tour = inject(TourService);
+  private readonly onboarding = inject(OnboardingService);
   private readonly router = inject(Router);
 
   /** Notification dropdown open state. */
   protected readonly notifOpen = signal(false);
+
+  /** Auto-launches the guided tour once, after first-run welcome is dismissed. */
+  private tourAutoStarted = false;
+
+  constructor() {
+    effect(() => {
+      const signedIn = !!this.auth.user();
+      const welcomeDone = this.onboarding.seen();
+      const tourDone = this.tour.done();
+      if (signedIn && welcomeDone && !tourDone && !this.tourAutoStarted) {
+        this.tourAutoStarted = true;
+        this.tour.start();
+      }
+    });
+  }
+
+  /** Re-launch the guided tour on demand (header help action). */
+  protected takeTour(): void {
+    this.tour.start();
+  }
 
   protected toggleNotifications(): void {
     this.notifOpen.update((open) => !open);
