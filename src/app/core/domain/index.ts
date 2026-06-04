@@ -28,6 +28,7 @@ export * from './nonconformity.js';
 export * from './platform-admin.js';
 export * from './field-execution.js';
 export * from './hardening.js';
+export * from './ledger-chain.js';
 export * from './models.js';
 export * from './photo-analysis.js';
 export * from './photo-evidence.js';
