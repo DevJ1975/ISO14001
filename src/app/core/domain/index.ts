@@ -4,6 +4,7 @@ export * from './audit-planning.js';
 export * from './audit-programme.js';
 export * from './audit-time.js';
 export * from './ai-copilot.js';
+export * from './clause-qa.js';
 export * from './certificate.js';
 export * from './checklists.js';
 export * from './complaints.js';

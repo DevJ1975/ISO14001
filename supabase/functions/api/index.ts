@@ -679,6 +679,41 @@ Deno.serve(async (req) => {
         }
       }
 
+      // AI "ask the standard" copilot (server-side). Inert until ANTHROPIC_API_KEY +
+      // ANTHROPIC_MODEL are set; the client falls back to its offline field-guide
+      // answerer on any non-2xx. The prompt forbids verbatim ISO requirement text.
+      if (method === 'POST' && rest[0] === 'copilot' && rest[1] === 'ask') {
+        requireRole(actor, ['leadAuditor', 'auditor']);
+        const body = await readJson(req);
+        const question = typeof body?.question === 'string' ? body.question : '';
+        const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
+        const model = Deno.env.get('ANTHROPIC_MODEL');
+        if (!apiKey || !model || !question) return json(501, { error: 'ai_not_configured' }, req);
+        const system =
+          "You are an ISO 45001 lead auditor assistant. Answer the auditor's question using ISO 45001 clause numbers and short titles plus general OH&S auditing good practice. Do NOT quote or paraphrase verbatim ISO requirement text. Respond with a strict JSON object only: { \"answer\": string, \"clauseRefs\": [{ \"clauseId\": string, \"title\": string }] }.";
+        try {
+          const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+            body: JSON.stringify({ model, max_tokens: 900, system, messages: [{ role: 'user', content: question }] }),
+          });
+          if (!aiRes.ok) return json(502, { error: 'ai_upstream' }, req);
+          const payload = await aiRes.json();
+          const text = (payload?.content ?? []).map((part: { text?: string }) => part?.text ?? '').join('');
+          const found = text.match(/\{[\s\S]*\}/);
+          if (!found) return json(502, { error: 'ai_parse' }, req);
+          const parsed = JSON.parse(found[0]);
+          const clauseRefs = Array.isArray(parsed.clauseRefs)
+            ? parsed.clauseRefs
+                .filter((r: { clauseId?: unknown }) => typeof r?.clauseId === 'string')
+                .map((r: { clauseId: string; title?: unknown }) => ({ clauseId: String(r.clauseId), title: String(r.title ?? '') }))
+            : [];
+          return json(200, { answer: String(parsed.answer ?? ''), clauseRefs, source: 'ai' }, req);
+        } catch {
+          return json(502, { error: 'ai_failed' }, req);
+        }
+      }
+
       if (method === 'POST' && rest[0] === 'reports' && rest[1] === 'signoff') {
         requireRole(actor, ['leadAuditor']);
         const body = await readJson(req);

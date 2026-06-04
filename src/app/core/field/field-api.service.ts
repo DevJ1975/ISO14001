@@ -4,7 +4,7 @@ import { firstValueFrom } from 'rxjs';
 
 import { AuthService } from '../auth/auth.service';
 import { APP_CONFIG } from '../config/app-config';
-import type { ReportDraft, ReportDraftInput } from '../domain';
+import type { ClauseAnswer, ReportDraft, ReportDraftInput } from '../domain';
 import { AuditSelectionService } from './audit-selection.service';
 import type {
   AuditConclusion,
@@ -204,6 +204,11 @@ export class FieldApiService {
   /** Generate a first-draft report narrative server-side (AI). Rejects when unavailable so the client falls back. */
   draftReport(body: ReportDraftInput): Promise<ReportDraft> {
     return firstValueFrom(this.http.post<ReportDraft>(`${this.base()}/report-draft`, body));
+  }
+
+  /** Ask the standard via the server-side AI copilot. Rejects when unavailable so the client falls back to the field guide. */
+  askCopilot(question: string): Promise<ClauseAnswer> {
+    return firstValueFrom(this.http.post<ClauseAnswer>(`${this.base()}/copilot/ask`, { question }));
   }
 
   signReport(body: { attestation: string; contentHash?: string }): Promise<{ signedAt?: string }> {

@@ -1449,6 +1449,58 @@ export async function handleApiRequest(
       }
     }
 
+    // AI "ask the standard" copilot (server-side). Inert until ANTHROPIC_API_KEY +
+    // ANTHROPIC_MODEL are set; the client falls back to its offline field-guide
+    // answerer on any non-2xx. The prompt forbids verbatim ISO requirement text.
+    const copilotMatch = matchPath(
+      new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/copilot/ask$`),
+      url.pathname,
+      ['tenantId', 'auditId'],
+    );
+    if (request.method === 'POST' && copilotMatch && actor) {
+      const tenantId = copilotMatch.params['tenantId']!;
+      requireTenant(actor, tenantId);
+      requireAnyRole(actor, ['leadAuditor', 'auditor']);
+      const body = await readJson(request, z.object({ question: z.string().min(1).max(2000) }));
+      const apiKey = process.env['ANTHROPIC_API_KEY'];
+      const model = process.env['ANTHROPIC_MODEL'];
+      if (!apiKey || !model) {
+        sendJson(response, 501, { error: 'ai_not_configured' }, corsOrigin);
+        return;
+      }
+      const system =
+        "You are an ISO 45001 lead auditor assistant. Answer the auditor's question using ISO 45001 clause numbers and short titles plus general OH&S auditing good practice. Do NOT quote or paraphrase verbatim ISO requirement text. Respond with a strict JSON object only: { \"answer\": string, \"clauseRefs\": [{ \"clauseId\": string, \"title\": string }] }.";
+      try {
+        const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+          body: JSON.stringify({ model, max_tokens: 900, system, messages: [{ role: 'user', content: body.question }] }),
+        });
+        if (!aiRes.ok) {
+          sendJson(response, 502, { error: 'ai_upstream' }, corsOrigin);
+          return;
+        }
+        const payload = (await aiRes.json()) as { content?: { text?: string }[] };
+        const text = (payload.content ?? []).map((part) => part.text ?? '').join('');
+        const found = text.match(/\{[\s\S]*\}/);
+        const parsed = found ? (JSON.parse(found[0]) as Record<string, unknown>) : null;
+        if (!parsed) {
+          sendJson(response, 502, { error: 'ai_parse' }, corsOrigin);
+          return;
+        }
+        const refsRaw = Array.isArray(parsed['clauseRefs']) ? (parsed['clauseRefs'] as unknown[]) : [];
+        const clauseRefs = refsRaw
+          .map((r) => r as { clauseId?: unknown; title?: unknown })
+          .filter((r) => typeof r.clauseId === 'string')
+          .map((r) => ({ clauseId: String(r.clauseId), title: String(r.title ?? '') }));
+        sendJson(response, 200, { answer: String(parsed['answer'] ?? ''), clauseRefs, source: 'ai' }, corsOrigin);
+        return;
+      } catch {
+        sendJson(response, 502, { error: 'ai_failed' }, corsOrigin);
+        return;
+      }
+    }
+
     const signoffMatch = matchPath(
       new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/reports/signoff$`),
       url.pathname,

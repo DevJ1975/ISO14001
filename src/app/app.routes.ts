@@ -101,6 +101,11 @@ export const routes: Routes = [
         loadComponent: () => import('./features/manual/manual.component').then((m) => m.ManualComponent),
         title: 'User manual',
       },
+      {
+        path: 'copilot',
+        loadComponent: () => import('./features/copilot/copilot.component').then((m) => m.CopilotComponent),
+        title: 'Auditor copilot',
+      },
       { path: '**', redirectTo: '' },
     ],
   },
