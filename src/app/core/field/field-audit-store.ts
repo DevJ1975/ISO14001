@@ -511,6 +511,30 @@ export interface ContextItem {
   sync: SyncState;
 }
 
+export type InterviewStatus = 'planned' | 'done' | 'cancelled';
+
+/**
+ * Audit interview record (ISO 45001 cl. 9.2 audit-trail; supports cl. 5.4
+ * worker-participation & sampling evidence). Lets the auditor plan and then
+ * record who was interviewed (top management, workers, safety reps), the area
+ * or clause in focus, the planned time, the interview status and the key points
+ * captured. `result` grades the interview against the register-wide outcome
+ * scale so it sits alongside the other field registers.
+ */
+export interface Interview {
+  id: string;
+  intervieweeName: string;
+  role: string;
+  focusArea?: string;
+  relatedClause?: string;
+  plannedAt?: string;
+  status: InterviewStatus;
+  keyPoints?: string;
+  result: RegisterResult;
+  updatedAt: string;
+  sync: SyncState;
+}
+
 /** Monitoring & measuring equipment calibration (ISO 45001 cl. 9.1.1). */
 export interface CalibrationRecord {
   id: string;
@@ -718,6 +742,7 @@ interface PersistedState {
   operationalControls: OperationalControl[];
   leadership: LeadershipItem[];
   context: ContextItem[];
+  interviews: Interview[];
   reportMeta: ReportMeta;
   reportSignedAt: string | null;
   reportSignature?: ReportSignature | null;
@@ -900,6 +925,27 @@ function seedContext(): ContextItem[] {
     base({ kind: 'scope', label: 'OH&S management system scope statement', notes: 'Covers assembly, welding and finishing at the Denver plant plus warehousing at the Aurora site, including agency and contractor labour under site control.', relatedClause: '4.3', result: 'conforming' }),
     base({ kind: 'scope', label: 'Physical & organisational boundaries', notes: 'Boundaries are the two owned sites; off-site delivery driving is outside system control and handled by the logistics provider.', relatedClause: '4.3', result: 'conforming' }),
     base({ kind: 'scope', label: 'Exclusion — outsourced finishing process', notes: 'Outsourced spray-coating is excluded from direct control; justification and oversight arrangements still to be documented.', relatedClause: '4.3', result: 'needsFollowUp' }),
+  ];
+}
+
+/** Demonstration audit interviews — a completed top-management interview, a planned worker-rep session and a cancelled one. */
+function seedInterviews(): Interview[] {
+  const now = '2026-06-15T15:00:00.000Z';
+  const base = (extra: Partial<Interview>): Interview => ({
+    id: uid('interview'),
+    intervieweeName: '',
+    role: '',
+    status: 'planned',
+    result: 'notStarted',
+    updatedAt: now,
+    sync: 'synced',
+    ...extra,
+  });
+  return [
+    base({ intervieweeName: 'A. Director', role: 'Operations Director (top management)', focusArea: 'Leadership & commitment', relatedClause: '5.1', plannedAt: '2026-06-15T09:30:00.000Z', status: 'done', keyPoints: 'Confirmed accountability for the OH&S system and quarterly performance review; budget for the safety programme verified.', result: 'conforming' }),
+    base({ intervieweeName: 'P. Mensah', role: 'Worker safety representative', focusArea: 'Worker consultation & participation', relatedClause: '5.4', plannedAt: '2026-06-15T11:00:00.000Z', status: 'done', keyPoints: 'Safety committee meets quarterly; rep noted attendance evidence for the last meeting is outstanding.', result: 'needsFollowUp' }),
+    base({ intervieweeName: 'Maintenance team', role: 'Workers (sampled)', focusArea: 'Working at height controls', relatedClause: '8.1.2', plannedAt: '2026-06-16T10:00:00.000Z', status: 'planned', keyPoints: '' }),
+    base({ intervieweeName: 'Night-shift lead', role: 'Supervisor', focusArea: 'Emergency arrangements', relatedClause: '8.2', plannedAt: '2026-06-16T19:00:00.000Z', status: 'cancelled', keyPoints: 'Not available during the audit window; cover the area via day-shift sampling instead.', result: 'notApplicable' }),
   ];
 }
 
@@ -1331,6 +1377,7 @@ export class FieldAuditStore {
   readonly operationalControls = signal<OperationalControl[]>(seedOperationalControls());
   readonly leadership = signal<LeadershipItem[]>(seedLeadership());
   readonly context = signal<ContextItem[]>(seedContext());
+  readonly interviews = signal<Interview[]>(seedInterviews());
   readonly reportMeta = signal<ReportMeta>(defaultReportMeta());
   /** Read-only audit trail from the backend (not synced upward). */
   readonly changeLog = signal<ChangeLogEntry[]>([]);
@@ -1400,6 +1447,7 @@ export class FieldAuditStore {
       this.operationalControls().filter((c) => c.sync !== 'synced').length +
       this.leadership().filter((l) => l.sync !== 'synced').length +
       this.context().filter((c) => c.sync !== 'synced').length +
+      this.interviews().filter((i) => i.sync !== 'synced').length +
       (this.conclusion() && this.conclusion()!.sync !== 'synced' ? 1 : 0) +
       (this.reportMeta().sync !== 'synced' ? 1 : 0),
   );
@@ -2707,6 +2755,28 @@ export class FieldAuditStore {
     this.persist();
   }
 
+  addInterview(): void {
+    this.interviews.update((list) => [
+      { id: uid('interview'), intervieweeName: '', role: '', status: 'planned', result: 'notStarted', updatedAt: new Date().toISOString(), sync: 'queued' },
+      ...list,
+    ]);
+    this.persist();
+    this.autoFlush();
+  }
+
+  updateInterview(id: string, patch: Partial<Interview>): void {
+    this.interviews.update((list) =>
+      list.map((entry) => (entry.id === id ? { ...entry, ...patch, updatedAt: new Date().toISOString(), sync: 'queued' } : entry)),
+    );
+    this.persist();
+    this.autoFlush();
+  }
+
+  removeInterview(id: string): void {
+    this.interviews.update((list) => list.filter((entry) => entry.id !== id));
+    this.persist();
+  }
+
   /** The order-stable view of the report that an e-signature attests to. */
   signableReport(): SignableReport {
     const conclusion = this.conclusion();
@@ -2833,6 +2903,7 @@ export class FieldAuditStore {
     this.operationalControls.set(seedOperationalControls());
     this.leadership.set(seedLeadership());
     this.context.set(seedContext());
+    this.interviews.set(seedInterviews());
     this.reportMeta.set(defaultReportMeta());
     this.reportSignedAt.set(null);
     this.reportSignature.set(null);
@@ -3278,6 +3349,17 @@ export class FieldAuditStore {
           this.setSync('context', record.id, 'queued');
         }
       }
+      for (const record of this.interviews().filter((entry) => entry.sync !== 'synced')) {
+        this.setSync('interviews', record.id, 'syncing');
+        try {
+          const { sync, ...payload } = record;
+          void sync;
+          await this.api.upsertInterview(payload);
+          this.setSync('interviews', record.id, 'synced');
+        } catch {
+          this.setSync('interviews', record.id, 'queued');
+        }
+      }
       this.persist();
     } finally {
       this.flushing = false;
@@ -3317,7 +3399,8 @@ export class FieldAuditStore {
       | 'changes'
       | 'operationalControls'
       | 'leadership'
-      | 'context',
+      | 'context'
+      | 'interviews',
     id: string,
     sync: SyncState,
   ): void {
@@ -3355,6 +3438,7 @@ export class FieldAuditStore {
       operationalControls: this.operationalControls,
       leadership: this.leadership,
       context: this.context,
+      interviews: this.interviews,
     };
     const ref = map[collection] as unknown as {
       update: (fn: (list: SyncRecord[]) => SyncRecord[]) => void;
@@ -3426,6 +3510,7 @@ export class FieldAuditStore {
       operationalControls: this.operationalControls(),
       leadership: this.leadership(),
       context: this.context(),
+      interviews: this.interviews(),
       reportMeta: this.reportMeta(),
       reportSignedAt: this.reportSignedAt(),
       reportSignature: this.reportSignature(),
@@ -3474,6 +3559,7 @@ export class FieldAuditStore {
       this.operationalControls.set((payload.operationalControls ?? []).map((c) => ({ ...c, sync: 'synced' as const })));
       this.leadership.set((payload.leadership ?? []).map((l) => ({ ...l, sync: 'synced' as const })));
       this.context.set((payload.context ?? []).map((c) => ({ ...c, sync: 'synced' as const })));
+      this.interviews.set((payload.interviews ?? []).map((i) => ({ ...i, sync: 'synced' as const })));
       // Report front-matter: prefer the server copy (shared across the team),
       // falling back to defaults, then overlay scope/dates from the audit record.
       this.reportMeta.set(
@@ -3539,6 +3625,7 @@ export class FieldAuditStore {
     this.operationalControls.set(saved.operationalControls ?? seedOperationalControls());
     this.leadership.set(saved.leadership ?? seedLeadership());
     this.context.set(saved.context ?? seedContext());
+    this.interviews.set(saved.interviews ?? seedInterviews());
     if (saved.reportMeta) this.reportMeta.set({ ...defaultReportMeta(), ...saved.reportMeta });
     this.reportSignedAt.set(saved.reportSignedAt ?? null);
     this.reportSignature.set(saved.reportSignature ?? null);

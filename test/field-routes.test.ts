@@ -533,6 +533,44 @@ describe('field-audit API routes', () => {
     assert.equal(body.context.length, 1);
   });
 
+  it('upserts an interview (cl. 9.2 audit-trail; cl. 5.4 sampling) and returns it in field-state', async () => {
+    const { db, store } = createFakeDb();
+    const res = makeRes();
+    await handleApiRequest(
+      makeReq({
+        method: 'PUT',
+        url: '/api/tenants/t/audits/a/interviews/iv-1',
+        headers: authHeaders('t'),
+        body: {
+          id: 'iv-1',
+          intervieweeName: 'A. Director',
+          role: 'Operations Director (top management)',
+          focusArea: 'Leadership & commitment',
+          relatedClause: '5.1',
+          plannedAt: '2026-06-15T09:30',
+          status: 'done',
+          keyPoints: 'Confirmed accountability and quarterly review of OH&S performance.',
+          result: 'conforming',
+        },
+      }),
+      res,
+      { db, config },
+    );
+    assert.equal(res.statusCode, 200);
+    const saved = store.get('interviews')!.find((d) => d['id'] === 'iv-1');
+    assert.equal(saved?.['status'], 'done');
+    assert.equal(saved?.['role'], 'Operations Director (top management)');
+
+    const state = makeRes();
+    await handleApiRequest(
+      makeReq({ method: 'GET', url: '/api/tenants/t/audits/a/field-state', headers: authHeaders('t') }),
+      state,
+      { db, config },
+    );
+    const body = JSON.parse(state.body) as { interviews: unknown[] };
+    assert.equal(body.interviews.length, 1);
+  });
+
   it('lets lead/admin manage the tenant audit programme', async () => {
     const { db } = createFakeDb();
     const denied = makeRes();

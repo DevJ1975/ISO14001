@@ -23,6 +23,7 @@ import type {
   Hazard,
   HiraEntry,
   Incident,
+  Interview,
   OhsObjective,
   FieldCapa,
   FieldChecklistItem,
@@ -91,6 +92,7 @@ export interface FieldStatePayload {
   operationalControls?: Array<Omit<OperationalControl, 'sync'>>;
   leadership?: Array<Omit<LeadershipItem, 'sync'>>;
   context?: Array<Omit<ContextItem, 'sync'>>;
+  interviews?: Array<Omit<Interview, 'sync'>>;
   reportMeta?: Omit<ReportMeta, 'sync'> | null;
   changeLog?: ChangeLogEntry[];
 }
@@ -377,6 +379,10 @@ export class FieldApiService {
 
   upsertContextItem(body: Omit<ContextItem, 'sync'>): Promise<unknown> {
     return firstValueFrom(this.http.put(`${this.base()}/context/${encodeURIComponent(body.id)}`, body));
+  }
+
+  upsertInterview(body: Omit<Interview, 'sync'>): Promise<unknown> {
+    return firstValueFrom(this.http.put(`${this.base()}/interviews/${encodeURIComponent(body.id)}`, body));
   }
 
   private tenantBase(): string {

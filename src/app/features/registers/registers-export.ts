@@ -7,6 +7,7 @@ import type {
   Hazard,
   HiraEntry,
   Incident,
+  Interview,
   LeadershipItem,
   ManagementOfChangeRecord,
   OperationalControl,
@@ -155,6 +156,17 @@ export const incidentColumns: CsvColumn<Incident>[] = [
   { header: 'Injury class', value: (r) => r.injuryClassification },
   { header: 'Status', value: (r) => r.status },
   { header: 'RIDDOR reportable', value: (r) => (r.reportableToRegulator ? 'yes' : 'no') },
+  { header: 'Result', value: (r) => r.result },
+];
+
+export const interviewColumns: CsvColumn<Interview>[] = [
+  { header: 'Interviewee', value: (r) => r.intervieweeName },
+  { header: 'Role', value: (r) => r.role },
+  { header: 'Focus area', value: (r) => r.focusArea },
+  { header: 'Related clause', value: (r) => r.relatedClause },
+  { header: 'Planned', value: (r) => r.plannedAt },
+  { header: 'Status', value: (r) => r.status },
+  { header: 'Key points', value: (r) => r.keyPoints },
   { header: 'Result', value: (r) => r.result },
 ];
 

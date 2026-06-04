@@ -752,6 +752,18 @@ const contextUpsertCommandSchema = z.object({
   result: registerResultSchema.default('notStarted'),
 });
 
+const interviewUpsertCommandSchema = z.object({
+  id: z.string().min(1),
+  intervieweeName: z.string().max(300).default(''),
+  role: z.string().max(300).default(''),
+  focusArea: z.string().max(300).optional(),
+  relatedClause: z.string().max(40).optional(),
+  plannedAt: z.string().max(40).optional(),
+  status: z.enum(['planned', 'done', 'cancelled']).default('planned'),
+  keyPoints: z.string().max(4000).optional(),
+  result: registerResultSchema.default('notStarted'),
+});
+
 const programmeUpsertSchema = z.object({
   cycleYear: z.number().int(),
   criteria: z.string().min(1),
@@ -1671,6 +1683,10 @@ export async function handleApiRequest(
         .collection(mongoCollections.context)
         .find({ tenantId, auditId }, { projection: { _id: 0 } })
         .toArray();
+      const interviews = await dependencies.db
+        .collection(mongoCollections.interviews)
+        .find({ tenantId, auditId }, { projection: { _id: 0 } })
+        .toArray();
       const workerConsultations = await dependencies.db
         .collection(mongoCollections.workerConsultations)
         .find({ tenantId, auditId }, { projection: { _id: 0 } })
@@ -1733,6 +1749,7 @@ export async function handleApiRequest(
           operationalControls,
           leadership,
           context,
+          interviews,
           workerConsultations,
           reportMeta,
           changeLog,
@@ -2944,6 +2961,25 @@ export async function handleApiRequest(
         .collection(mongoCollections.context)
         .updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
       sendJson(response, 200, { context: record }, corsOrigin);
+      return;
+    }
+
+    const interviewMatch = matchPath(
+      new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/interviews/([^/]+)$`),
+      url.pathname,
+      ['tenantId', 'auditId', 'id'],
+    );
+    if (request.method === 'PUT' && interviewMatch && actor) {
+      const tenantId = interviewMatch.params['tenantId']!;
+      const auditId = interviewMatch.params['auditId']!;
+      requireTenant(actor, tenantId);
+      requireAnyRole(actor, ['leadAuditor', 'auditor']);
+      const command = await readJson(request, interviewUpsertCommandSchema);
+      const record = { ...command, tenantId, auditId, updatedAt: new Date().toISOString() };
+      await dependencies.db
+        .collection(mongoCollections.interviews)
+        .updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
+      sendJson(response, 200, { interview: record }, corsOrigin);
       return;
     }
 

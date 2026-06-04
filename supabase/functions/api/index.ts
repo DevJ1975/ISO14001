@@ -494,6 +494,7 @@ Deno.serve(async (req) => {
           operationalControls: byKind('operationalControl'),
           leadership: byKind('leadership'),
           context: byKind('context'),
+          interviews: byKind('interview'),
           workerConsultations: byKind('consultation'),
           meetings: byKind('meeting'),
           conclusion: single('conclusion'),
@@ -961,6 +962,7 @@ Deno.serve(async (req) => {
         'operational-controls': 'operationalControl',
         leadership: 'leadership',
         context: 'context',
+        interviews: 'interview',
         'worker-consultations': 'consultation',
       };
       if (method === 'PUT' && registerKinds[rest[0]] && rest[1]) {
