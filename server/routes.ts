@@ -2526,6 +2526,82 @@ export async function handleApiRequest(
       }
     }
 
+    // AI corrective-action (CAPA) assistant (server-side). Inert until
+    // ANTHROPIC_API_KEY + ANTHROPIC_MODEL are set; the client falls back to its
+    // offline deterministic composer on any non-2xx. The prompt forbids verbatim
+    // ISO requirement text and the word "shall" (copyright guardrail).
+    const correctiveActionMatch = matchPath(
+      new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/corrective-action$`),
+      url.pathname,
+      ['tenantId', 'auditId'],
+    );
+    if (request.method === 'POST' && correctiveActionMatch && actor) {
+      const tenantId = correctiveActionMatch.params['tenantId']!;
+      requireTenant(actor, tenantId);
+      requireAnyRole(actor, ['leadAuditor', 'auditor']);
+      const input = await readJson(request, z.object({}).passthrough());
+      const apiKey = process.env['ANTHROPIC_API_KEY'];
+      const model = process.env['ANTHROPIC_MODEL'];
+      if (!apiKey || !model) {
+        sendJson(response, 501, { error: 'ai_not_configured' }, corsOrigin);
+        return;
+      }
+      const system =
+        'You are an ISO 45001 lead auditor assistant suggesting a root-cause analysis and a draft corrective-action plan for a single finding (nonconformity or opportunity for improvement). Use ONLY the finding data provided (clause id/title, type, title, description, systemic flag, related register context) and ISO 45001 clause numbers and short titles. Do NOT quote or paraphrase verbatim ISO requirement text; never use the word "shall". Frame root causes as hypotheses to test, not conclusions. Respond with a strict JSON object only, with keys rootCauseHypotheses, correctiveActions, containment, summary. "rootCauseHypotheses" is an array of short strings. "correctiveActions" is an array of { action, owner, why } where owner is a suggested role and why is a short rationale. "containment" is a short string (or omit it for an opportunity for improvement). "summary" is a one-line string.';
+      try {
+        const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+          body: JSON.stringify({
+            model,
+            max_tokens: 1600,
+            system,
+            messages: [{ role: 'user', content: `Finding data:\n${JSON.stringify(input)}` }],
+          }),
+        });
+        if (!aiRes.ok) {
+          sendJson(response, 502, { error: 'ai_upstream' }, corsOrigin);
+          return;
+        }
+        const payload = (await aiRes.json()) as { content?: { text?: string }[] };
+        const text = (payload.content ?? []).map((part) => part.text ?? '').join('');
+        const found = text.match(/\{[\s\S]*\}/);
+        const parsed = found ? (JSON.parse(found[0]) as Record<string, unknown>) : null;
+        if (!parsed) {
+          sendJson(response, 502, { error: 'ai_parse' }, corsOrigin);
+          return;
+        }
+        const strArr = (v: unknown): string[] =>
+          Array.isArray(v) ? v.map((x) => String(x ?? '')).filter((x) => x.length > 0) : [];
+        const correctiveActions = Array.isArray(parsed['correctiveActions'])
+          ? (parsed['correctiveActions'] as Record<string, unknown>[]).map((step) => ({
+              action: String(step?.['action'] ?? ''),
+              owner: step?.['owner'] !== undefined ? String(step['owner']) : undefined,
+              why: String(step?.['why'] ?? ''),
+            }))
+          : [];
+        const containmentRaw = parsed['containment'];
+        sendJson(
+          response,
+          200,
+          {
+            rootCauseHypotheses: strArr(parsed['rootCauseHypotheses']),
+            correctiveActions,
+            containment:
+              typeof containmentRaw === 'string' && containmentRaw.length > 0 ? containmentRaw : undefined,
+            summary: String(parsed['summary'] ?? ''),
+            source: 'ai',
+            generatedAt: new Date().toISOString(),
+          },
+          corsOrigin,
+        );
+        return;
+      } catch {
+        sendJson(response, 502, { error: 'ai_failed' }, corsOrigin);
+        return;
+      }
+    }
+
     const signoffMatch = matchPath(
       new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/reports/signoff$`),
       url.pathname,

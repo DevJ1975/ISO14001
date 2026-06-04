@@ -10,6 +10,7 @@ export * from './clause-qa.js';
 export * from './certificate.js';
 export * from './checklists.js';
 export * from './complaints.js';
+export * from './corrective-action.js';
 export * from './evidence-request.js';
 export * from './ohs-calibration.js';
 export * from './ohs-change.js';

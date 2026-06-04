@@ -4,7 +4,7 @@ import { firstValueFrom } from 'rxjs';
 
 import { AuthService } from '../auth/auth.service';
 import { APP_CONFIG } from '../config/app-config';
-import type { AuditAgenda, AuditAgendaInput, ClauseAnswer, ClientTailoring, ClientTailoringInput, FindingDraft, FindingDraftInput, MeetingScripts, PhotoAnalysisFindingType, ReportDraft, ReportDraftInput } from '../domain';
+import type { AuditAgenda, AuditAgendaInput, ClauseAnswer, ClientTailoring, ClientTailoringInput, CorrectiveActionDraft, CorrectiveActionInput, FindingDraft, FindingDraftInput, MeetingScripts, PhotoAnalysisFindingType, ReportDraft, ReportDraftInput } from '../domain';
 import { AuditSelectionService } from './audit-selection.service';
 import type {
   AuditConclusion,
@@ -259,6 +259,11 @@ export class FieldApiService {
   /** Generate tailored audit emphasis (prioritised clauses + focus prompts) from client context server-side (AI). Rejects when unavailable so the client falls back. */
   draftClientTailoring(body: ClientTailoringInput): Promise<ClientTailoring> {
     return firstValueFrom(this.http.post<ClientTailoring>(`${this.base()}/client-tailoring`, body));
+  }
+
+  /** Suggest a root-cause analysis + draft corrective-action plan for a finding server-side (AI). Rejects when unavailable so the client falls back. */
+  draftCorrectiveAction(body: CorrectiveActionInput): Promise<CorrectiveActionDraft> {
+    return firstValueFrom(this.http.post<CorrectiveActionDraft>(`${this.base()}/corrective-action`, body));
   }
 
   /** Generate the audit agenda + opening/closing meeting scripts server-side (AI). Rejects when unavailable so the client falls back. */

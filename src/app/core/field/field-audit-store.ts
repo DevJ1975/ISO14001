@@ -6,6 +6,8 @@ import {
   CapaIntent,
   ClientTailoring,
   ClientTailoringInput,
+  CorrectiveActionDraft,
+  CorrectiveActionInput,
   CapaRootCauseMethod,
   DEFAULT_CAPA_INTENT,
   EvidenceRequest,
@@ -26,6 +28,7 @@ import {
   appendComplianceEvaluation,
   composeAuditAgenda,
   composeClientTailoring,
+  composeCorrectiveAction,
   composeFindingDraft,
   composeMeetingScripts,
   composeReportDraft,
@@ -1401,6 +1404,10 @@ export class FieldAuditStore {
   readonly clientTailoringInfo = signal<{ source: 'ai' | 'ruleBased'; generatedAt: string } | null>(null);
   /** Per-finding provenance of the last generated finding draft (findingId → source/time), for the "review before issuing" note. */
   readonly findingDraftInfo = signal<Record<string, { source: 'ai' | 'ruleBased'; generatedAt: string }>>({});
+  /** Per-finding suggested corrective action (findingId → root-cause analysis + draft plan), rule-based offline, AI when configured. */
+  readonly correctiveActionDrafts = signal<Record<string, CorrectiveActionDraft>>({});
+  /** Per-finding provenance of the last generated corrective-action suggestion (findingId → source/time), for the "review before committing" badge. */
+  readonly correctiveActionInfo = signal<Record<string, { source: 'ai' | 'ruleBased'; generatedAt: string }>>({});
   /**
    * Per-photo AI analysis state, keyed by evidenceId. Holds the review-gate
    * status (processing / needsAuditorReview / accepted / rejected / failed /
@@ -2247,6 +2254,75 @@ export class FieldAuditStore {
       note,
       result: finding.type,
       evidenceLabels,
+    };
+  }
+
+  /**
+   * Suggest a likely root-cause analysis and a draft corrective-action plan for
+   * a single finding (nonconformity / OFI), from the finding's own data plus any
+   * related register context (incidents/hazards touching the same clause). Uses
+   * the server-side AI provider when live & online; otherwise the offline
+   * deterministic composer. The result is held per-finding for the auditee/lead
+   * to review and adapt before committing — these are prompts, not conclusions.
+   */
+  async generateCorrectiveAction(findingId: string): Promise<'ai' | 'ruleBased' | null> {
+    const finding = this.findings().find((entry) => entry.id === findingId);
+    if (!finding) return null;
+    const input = this.buildCorrectiveActionInput(finding);
+    let suggestion: CorrectiveActionDraft;
+    if (this.source() === 'live' && this.online()) {
+      try {
+        suggestion = await this.api.draftCorrectiveAction(input);
+      } catch {
+        suggestion = composeCorrectiveAction(input);
+      }
+    } else {
+      suggestion = composeCorrectiveAction(input);
+    }
+    this.correctiveActionDrafts.update((map) => ({ ...map, [findingId]: suggestion }));
+    this.correctiveActionInfo.update((map) => ({
+      ...map,
+      [findingId]: { source: suggestion.source, generatedAt: suggestion.generatedAt },
+    }));
+    return suggestion.source;
+  }
+
+  /** Build the corrective-action input from a finding plus related register context (same clause area). */
+  private buildCorrectiveActionInput(finding: FieldFinding): CorrectiveActionInput {
+    const section = finding.clauseId.split('.')[0] ?? finding.clauseId;
+    const relatedContext: { label: string; detail?: string }[] = [];
+    // Incidents with a recorded root cause give the analysis more to work with.
+    for (const incident of this.incidents()) {
+      if (incident.rootCause?.trim()) {
+        relatedContext.push({ label: `Incident: ${incident.title}`, detail: incident.rootCause.trim() });
+      }
+    }
+    // Significant hazards mapped to the same clause area add risk context.
+    for (const aspect of this.aspects()) {
+      if (aspect.significance === 'high' && (aspect.relatedClauseId?.split('.')[0] ?? '') === section) {
+        relatedContext.push({
+          label: `Significant hazard: ${aspect.aspect}`.trim(),
+          detail: aspect.significanceRationale?.trim() || aspect.impact?.trim() || undefined,
+        });
+      }
+    }
+    // Prior CAPAs on the same finding's clause area carry recurrence signals.
+    const sameClauseFindingIds = new Set(
+      this.findings().filter((f) => (f.clauseId.split('.')[0] ?? f.clauseId) === section).map((f) => f.id),
+    );
+    for (const capa of this.capas()) {
+      if (sameClauseFindingIds.has(capa.findingId) && capa.rootCause?.trim()) {
+        relatedContext.push({ label: 'Prior corrective action on this clause area', detail: capa.rootCause.trim() });
+      }
+    }
+    return {
+      clauseId: finding.clauseId,
+      clauseTitle: finding.clauseTitle,
+      type: finding.type,
+      title: finding.requirementSummary?.trim() || undefined,
+      description: finding.description?.trim() || undefined,
+      systemic: finding.systemic,
+      relatedContext: relatedContext.length ? relatedContext.slice(0, 5) : undefined,
     };
   }
 

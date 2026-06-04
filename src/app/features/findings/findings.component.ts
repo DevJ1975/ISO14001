@@ -3,7 +3,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 
 import { AuthService } from '../../core/auth/auth.service';
-import { CapaIntent, CapaRootCauseMethod, capaIntentLabel, capaRootCauseMethodLabel } from '../../core/domain';
+import { CapaIntent, CapaRootCauseMethod, CorrectiveActionDraft, capaIntentLabel, capaRootCauseMethodLabel } from '../../core/domain';
 import { CapaStatus, FieldCapa, FieldFinding, FieldAuditStore, FindingType, NcStatus } from '../../core/field/field-audit-store';
 import { ToastService } from '../../core/ui/toast.service';
 
@@ -30,6 +30,8 @@ export class FindingsComponent {
   });
   /** IDs of findings whose draft is currently generating, for the button's busy state. */
   protected readonly drafting = signal<ReadonlySet<string>>(new Set());
+  /** IDs of findings whose corrective-action suggestion is currently generating, for the button's busy state. */
+  protected readonly suggesting = signal<ReadonlySet<string>>(new Set());
   protected readonly selectedId = signal<string | null>(null);
   protected readonly selected = computed(() => this.store.findings().find((f) => f.id === this.selectedId()) ?? null);
   protected readonly selectedCapa = computed<FieldCapa | null>(() => {
@@ -100,6 +102,33 @@ export class FindingsComponent {
 
   protected draftInfo(id: string): { source: 'ai' | 'ruleBased'; generatedAt: string } | null {
     return this.store.findingDraftInfo()[id] ?? null;
+  }
+
+  /** Suggest a root-cause analysis + draft corrective-action plan for this finding — AI when live, deterministic offline. */
+  protected async suggestCorrectiveAction(finding: FieldFinding): Promise<void> {
+    if (this.suggesting().has(finding.id)) return;
+    this.suggesting.update((set) => new Set(set).add(finding.id));
+    try {
+      await this.store.generateCorrectiveAction(finding.id);
+    } finally {
+      this.suggesting.update((set) => {
+        const next = new Set(set);
+        next.delete(finding.id);
+        return next;
+      });
+    }
+  }
+
+  protected isSuggesting(id: string): boolean {
+    return this.suggesting().has(id);
+  }
+
+  protected correctiveAction(id: string): CorrectiveActionDraft | null {
+    return this.store.correctiveActionDrafts()[id] ?? null;
+  }
+
+  protected correctiveActionInfo(id: string): { source: 'ai' | 'ruleBased'; generatedAt: string } | null {
+    return this.store.correctiveActionInfo()[id] ?? null;
   }
 
   protected formatTime(iso: string): string {
