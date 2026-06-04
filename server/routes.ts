@@ -1449,6 +1449,79 @@ export async function handleApiRequest(
       }
     }
 
+    // AI finding draft (server-side). Inert until ANTHROPIC_API_KEY + ANTHROPIC_MODEL
+    // are set; the client falls back to its offline deterministic composer on any
+    // non-2xx. The prompt forbids verbatim ISO requirement text (copyright guardrail).
+    const findingDraftMatch = matchPath(
+      new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/finding-draft$`),
+      url.pathname,
+      ['tenantId', 'auditId'],
+    );
+    if (request.method === 'POST' && findingDraftMatch && actor) {
+      const tenantId = findingDraftMatch.params['tenantId']!;
+      requireTenant(actor, tenantId);
+      requireAnyRole(actor, ['leadAuditor', 'auditor']);
+      const input = await readJson(request, z.object({}).passthrough());
+      const apiKey = process.env['ANTHROPIC_API_KEY'];
+      const model = process.env['ANTHROPIC_MODEL'];
+      if (!apiKey || !model) {
+        sendJson(response, 501, { error: 'ai_not_configured' }, corsOrigin);
+        return;
+      }
+      const system =
+        'You are an ISO 45001 lead auditor assistant drafting a single audit finding (nonconformity). Use ONLY the finding data provided (clause id/title, note, result, evidence labels) and ISO 45001 clause numbers and short titles. Do NOT quote or paraphrase verbatim ISO requirement text; never use the word "shall". Respond with a strict JSON object only, with keys draftStatement, requirementSummary, objectiveEvidence, suggestedType, gradingRationale, rootCausePrompts. suggestedType must be one of majorNc, minorNc, ofi. rootCausePrompts must be an array of short question strings.';
+      try {
+        const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+          body: JSON.stringify({
+            model,
+            max_tokens: 1200,
+            system,
+            messages: [{ role: 'user', content: `Finding data:\n${JSON.stringify(input)}` }],
+          }),
+        });
+        if (!aiRes.ok) {
+          sendJson(response, 502, { error: 'ai_upstream' }, corsOrigin);
+          return;
+        }
+        const payload = (await aiRes.json()) as { content?: { text?: string }[] };
+        const text = (payload.content ?? []).map((part) => part.text ?? '').join('');
+        const found = text.match(/\{[\s\S]*\}/);
+        const parsed = found ? (JSON.parse(found[0]) as Record<string, unknown>) : null;
+        if (!parsed) {
+          sendJson(response, 502, { error: 'ai_parse' }, corsOrigin);
+          return;
+        }
+        const types = ['majorNc', 'minorNc', 'ofi'];
+        const rawType = parsed['suggestedType'];
+        const suggestedType = typeof rawType === 'string' && types.includes(rawType) ? rawType : 'minorNc';
+        const rawPrompts = parsed['rootCausePrompts'];
+        const rootCausePrompts = Array.isArray(rawPrompts)
+          ? rawPrompts.map((p) => String(p)).filter((p) => p.length > 0)
+          : [];
+        sendJson(
+          response,
+          200,
+          {
+            draftStatement: String(parsed['draftStatement'] ?? ''),
+            requirementSummary: String(parsed['requirementSummary'] ?? ''),
+            objectiveEvidence: String(parsed['objectiveEvidence'] ?? ''),
+            suggestedType,
+            gradingRationale: String(parsed['gradingRationale'] ?? ''),
+            rootCausePrompts,
+            source: 'ai',
+            generatedAt: new Date().toISOString(),
+          },
+          corsOrigin,
+        );
+        return;
+      } catch {
+        sendJson(response, 502, { error: 'ai_failed' }, corsOrigin);
+        return;
+      }
+    }
+
     const signoffMatch = matchPath(
       new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/reports/signoff$`),
       url.pathname,
