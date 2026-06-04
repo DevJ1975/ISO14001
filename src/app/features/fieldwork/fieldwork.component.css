@@ -145,12 +145,17 @@
   color: var(--muted);
 }
 
+.fw-note-input {
+  position: relative;
+  display: block;
+}
+
 .fw-note textarea {
   width: 100%;
   border: 1px solid var(--border);
   border-radius: 12px;
   background: var(--surface-guard);
-  padding: 12px 14px;
+  padding: 12px 56px 12px 14px;
   color: var(--text);
   font: inherit;
   line-height: 1.5;
@@ -161,6 +166,65 @@
   outline: none;
   border-color: var(--primary);
   box-shadow: 0 0 0 3px var(--ring);
+}
+
+.fw-note .mic {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--muted);
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.fw-note .mic:hover:not(:disabled) {
+  color: var(--primary);
+  border-color: var(--primary);
+}
+
+.fw-note .mic:focus-visible {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--ring);
+}
+
+.fw-note .mic:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.fw-note .mic.on {
+  background: color-mix(in srgb, var(--primary) 14%, transparent);
+  border-color: var(--primary);
+  color: var(--primary);
+  animation: mic-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes mic-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 var(--ring);
+  }
+  50% {
+    box-shadow: 0 0 0 4px var(--ring);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fw-note .mic.on {
+    animation: none;
+  }
 }
 
 .ev-strip {
