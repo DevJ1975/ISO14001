@@ -1002,6 +1002,75 @@
         }
       </div>
     }
+    @case ('context') {
+      <div class="reg">
+        <div class="reg-head">
+          <h2>Context issues (cl. 4.1)</h2>
+          <button mat-flat-button color="primary" type="button" (click)="store.addContextItem('issue')"><mat-icon aria-hidden="true">add</mat-icon>Add</button>
+        </div>
+        @for (row of contextByKind('issue'); track row.id) {
+          <article class="tile row">
+            <label class="fld"><span>Issue affecting the OH&amp;S system</span><input [value]="row.label" placeholder="Tight labour market, Ageing equipment, Changing legislation…" (change)="store.updateContextItem(row.id, { label: $any($event.target).value })" /></label>
+            <div class="grid2">
+              <label class="fld"><span>Internal / external</span>
+                <select [value]="row.category || 'external'" (change)="store.updateContextItem(row.id, { category: $any($event.target).value })">
+                  <option value="internal">Internal</option>
+                  <option value="external">External</option>
+                </select>
+              </label>
+              <label class="fld"><span>Related clause</span><input [value]="row.relatedClause || ''" placeholder="4.1" (change)="store.updateContextItem(row.id, { relatedClause: $any($event.target).value })" /></label>
+            </div>
+            <label class="fld"><span>How it affects the OH&amp;S system / notes</span><input [value]="row.notes || ''" (change)="store.updateContextItem(row.id, { notes: $any($event.target).value })" /></label>
+            <div class="results">
+              @for (r of results; track r.value) {
+                <button type="button" class="rp {{ r.tone }}" [class.on]="row.result === r.value" (click)="store.updateContextItem(row.id, { result: r.value })">{{ r.label }}</button>
+              }
+              <button type="button" class="att-del" aria-label="Remove context issue" (click)="confirmRemoveContext(row)"><mat-icon aria-hidden="true">delete</mat-icon></button>
+            </div>
+          </article>
+        } @empty {
+          <div class="panel empty"><mat-icon aria-hidden="true">travel_explore</mat-icon><strong>No context issues yet</strong><span>Record the internal and external issues relevant to the organisation's purpose that affect the OH&amp;S management system (cl. 4.1).</span></div>
+        }
+        <div class="reg-head">
+          <h2>Interested parties (cl. 4.2)</h2>
+          <button mat-flat-button color="primary" type="button" (click)="store.addContextItem('interestedParty')"><mat-icon aria-hidden="true">add</mat-icon>Add</button>
+        </div>
+        @for (row of contextByKind('interestedParty'); track row.id) {
+          <article class="tile row">
+            <label class="fld"><span>Party / stakeholder</span><input [value]="row.label" placeholder="Workers &amp; representatives, Regulators, Contractors…" (change)="store.updateContextItem(row.id, { label: $any($event.target).value })" /></label>
+            <label class="fld"><span>Relevant needs &amp; expectations / notes</span><input [value]="row.notes || ''" (change)="store.updateContextItem(row.id, { notes: $any($event.target).value })" /></label>
+            <label class="fld"><span>Related clause</span><input [value]="row.relatedClause || ''" placeholder="4.2" (change)="store.updateContextItem(row.id, { relatedClause: $any($event.target).value })" /></label>
+            <div class="results">
+              @for (r of results; track r.value) {
+                <button type="button" class="rp {{ r.tone }}" [class.on]="row.result === r.value" (click)="store.updateContextItem(row.id, { result: r.value })">{{ r.label }}</button>
+              }
+              <button type="button" class="att-del" aria-label="Remove interested party" (click)="confirmRemoveContext(row)"><mat-icon aria-hidden="true">delete</mat-icon></button>
+            </div>
+          </article>
+        } @empty {
+          <div class="panel empty"><mat-icon aria-hidden="true">diversity_3</mat-icon><strong>No interested parties yet</strong><span>Record the workers and other interested parties relevant to the OH&amp;S system and their needs &amp; expectations (cl. 4.2).</span></div>
+        }
+        <div class="reg-head">
+          <h2>Scope &amp; boundaries (cl. 4.3)</h2>
+          <button mat-flat-button color="primary" type="button" (click)="store.addContextItem('scope')"><mat-icon aria-hidden="true">add</mat-icon>Add</button>
+        </div>
+        @for (row of contextByKind('scope'); track row.id) {
+          <article class="tile row">
+            <label class="fld"><span>Scope statement / boundary / exclusion</span><input [value]="row.label" placeholder="Scope statement, Physical &amp; organisational boundaries, Exclusion justification…" (change)="store.updateContextItem(row.id, { label: $any($event.target).value })" /></label>
+            <label class="fld"><span>Boundary detail / exclusion justification / notes</span><input [value]="row.notes || ''" (change)="store.updateContextItem(row.id, { notes: $any($event.target).value })" /></label>
+            <label class="fld"><span>Related clause</span><input [value]="row.relatedClause || ''" placeholder="4.3" (change)="store.updateContextItem(row.id, { relatedClause: $any($event.target).value })" /></label>
+            <div class="results">
+              @for (r of results; track r.value) {
+                <button type="button" class="rp {{ r.tone }}" [class.on]="row.result === r.value" (click)="store.updateContextItem(row.id, { result: r.value })">{{ r.label }}</button>
+              }
+              <button type="button" class="att-del" aria-label="Remove scope row" (click)="confirmRemoveContext(row)"><mat-icon aria-hidden="true">delete</mat-icon></button>
+            </div>
+          </article>
+        } @empty {
+          <div class="panel empty"><mat-icon aria-hidden="true">crop_free</mat-icon><strong>No scope entries yet</strong><span>Record the OH&amp;S management-system scope, its physical and organisational boundaries and any justified exclusions (cl. 4.3).</span></div>
+        }
+      </div>
+    }
     @case ('review') {
       <div class="reg">
         <div class="reg-head">

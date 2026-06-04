@@ -489,6 +489,28 @@ export interface LeadershipItem {
   sync: SyncState;
 }
 
+/**
+ * Organisational context & scope register row (ISO 45001 cl. 4.1 / 4.2 / 4.3).
+ * A single shape with a `kind` discriminator covers three logical groups:
+ * - `issue`          — internal/external issue affecting the OH&S system (cl. 4.1)
+ * - `interestedParty`— a stakeholder and their relevant needs & expectations (cl. 4.2)
+ * - `scope`          — a scope statement, boundary or exclusion justification (cl. 4.3)
+ * Shared fields keep the store threading to a single new register; `category`
+ * carries the issue's internal/external nature where relevant and `notes`
+ * holds the group-specific narrative (effect on the system / needs / boundary).
+ */
+export interface ContextItem {
+  id: string;
+  kind: 'issue' | 'interestedParty' | 'scope';
+  label: string;
+  notes?: string;
+  category?: 'internal' | 'external';
+  relatedClause?: string;
+  result: RegisterResult;
+  updatedAt: string;
+  sync: SyncState;
+}
+
 /** Monitoring & measuring equipment calibration (ISO 45001 cl. 9.1.1). */
 export interface CalibrationRecord {
   id: string;
@@ -695,6 +717,7 @@ interface PersistedState {
   changes: ManagementOfChangeRecord[];
   operationalControls: OperationalControl[];
   leadership: LeadershipItem[];
+  context: ContextItem[];
   reportMeta: ReportMeta;
   reportSignedAt: string | null;
   reportSignature?: ReportSignature | null;
@@ -852,6 +875,31 @@ function seedLeadership(): LeadershipItem[] {
     base({ kind: 'roleAssignment', label: 'Management representative for OH&S', owner: 'J. Okafor (H&S Manager)', notes: 'Responsibility for maintaining the OH&S management system is assigned and recorded in the role profile.', flag: true, relatedClause: '5.3', result: 'conforming' }),
     base({ kind: 'roleAssignment', label: 'Reporting OH&S performance to top management', owner: 'Operations Director', notes: 'Authority to report system performance is assigned; communicated at the last management review.', flag: true, relatedClause: '5.3', result: 'conforming' }),
     base({ kind: 'roleAssignment', label: 'Incident investigation lead', owner: 'Vacant', notes: 'Responsibility not currently assigned following a leaver; cover arrangement not yet communicated.', flag: false, relatedClause: '5.3', result: 'needsFollowUp' }),
+  ];
+}
+
+/** Demonstration context & scope records spanning context issues (4.1), interested parties (4.2) and scope/boundaries (4.3). */
+function seedContext(): ContextItem[] {
+  const now = '2026-06-15T15:00:00.000Z';
+  const base = (extra: Partial<ContextItem>): ContextItem => ({
+    id: uid('context'),
+    kind: 'issue',
+    label: '',
+    result: 'notStarted',
+    updatedAt: now,
+    sync: 'synced',
+    ...extra,
+  });
+  return [
+    base({ kind: 'issue', label: 'Tight labour market for skilled trades', category: 'external', notes: 'Recruitment pressure raises reliance on agency labour; induction and competence checks affect OH&S risk.', relatedClause: '4.1', result: 'needsFollowUp' }),
+    base({ kind: 'issue', label: 'Ageing production equipment', category: 'internal', notes: 'Older machinery needs more guarding and maintenance attention to keep operations safe.', relatedClause: '4.1', result: 'conforming' }),
+    base({ kind: 'issue', label: 'Changing OH&S legislation', category: 'external', notes: 'Updates to PPE and work-at-height rules drive periodic review of controls and training.', relatedClause: '4.1', result: 'conforming' }),
+    base({ kind: 'interestedParty', label: 'Workers & their representatives', notes: 'Expect safe working conditions, consultation on changes and timely incident feedback.', relatedClause: '4.2', result: 'conforming' }),
+    base({ kind: 'interestedParty', label: 'Regulators (HSE / local authority)', notes: 'Expect legal compliance, incident reporting and evidence of effective controls.', relatedClause: '4.2', result: 'conforming' }),
+    base({ kind: 'interestedParty', label: 'Contractors & visitors on site', notes: 'Expect clear site rules, induction and protection while on the premises; induction records need tidying.', relatedClause: '4.2', result: 'needsFollowUp' }),
+    base({ kind: 'scope', label: 'OH&S management system scope statement', notes: 'Covers assembly, welding and finishing at the Denver plant plus warehousing at the Aurora site, including agency and contractor labour under site control.', relatedClause: '4.3', result: 'conforming' }),
+    base({ kind: 'scope', label: 'Physical & organisational boundaries', notes: 'Boundaries are the two owned sites; off-site delivery driving is outside system control and handled by the logistics provider.', relatedClause: '4.3', result: 'conforming' }),
+    base({ kind: 'scope', label: 'Exclusion — outsourced finishing process', notes: 'Outsourced spray-coating is excluded from direct control; justification and oversight arrangements still to be documented.', relatedClause: '4.3', result: 'needsFollowUp' }),
   ];
 }
 
@@ -1282,6 +1330,7 @@ export class FieldAuditStore {
   readonly changes = signal<ManagementOfChangeRecord[]>(seedChanges());
   readonly operationalControls = signal<OperationalControl[]>(seedOperationalControls());
   readonly leadership = signal<LeadershipItem[]>(seedLeadership());
+  readonly context = signal<ContextItem[]>(seedContext());
   readonly reportMeta = signal<ReportMeta>(defaultReportMeta());
   /** Read-only audit trail from the backend (not synced upward). */
   readonly changeLog = signal<ChangeLogEntry[]>([]);
@@ -1350,6 +1399,7 @@ export class FieldAuditStore {
       this.changes().filter((c) => c.sync !== 'synced').length +
       this.operationalControls().filter((c) => c.sync !== 'synced').length +
       this.leadership().filter((l) => l.sync !== 'synced').length +
+      this.context().filter((c) => c.sync !== 'synced').length +
       (this.conclusion() && this.conclusion()!.sync !== 'synced' ? 1 : 0) +
       (this.reportMeta().sync !== 'synced' ? 1 : 0),
   );
@@ -2633,6 +2683,30 @@ export class FieldAuditStore {
     this.persist();
   }
 
+  addContextItem(kind: ContextItem['kind']): void {
+    const relatedClause = kind === 'issue' ? '4.1' : kind === 'interestedParty' ? '4.2' : '4.3';
+    const category = kind === 'issue' ? ('external' as const) : undefined;
+    this.context.update((list) => [
+      { id: uid('context'), kind, label: '', category, relatedClause, result: 'notStarted', updatedAt: new Date().toISOString(), sync: 'queued' },
+      ...list,
+    ]);
+    this.persist();
+    this.autoFlush();
+  }
+
+  updateContextItem(id: string, patch: Partial<ContextItem>): void {
+    this.context.update((list) =>
+      list.map((entry) => (entry.id === id ? { ...entry, ...patch, updatedAt: new Date().toISOString(), sync: 'queued' } : entry)),
+    );
+    this.persist();
+    this.autoFlush();
+  }
+
+  removeContextItem(id: string): void {
+    this.context.update((list) => list.filter((entry) => entry.id !== id));
+    this.persist();
+  }
+
   /** The order-stable view of the report that an e-signature attests to. */
   signableReport(): SignableReport {
     const conclusion = this.conclusion();
@@ -2758,6 +2832,7 @@ export class FieldAuditStore {
     this.changes.set(seedChanges());
     this.operationalControls.set(seedOperationalControls());
     this.leadership.set(seedLeadership());
+    this.context.set(seedContext());
     this.reportMeta.set(defaultReportMeta());
     this.reportSignedAt.set(null);
     this.reportSignature.set(null);
@@ -3192,6 +3267,17 @@ export class FieldAuditStore {
           this.setSync('leadership', record.id, 'queued');
         }
       }
+      for (const record of this.context().filter((entry) => entry.sync !== 'synced')) {
+        this.setSync('context', record.id, 'syncing');
+        try {
+          const { sync, ...payload } = record;
+          void sync;
+          await this.api.upsertContextItem(payload);
+          this.setSync('context', record.id, 'synced');
+        } catch {
+          this.setSync('context', record.id, 'queued');
+        }
+      }
       this.persist();
     } finally {
       this.flushing = false;
@@ -3230,7 +3316,8 @@ export class FieldAuditStore {
       | 'suppliers'
       | 'changes'
       | 'operationalControls'
-      | 'leadership',
+      | 'leadership'
+      | 'context',
     id: string,
     sync: SyncState,
   ): void {
@@ -3267,6 +3354,7 @@ export class FieldAuditStore {
       changes: this.changes,
       operationalControls: this.operationalControls,
       leadership: this.leadership,
+      context: this.context,
     };
     const ref = map[collection] as unknown as {
       update: (fn: (list: SyncRecord[]) => SyncRecord[]) => void;
@@ -3337,6 +3425,7 @@ export class FieldAuditStore {
       changes: this.changes(),
       operationalControls: this.operationalControls(),
       leadership: this.leadership(),
+      context: this.context(),
       reportMeta: this.reportMeta(),
       reportSignedAt: this.reportSignedAt(),
       reportSignature: this.reportSignature(),
@@ -3384,6 +3473,7 @@ export class FieldAuditStore {
       this.changes.set((payload.changes ?? []).map((c) => ({ ...c, sync: 'synced' as const })));
       this.operationalControls.set((payload.operationalControls ?? []).map((c) => ({ ...c, sync: 'synced' as const })));
       this.leadership.set((payload.leadership ?? []).map((l) => ({ ...l, sync: 'synced' as const })));
+      this.context.set((payload.context ?? []).map((c) => ({ ...c, sync: 'synced' as const })));
       // Report front-matter: prefer the server copy (shared across the team),
       // falling back to defaults, then overlay scope/dates from the audit record.
       this.reportMeta.set(
@@ -3448,6 +3538,7 @@ export class FieldAuditStore {
     this.changes.set(saved.changes ?? seedChanges());
     this.operationalControls.set(saved.operationalControls ?? seedOperationalControls());
     this.leadership.set(saved.leadership ?? seedLeadership());
+    this.context.set(saved.context ?? seedContext());
     if (saved.reportMeta) this.reportMeta.set({ ...defaultReportMeta(), ...saved.reportMeta });
     this.reportSignedAt.set(saved.reportSignedAt ?? null);
     this.reportSignature.set(saved.reportSignature ?? null);

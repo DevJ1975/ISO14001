@@ -25,13 +25,14 @@ import {
   trainingStatus,
 } from '../../core/domain';
 import { CsvExportService } from '../../core/export/csv-export.service';
-import { ComplianceEvaluation, Hazard, FieldAuditStore, HiraEntry, LeadershipItem, OperationalControl, Permit, RegisterResult } from '../../core/field/field-audit-store';
+import { ComplianceEvaluation, ContextItem, Hazard, FieldAuditStore, HiraEntry, LeadershipItem, OperationalControl, Permit, RegisterResult } from '../../core/field/field-audit-store';
 import { ConfirmService } from '../../core/ui/confirm.service';
 import { ToastService } from '../../core/ui/toast.service';
 import {
   calibrationColumns,
   changeColumns,
   consultationColumns,
+  contextColumns,
   documentColumns,
   hazardColumns,
   hiraColumns,
@@ -66,6 +67,7 @@ type Tab =
   | 'changes'
   | 'opcontrols'
   | 'leadership'
+  | 'context'
   | 'review';
 type Tone = 'positive' | 'progress' | 'critical' | 'neutral';
 
@@ -124,6 +126,7 @@ export class RegistersComponent {
     changes: '8.1.3',
     opcontrols: '8.1.2',
     leadership: '5.1',
+    context: '4.1',
     review: '9.3',
   };
 
@@ -153,6 +156,7 @@ export class RegistersComponent {
     { value: 'changes', label: 'Change (MoC)', icon: 'published_with_changes' },
     { value: 'opcontrols', label: 'Operational controls', icon: 'rule' },
     { value: 'leadership', label: 'Leadership & policy', icon: 'supervisor_account' },
+    { value: 'context', label: 'Context & scope', icon: 'travel_explore' },
     { value: 'review', label: 'Mgmt review', icon: 'fact_check' },
   ];
 
@@ -230,6 +234,22 @@ export class RegistersComponent {
     return this.store.leadership().filter((row) => row.kind === kind);
   }
 
+  /** Confirm before removing a context & scope row (destructive, no undo). */
+  protected async confirmRemoveContext(row: ContextItem): Promise<void> {
+    const ok = await this.confirm.ask({
+      title: 'Remove context & scope row?',
+      message: `"${row.label || 'This row'}" will be removed from the register.`,
+      confirmLabel: 'Remove',
+      danger: true,
+    });
+    if (ok) this.store.removeContextItem(row.id);
+  }
+
+  /** Context & scope rows for one group, in seed order (cl. 4.1 / 4.2 / 4.3). */
+  protected contextByKind(kind: ContextItem['kind']): ContextItem[] {
+    return this.store.context().filter((row) => row.kind === kind);
+  }
+
   /**
    * Resolve the active tab to a CSV export spec (label + rows + columns), or null
    * for registers without a structured exporter. Keeps the template a single call.
@@ -252,6 +272,8 @@ export class RegistersComponent {
         return { label: 'Operational controls register', rows: this.store.operationalControls(), columns: operationalControlColumns };
       case 'leadership':
         return { label: 'Leadership & policy register', rows: this.store.leadership(), columns: leadershipColumns };
+      case 'context':
+        return { label: 'Context & scope register', rows: this.store.context(), columns: contextColumns };
       case 'incidents':
         return { label: 'Incident register', rows: this.store.incidents(), columns: incidentColumns };
       case 'hira':

@@ -493,6 +493,7 @@ Deno.serve(async (req) => {
           changes: byKind('change-moc'),
           operationalControls: byKind('operationalControl'),
           leadership: byKind('leadership'),
+          context: byKind('context'),
           workerConsultations: byKind('consultation'),
           meetings: byKind('meeting'),
           conclusion: single('conclusion'),
@@ -959,6 +960,7 @@ Deno.serve(async (req) => {
         changes: 'change-moc',
         'operational-controls': 'operationalControl',
         leadership: 'leadership',
+        context: 'context',
         'worker-consultations': 'consultation',
       };
       if (method === 'PUT' && registerKinds[rest[0]] && rest[1]) {
