@@ -1032,6 +1032,55 @@ export class FieldAuditStore {
     this.autoFlush();
   }
 
+  /** Add a custom/tailored check (e.g. an industry- or client-specific question) against any clause. */
+  addCustomChecklistItem(input: { clauseId: string; clauseTitle?: string; question: string; guidance?: string }): void {
+    const clauseId = input.clauseId.trim() || 'custom';
+    const question = input.question.trim();
+    if (!question) return;
+    const item: FieldChecklistItem = {
+      id: uid('item'),
+      clauseId,
+      clauseTitle: input.clauseTitle?.trim() || clauseId,
+      question,
+      guidance: input.guidance?.trim() || undefined,
+      ownerName: '',
+      result: 'notStarted',
+      evidenceIds: [],
+      sync: 'queued',
+      updatedAt: new Date().toISOString(),
+    };
+    this.items.update((items) => [...items, item]);
+    this.persist();
+    this.autoFlush();
+  }
+
+  /** Edit a check's wording (question/guidance/title) to tailor it to the auditee. */
+  updateChecklistItem(itemId: string, patch: { question?: string; guidance?: string; clauseTitle?: string }): void {
+    this.items.update((items) =>
+      items.map((item) =>
+        item.id === itemId
+          ? {
+              ...item,
+              ...(patch.question !== undefined ? { question: patch.question.trim() } : {}),
+              ...(patch.guidance !== undefined ? { guidance: patch.guidance.trim() || undefined } : {}),
+              ...(patch.clauseTitle !== undefined ? { clauseTitle: patch.clauseTitle.trim() } : {}),
+              sync: 'queued',
+              updatedAt: new Date().toISOString(),
+            }
+          : item,
+      ),
+    );
+    this.persist();
+    this.autoFlush();
+  }
+
+  /** Remove a check from this audit's checklist. */
+  removeChecklistItem(itemId: string): void {
+    this.items.update((items) => items.filter((item) => item.id !== itemId));
+    this.persist();
+    this.autoFlush();
+  }
+
   addNoteEvidence(input: { itemId?: string; clauseId?: string; text: string }): void {
     const id = uid('evidence-note');
     const record: FieldEvidence = {

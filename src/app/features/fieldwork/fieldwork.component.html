@@ -28,6 +28,35 @@
     }
   </div>
 
+  <div class="fw-tools">
+    <button type="button" class="chip ghost" (click)="toggleAdd()">
+      <mat-icon aria-hidden="true">{{ showAdd() ? 'close' : 'playlist_add_check' }}</mat-icon>
+      {{ showAdd() ? 'Cancel' : 'Add a check' }}
+    </button>
+  </div>
+
+  @if (showAdd()) {
+    <article class="panel fw-add">
+      <h3>Add a custom check</h3>
+      <label class="fld"><span>Clause</span>
+        <select #addClause>
+          @for (o of clauseOptions(); track o.clauseId) {
+            <option [value]="o.clauseId">{{ o.clauseId }} — {{ o.clauseTitle }}</option>
+          }
+        </select>
+      </label>
+      <label class="fld"><span>Question</span>
+        <input #addQuestion placeholder="What will you verify? Use your own wording — no standard text." />
+      </label>
+      <label class="fld"><span>Guidance (optional)</span>
+        <input #addGuidance placeholder="What to look for / evidence to request" />
+      </label>
+      <button mat-flat-button color="primary" type="button" (click)="addCustom(addClause.value, addQuestion.value, addGuidance.value)">
+        <mat-icon aria-hidden="true">add</mat-icon>Add check
+      </button>
+    </article>
+  }
+
   @if (current(); as item) {
     <article class="panel fw-card">
       <div class="fw-top">
@@ -35,10 +64,29 @@
         <span class="section">{{ sectionTitle(item.clauseId) }}</span>
         <span class="pos">{{ position() }} of {{ visibleItems().length }}</span>
       </div>
-      <h2>{{ item.clauseTitle }}</h2>
-      <p class="q">{{ item.question }}</p>
-      @if (item.guidance) {
-        <p class="guide"><mat-icon aria-hidden="true">info</mat-icon>{{ item.guidance }}</p>
+      @if (editing()) {
+        <label class="fw-edit"><span>Question</span>
+          <input #editQ [value]="item.question" placeholder="Question" />
+        </label>
+        <label class="fw-edit"><span>Guidance (optional)</span>
+          <input #editG [value]="item.guidance ?? ''" placeholder="What to look for / evidence to request" />
+        </label>
+        <div class="fw-edit-actions">
+          <button mat-stroked-button type="button" (click)="cancelEdit()">Cancel</button>
+          <button mat-flat-button color="primary" type="button" (click)="saveEdit(item, editQ.value, editG.value)">
+            <mat-icon aria-hidden="true">save</mat-icon>Save
+          </button>
+        </div>
+      } @else {
+        <h2>{{ item.clauseTitle }}</h2>
+        <p class="q">{{ item.question }}</p>
+        @if (item.guidance) {
+          <p class="guide"><mat-icon aria-hidden="true">info</mat-icon>{{ item.guidance }}</p>
+        }
+        <div class="fw-edit-bar">
+          <button type="button" class="link-btn" (click)="startEdit()"><mat-icon aria-hidden="true">edit</mat-icon>Edit wording</button>
+          <button type="button" class="link-btn danger" (click)="removeCurrent(item)"><mat-icon aria-hidden="true">delete</mat-icon>Remove</button>
+        </div>
       }
 
       <div class="owner">

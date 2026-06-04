@@ -31,6 +31,11 @@ export class NotificationsService {
   private readonly readIds = signal<ReadonlySet<string>>(this.loadReadIds());
   readonly prefs = signal<NotificationPrefs>(this.loadPrefs());
 
+  /** Browser notification permission state, or 'unsupported' where the API is absent. */
+  readonly pushPermission = signal<NotificationPermission | 'unsupported'>(
+    typeof Notification === 'undefined' ? 'unsupported' : Notification.permission,
+  );
+
   /** Keys ("id|channel") already dispatched to an external channel this session. */
   private readonly delivered = new Set<string>();
 
@@ -70,6 +75,22 @@ export class NotificationsService {
   setChannel(channel: NotificationChannel, on: boolean): void {
     this.prefs.update((p) => ({ ...p, channels: { ...p.channels, [channel]: channel === 'inApp' ? true : on } }));
     this.persistPrefs();
+  }
+
+  /**
+   * Turn the push channel on, requesting browser notification permission first.
+   * Only enables the channel when permission is granted, so a denied/blocked
+   * prompt never leaves a channel that can't actually deliver.
+   */
+  async enablePush(): Promise<void> {
+    if (typeof Notification === 'undefined') {
+      this.pushPermission.set('unsupported');
+      return;
+    }
+    const permission =
+      Notification.permission === 'default' ? await Notification.requestPermission() : Notification.permission;
+    this.pushPermission.set(permission);
+    this.setChannel('push', permission === 'granted');
   }
 
   setMinSeverity(minSeverity: NotificationPrefs['minSeverity']): void {

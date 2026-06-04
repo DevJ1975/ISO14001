@@ -86,4 +86,30 @@ test.describe('P0 verification', () => {
     await page.getByRole('alertdialog').getByRole('button', { name: /^Remove$/i }).click();
     await expect(page.getByRole('button', { name: /Remove attachment/i })).toHaveCount(0);
   });
+
+  test('fieldwork: add a custom check and edit its wording (per-audit authoring)', async ({ page }) => {
+    await enterOfflineDemo(page);
+    await page.goto('/fieldwork');
+    const totalOf = async () =>
+      Number(((await page.locator('.progress small').textContent()) ?? '').match(/\/\s*(\d+)/)?.[1] ?? '0');
+    const before = await totalOf();
+
+    await page.getByRole('button', { name: /Add a check/i }).click();
+    await page.getByPlaceholder(/What will you verify/i).fill('Verify forklift pre-use checks are completed each shift');
+    await page.getByRole('button', { name: /^Add check$/i }).click();
+    await expect.poll(totalOf).toBe(before + 1);
+
+    await page.getByRole('button', { name: /Edit wording/i }).click();
+    await page.locator('.fw-edit input').first().fill('Edited: verify lifting equipment is inspected (LOLER)');
+    await page.getByRole('button', { name: /^Save$/i }).click();
+    await expect(page.locator('.fw-card .q')).toContainText(/Edited: verify lifting equipment/i);
+  });
+
+  test('notification settings expose a push status and the email stub note', async ({ page }) => {
+    await enterOfflineDemo(page);
+    await page.goto('/settings/notifications');
+    await expect(page.getByRole('heading', { name: /Channels/i })).toBeVisible();
+    await expect(page.getByText(/Push/i).first()).toBeVisible();
+    await expect(page.getByText(/server mail provider/i)).toBeVisible();
+  });
 });

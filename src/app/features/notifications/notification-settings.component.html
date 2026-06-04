@@ -15,12 +15,12 @@
       <input type="checkbox" [checked]="prefs().channels.email" (change)="setChannel('email', $event)" />
     </label>
     <label class="row">
-      <span><strong>Push</strong><small>Browser / device push notifications.</small></span>
-      <input type="checkbox" [checked]="prefs().channels.push" (change)="setChannel('push', $event)" />
+      <span><strong>Push</strong><small>{{ pushStatus() }}</small></span>
+      <input type="checkbox" [checked]="prefs().channels.push" [disabled]="pushPermission() === 'unsupported'" (change)="setPush($event)" />
     </label>
     <p class="note">
       <mat-icon aria-hidden="true">info</mat-icon>
-      Email and push require server-side delivery infrastructure (a mail provider and Web Push with VAPID keys), which isn't wired in this environment. With them enabled, the app records what <em>would</em> be sent through a pluggable transport — swap in a real provider in production without changing this screen.
+      <strong>Push</strong> is delivered by your browser — turn it on and allow notifications to receive critical alerts as desktop/device notifications (no server required). <strong>Email</strong> still needs a server mail provider, which isn't wired in this environment, so enabling it records what <em>would</em> be sent through the pluggable transport — swap in a real provider in production without changing this screen.
     </p>
   </article>
 
