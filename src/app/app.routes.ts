@@ -50,6 +50,11 @@ export const routes: Routes = [
         title: 'Portfolio analytics',
       },
       {
+        path: 'retention',
+        loadComponent: () => import('./features/retention/retention.component').then((m) => m.RetentionComponent),
+        title: 'Records retention',
+      },
+      {
         path: 'actions',
         loadComponent: () => import('./features/actions/actions.component').then((m) => m.ActionsComponent),
         title: 'Actions & alerts',
