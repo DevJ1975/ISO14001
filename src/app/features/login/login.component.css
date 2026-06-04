@@ -134,10 +134,22 @@ h1 {
   transition: border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
 }
 
+.demo-roles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
 .offline-btn {
   min-height: 48px;
   border-radius: 12px;
   font-weight: 700;
+}
+
+@media (max-width: 380px) {
+  .demo-roles {
+    grid-template-columns: 1fr;
+  }
 }
 
 .hint {

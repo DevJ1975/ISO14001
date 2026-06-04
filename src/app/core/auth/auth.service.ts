@@ -34,6 +34,14 @@ export class AuthService {
   /** Allowed into the workspace: signed in, or explicitly continuing in offline demo mode. */
   readonly canEnter = computed(() => this.isAuthenticated() || this.offline());
 
+  /** The auditee (client) role: a scoped portal user, not an auditor-workspace user. */
+  readonly isAuditee = computed(() => this.user()?.role === 'clientViewer');
+  /** Any auditor-side role (everything that isn't the auditee portal role). */
+  readonly isAuditor = computed(() => {
+    const role = this.user()?.role;
+    return role !== undefined && role !== 'clientViewer';
+  });
+
   async login(email: string, password: string): Promise<void> {
     const response = await firstValueFrom(
       this.http.post<LoginResponse>(`${this.config.apiBaseUrl}/auth/login`, { email: email.trim(), password }),
@@ -46,11 +54,23 @@ export class AuthService {
     this.remove(OFFLINE_KEY);
   }
 
-  /** Enter the workspace without a backend; the field store runs on local data. */
-  enterOffline(): void {
+  /**
+   * Enter the workspace without a backend; the field store runs on local data.
+   * `role` chooses which experience to preview — the auditor workspace
+   * (default) or the auditee/client portal (`clientViewer`).
+   */
+  enterOffline(role: 'auditor' | 'clientViewer' = 'auditor'): void {
     this.offline.set(true);
-    this.user.set({ uid: 'guest', tenantId: this.config.tenantId, role: 'auditor', displayName: 'Offline demo', email: '' });
+    const isClient = role === 'clientViewer';
+    this.user.set({
+      uid: isClient ? 'guest-client' : 'guest',
+      tenantId: this.config.tenantId,
+      role,
+      displayName: isClient ? 'Client demo' : 'Offline demo',
+      email: '',
+    });
     this.write(OFFLINE_KEY, '1');
+    this.write(USER_KEY, JSON.stringify(this.user()));
   }
 
   logout(): void {

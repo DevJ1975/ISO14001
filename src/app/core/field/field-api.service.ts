@@ -26,6 +26,7 @@ import type {
   FieldCapa,
   FieldChecklistItem,
   FieldEvidence,
+  FieldEvidenceRequest,
   FieldFinding,
   FieldResult,
   InterestedParty,
@@ -52,6 +53,7 @@ export interface FieldStatePayload {
   audit?: AuditSummary | null;
   items: Array<Omit<FieldChecklistItem, 'sync'>>;
   evidence: Array<Omit<FieldEvidence, 'sync' | 'thumbUrl'>>;
+  evidenceRequests?: Array<Omit<FieldEvidenceRequest, 'sync'>>;
   findings: Array<Omit<FieldFinding, 'sync'>>;
   capas?: Array<Omit<FieldCapa, 'sync'>>;
   auditStatus?: AuditStatus;
@@ -172,6 +174,10 @@ export class FieldApiService {
 
   upsertFinding(body: Omit<FieldFinding, 'sync'>): Promise<unknown> {
     return firstValueFrom(this.http.put(`${this.base()}/findings/${encodeURIComponent(body.id)}`, body));
+  }
+
+  upsertEvidenceRequest(body: Omit<FieldEvidenceRequest, 'sync'>): Promise<unknown> {
+    return firstValueFrom(this.http.put(`${this.base()}/evidence-requests/${encodeURIComponent(body.id)}`, body));
   }
 
   upsertCapa(body: Omit<FieldCapa, 'sync'>): Promise<unknown> {

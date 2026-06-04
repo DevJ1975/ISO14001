@@ -10,6 +10,7 @@ import {
   buildEvidenceMetadataPath,
   buildPhotoEvidenceStorageRef,
   capaReminderScheduleCommandSchema,
+  evidenceRequestSchema,
   evidenceUploadIntentCommandSchema,
   evidenceUploadIntentSchema,
   memberClaimsAssignmentCommandSchema,
@@ -1088,12 +1089,18 @@ export async function handleApiRequest(
         .find({ tenantId, auditId }, { projection: { _id: 0 } })
         .sort({ at: -1 })
         .toArray();
+      const evidenceRequests = await dependencies.db
+        .collection(mongoCollections.evidenceRequests)
+        .find({ tenantId, auditId }, { projection: { _id: 0 } })
+        .sort({ createdAt: -1 })
+        .toArray();
       sendJson(
         response,
         200,
         {
           items,
           evidence,
+          evidenceRequests,
           findings,
           capas,
           auditStatus: auditDoc?.['status'] ?? 'fieldwork',
@@ -1228,6 +1235,60 @@ export async function handleApiRequest(
         .updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
       await recordChange(dependencies.db, { tenantId, auditId, actorUid: actor.uid, action: 'upsert', target: 'finding', targetId: command.id });
       sendJson(response, 200, { finding: record }, corsOrigin);
+      return;
+    }
+
+    const evidenceRequestMatch = matchPath(
+      new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/evidence-requests/([^/]+)$`),
+      url.pathname,
+      ['tenantId', 'auditId', 'requestId'],
+    );
+    if (request.method === 'PUT' && evidenceRequestMatch && actor) {
+      const tenantId = evidenceRequestMatch.params['tenantId']!;
+      const auditId = evidenceRequestMatch.params['auditId']!;
+      requireTenant(actor, tenantId);
+      requireAnyRole(actor, ['leadAuditor', 'auditor', 'clientViewer']);
+      const command = await readJson(request, evidenceRequestSchema);
+      const collection = dependencies.db.collection(mongoCollections.evidenceRequests);
+      const now = new Date().toISOString();
+
+      if (actor.role === 'clientViewer') {
+        // Auditee write boundary: the client may only append their own
+        // submissions and post messages. The auditor owns the request
+        // definition (title/clause/due) and the accept/return decision, so we
+        // merge onto the stored record instead of trusting the full body, and
+        // stamp auditee authorship on any new thread messages. Status advances
+        // to "submitted" only when fresh evidence is attached.
+        const existing = await collection.findOne({ tenantId, auditId, id: command.id }, { projection: { _id: 0 } });
+        if (!existing) {
+          throw new ApiAuthError('Auditees cannot create evidence requests.');
+        }
+        const priorMessageIds = new Set(
+          ((existing['messages'] as { id: string }[] | undefined) ?? []).map((m) => m.id),
+        );
+        const messages = command.messages.map((m) => (priorMessageIds.has(m.id) ? m : { ...m, author: 'auditee' as const }));
+        const grew = command.submissions.length > ((existing['submissions'] as unknown[] | undefined)?.length ?? 0);
+        const status = grew ? 'submitted' : (existing['status'] as string);
+        const record = {
+          ...existing,
+          tenantId,
+          auditId,
+          id: command.id,
+          submissions: command.submissions,
+          messages,
+          status,
+          updatedAt: now,
+        };
+        await collection.updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
+        await recordChange(dependencies.db, { tenantId, auditId, actorUid: actor.uid, action: 'auditee-update', target: 'evidenceRequest', targetId: command.id });
+        sendJson(response, 200, { evidenceRequest: record }, corsOrigin);
+        return;
+      }
+
+      const record = { ...command, tenantId, auditId, updatedBy: actor.uid, updatedAt: now };
+      await collection.updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
+      await recordChange(dependencies.db, { tenantId, auditId, actorUid: actor.uid, action: 'upsert', target: 'evidenceRequest', targetId: command.id });
+      sendJson(response, 200, { evidenceRequest: record }, corsOrigin);
       return;
     }
 

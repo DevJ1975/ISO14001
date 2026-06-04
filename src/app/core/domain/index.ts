@@ -7,6 +7,7 @@ export * from './ai-copilot.js';
 export * from './certificate.js';
 export * from './checklists.js';
 export * from './complaints.js';
+export * from './evidence-request.js';
 export * from './ohs-calibration.js';
 export * from './ohs-change.js';
 export * from './ohs-consultation.js';

@@ -44,10 +44,16 @@
       {{ busy() ? 'Signing in…' : 'Sign in' }}
     </button>
 
-    <button mat-stroked-button type="button" class="offline-btn" (click)="continueOffline()">
-      <mat-icon aria-hidden="true">cloud_off</mat-icon>
-      Continue in offline demo mode
-    </button>
+    <div class="demo-roles">
+      <button mat-stroked-button type="button" class="offline-btn" (click)="continueOffline()">
+        <mat-icon aria-hidden="true">badge</mat-icon>
+        Demo as auditor
+      </button>
+      <button mat-stroked-button type="button" class="offline-btn" (click)="continueAsClient()">
+        <mat-icon aria-hidden="true">handshake</mat-icon>
+        Demo as client (auditee)
+      </button>
+    </div>
 
     <p class="hint">
       <mat-icon aria-hidden="true">info</mat-icon>
