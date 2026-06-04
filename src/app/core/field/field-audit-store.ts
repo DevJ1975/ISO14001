@@ -3,10 +3,14 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import {
   AuditAgenda,
   AuditAgendaInput,
+  EvidenceRequest,
+  EvidenceSubmission,
   FindingDraft,
   FindingDraftInput,
   MeetingScripts,
   PhotoAnalysisResult,
+  PortalMessage,
+  PortalMessageAuthor,
   ReportDraft,
   ReportDraftInput,
   ReportSignature,
@@ -541,6 +545,15 @@ export interface FieldFinding {
   sync: SyncState;
 }
 
+/**
+ * An evidence request shown in the client portal: the auditor asks the auditee
+ * to provide a document/record, the auditee uploads it, and both sides discuss
+ * it in an attached thread. Wraps the shared domain shape with a sync flag.
+ */
+export interface FieldEvidenceRequest extends EvidenceRequest {
+  sync: SyncState;
+}
+
 /** Corrective-action record (ISO 45001 cl. 10.2): correction vs corrective action + effectiveness verification. */
 export interface FieldCapa {
   id: string;
@@ -564,6 +577,7 @@ interface PersistedState {
   items: FieldChecklistItem[];
   evidence: FieldEvidence[];
   findings: FieldFinding[];
+  evidenceRequests: FieldEvidenceRequest[];
   capas: FieldCapa[];
   auditStatus: AuditStatus;
   meetings: AuditMeeting[];
@@ -923,6 +937,115 @@ function seedCapas(): FieldCapa[] {
   return [];
 }
 
+/**
+ * Demonstration evidence requests spanning the lifecycle: one still outstanding,
+ * one the auditee has submitted (awaiting review), one returned for follow-up
+ * with an open conversation, and one accepted/closed.
+ */
+function seedEvidenceRequests(): FieldEvidenceRequest[] {
+  return [
+    {
+      id: 'req-seed-1',
+      title: 'Current OH&S objectives register with progress records',
+      detail: 'Please upload the objectives register showing measurable targets and the latest progress for each objective this period.',
+      clauseId: '6.2',
+      clauseTitle: 'OH&S objectives and planning to achieve them',
+      status: 'requested',
+      dueDate: '2026-06-20',
+      createdByName: AUDITOR,
+      createdAt: '2026-06-14T09:00:00.000Z',
+      submissions: [],
+      messages: [],
+      sync: 'synced',
+    },
+    {
+      id: 'req-seed-2',
+      title: 'Last 3 months of toolbox-talk attendance sheets',
+      detail: 'Signed attendance records evidencing worker participation in safety briefings.',
+      clauseId: '7.3',
+      clauseTitle: 'Awareness',
+      status: 'submitted',
+      dueDate: '2026-06-16',
+      createdByName: AUDITOR,
+      createdAt: '2026-06-13T11:30:00.000Z',
+      submissions: [
+        {
+          id: 'sub-seed-1',
+          fileName: 'toolbox-talks-Q2.pdf',
+          mime: 'application/pdf',
+          size: 248_320,
+          note: 'April–June signed sheets, all sites.',
+          submittedByName: 'Northstar — Dana Okoro',
+          submittedAt: '2026-06-15T08:10:00.000Z',
+        },
+      ],
+      messages: [
+        {
+          id: 'msg-seed-1',
+          author: 'auditee',
+          authorName: 'Northstar — Dana Okoro',
+          body: 'Uploaded the signed sheets. The June session for the night shift is scheduled for the 18th — I can add it once held.',
+          at: '2026-06-15T08:11:00.000Z',
+        },
+      ],
+      sync: 'synced',
+    },
+    {
+      id: 'req-seed-3',
+      title: 'Calibration certificate — confined-space gas detector (GD-03)',
+      detail: 'The current calibration certificate for gas detector GD-03 used for confined-space entry.',
+      clauseId: '9.1.1',
+      clauseTitle: 'Monitoring, measurement, analysis and evaluation',
+      status: 'returned',
+      dueDate: '2026-06-17',
+      createdByName: AUDITOR,
+      createdAt: '2026-06-12T14:00:00.000Z',
+      submissions: [
+        {
+          id: 'sub-seed-2',
+          fileName: 'GD-03-cert-2025.pdf',
+          mime: 'application/pdf',
+          size: 96_140,
+          submittedByName: 'Northstar — Dana Okoro',
+          submittedAt: '2026-06-14T16:20:00.000Z',
+        },
+      ],
+      messages: [
+        {
+          id: 'msg-seed-2',
+          author: 'auditor',
+          authorName: AUDITOR,
+          body: 'Thanks — this certificate expired in February 2026. Please provide the current in-date certificate, or confirm the unit is out of service.',
+          at: '2026-06-15T10:05:00.000Z',
+        },
+      ],
+      sync: 'synced',
+    },
+    {
+      id: 'req-seed-4',
+      title: 'OH&S policy signed by top management',
+      detail: 'The current signed and dated OH&S policy.',
+      clauseId: '5.2',
+      clauseTitle: 'OH&S policy',
+      status: 'accepted',
+      createdByName: AUDITOR,
+      createdAt: '2026-06-11T09:00:00.000Z',
+      submissions: [
+        {
+          id: 'sub-seed-3',
+          fileName: 'OHS-policy-signed-2026.pdf',
+          mime: 'application/pdf',
+          size: 132_900,
+          submittedByName: 'Northstar — Dana Okoro',
+          submittedAt: '2026-06-12T07:45:00.000Z',
+        },
+      ],
+      messages: [],
+      sync: 'synced',
+    },
+  ];
+}
+
 let counter = 0;
 function uid(prefix: string): string {
   counter += 1;
@@ -956,6 +1079,7 @@ export class FieldAuditStore {
   readonly items = signal<FieldChecklistItem[]>(seedItems());
   readonly evidence = signal<FieldEvidence[]>(seedEvidence());
   readonly findings = signal<FieldFinding[]>(seedFindings());
+  readonly evidenceRequests = signal<FieldEvidenceRequest[]>(seedEvidenceRequests());
   readonly capas = signal<FieldCapa[]>(seedCapas());
   readonly auditStatus = signal<AuditStatus>('fieldwork');
   readonly meetings = signal<AuditMeeting[]>([]);
@@ -1021,6 +1145,7 @@ export class FieldAuditStore {
       this.items().filter((i) => i.sync !== 'synced').length +
       this.evidence().filter((e) => e.sync !== 'synced').length +
       this.findings().filter((f) => f.sync !== 'synced').length +
+      this.evidenceRequests().filter((r) => r.sync !== 'synced').length +
       this.capas().filter((c) => c.sync !== 'synced').length +
       this.meetings().filter((m) => m.sync !== 'synced').length +
       this.aspects().filter((a) => a.sync !== 'synced').length +
@@ -1412,6 +1537,100 @@ export class FieldAuditStore {
     const acknowledgedAt = new Date().toISOString();
     const status: NcStatus = finding.status === 'open' || finding.status === 'reopened' ? 'responded' : finding.status;
     this.updateFinding(id, { acknowledgedAt, responseText: responseText.trim(), status });
+  }
+
+  // --- Evidence requests / client portal -----------------------------------
+
+  /** Auditor raises a new evidence request for the auditee to fulfil. */
+  createEvidenceRequest(input: {
+    title: string;
+    detail?: string;
+    clauseId?: string;
+    clauseTitle?: string;
+    dueDate?: string;
+    createdByName?: string;
+  }): FieldEvidenceRequest {
+    const request: FieldEvidenceRequest = {
+      id: uid('req'),
+      title: input.title.trim(),
+      detail: input.detail?.trim() ?? '',
+      clauseId: input.clauseId?.trim() || undefined,
+      clauseTitle: input.clauseTitle?.trim() || undefined,
+      status: 'requested',
+      dueDate: input.dueDate || undefined,
+      createdByName: input.createdByName?.trim() || AUDITOR,
+      createdAt: new Date().toISOString(),
+      submissions: [],
+      messages: [],
+      sync: 'queued',
+    };
+    this.evidenceRequests.update((list) => [request, ...list]);
+    this.persist();
+    this.autoFlush();
+    return request;
+  }
+
+  /** Auditee attaches a submission (file metadata and/or a note); advances to "submitted". */
+  submitEvidence(
+    requestId: string,
+    submission: { fileName?: string; mime?: string; size?: number; note?: string },
+    submittedByName: string,
+  ): void {
+    const entry: EvidenceSubmission = {
+      id: uid('sub'),
+      fileName: submission.fileName,
+      mime: submission.mime,
+      size: submission.size,
+      note: submission.note?.trim() || undefined,
+      submittedByName: submittedByName.trim() || 'Auditee',
+      submittedAt: new Date().toISOString(),
+    };
+    this.updateEvidenceRequest(requestId, (req) => ({
+      submissions: [...req.submissions, entry],
+      status: 'submitted',
+    }));
+  }
+
+  /** Auditor accepts the provided evidence — the request is closed. */
+  acceptEvidenceRequest(requestId: string): void {
+    this.updateEvidenceRequest(requestId, () => ({ status: 'accepted' }));
+  }
+
+  /** Auditor returns the request for follow-up, recording the reason as a thread message. */
+  returnEvidenceRequest(requestId: string, reason: string, authorName?: string): void {
+    const note = reason.trim();
+    this.updateEvidenceRequest(requestId, (req) => ({
+      status: 'returned',
+      messages: note ? [...req.messages, this.buildMessage('auditor', authorName ?? AUDITOR, note)] : req.messages,
+    }));
+  }
+
+  /** Post a message to the request thread (either side). Does not change status. */
+  postRequestMessage(requestId: string, author: PortalMessageAuthor, authorName: string, body: string): void {
+    const text = body.trim();
+    if (!text) return;
+    this.updateEvidenceRequest(requestId, (req) => ({
+      messages: [...req.messages, this.buildMessage(author, authorName, text)],
+    }));
+  }
+
+  private buildMessage(author: PortalMessageAuthor, authorName: string, body: string): PortalMessage {
+    return { id: uid('msg'), author, authorName: authorName.trim() || (author === 'auditor' ? AUDITOR : 'Auditee'), body, at: new Date().toISOString() };
+  }
+
+  private updateEvidenceRequest(
+    requestId: string,
+    patch: (req: FieldEvidenceRequest) => Partial<Omit<FieldEvidenceRequest, 'id' | 'sync'>>,
+  ): void {
+    this.evidenceRequests.update((list) =>
+      list.map((req) =>
+        req.id === requestId
+          ? { ...req, ...patch(req), updatedAt: new Date().toISOString(), sync: 'queued' as SyncState }
+          : req,
+      ),
+    );
+    this.persist();
+    this.autoFlush();
   }
 
   /** Start (or return) the CAPA record for a nonconformity. */
@@ -2177,6 +2396,7 @@ export class FieldAuditStore {
     this.items.update((list) => list.map(toSyncing));
     this.evidence.update((list) => list.map(toSyncing));
     this.findings.update((list) => list.map(toSyncing));
+    this.evidenceRequests.update((list) => list.map(toSyncing));
     this.capas.update((list) => list.map(toSyncing));
     this.meetings.update((list) => list.map(toSyncing));
 
@@ -2186,6 +2406,7 @@ export class FieldAuditStore {
       this.items.update((list) => list.map(toSynced));
       this.evidence.update((list) => list.map(toSynced));
       this.findings.update((list) => list.map(toSynced));
+      this.evidenceRequests.update((list) => list.map(toSynced));
       this.capas.update((list) => list.map(toSynced));
       this.meetings.update((list) => list.map(toSynced));
       const concl = this.conclusion();
@@ -2198,6 +2419,7 @@ export class FieldAuditStore {
     this.items.set(seedItems());
     this.evidence.set(seedEvidence());
     this.findings.set(seedFindings());
+    this.evidenceRequests.set(seedEvidenceRequests());
     this.capas.set(seedCapas());
     this.auditStatus.set('fieldwork');
     this.meetings.set([]);
@@ -2325,6 +2547,17 @@ export class FieldAuditStore {
           this.setSync('findings', finding.id, 'synced');
         } catch {
           this.setSync('findings', finding.id, 'queued');
+        }
+      }
+      for (const request of this.evidenceRequests().filter((entry) => entry.sync !== 'synced')) {
+        this.setSync('evidenceRequests', request.id, 'syncing');
+        try {
+          const { sync, ...payload } = request;
+          void sync;
+          await this.api.upsertEvidenceRequest(payload);
+          this.setSync('evidenceRequests', request.id, 'synced');
+        } catch {
+          this.setSync('evidenceRequests', request.id, 'queued');
         }
       }
       for (const capa of this.capas().filter((entry) => entry.sync !== 'synced')) {
@@ -2613,6 +2846,7 @@ export class FieldAuditStore {
       | 'items'
       | 'evidence'
       | 'findings'
+      | 'evidenceRequests'
       | 'capas'
       | 'meetings'
       | 'aspects'
@@ -2644,6 +2878,7 @@ export class FieldAuditStore {
       items: this.items,
       evidence: this.evidence,
       findings: this.findings,
+      evidenceRequests: this.evidenceRequests,
       capas: this.capas,
       meetings: this.meetings,
       aspects: this.aspects,
@@ -2707,6 +2942,7 @@ export class FieldAuditStore {
       items: this.items(),
       evidence: this.evidence().map(({ thumbUrl: _thumbUrl, ...rest }) => rest),
       findings: this.findings(),
+      evidenceRequests: this.evidenceRequests(),
       capas: this.capas(),
       auditStatus: this.auditStatus(),
       meetings: this.meetings(),
@@ -2749,6 +2985,7 @@ export class FieldAuditStore {
       this.items.set(payload.items.map((item) => ({ ...item, sync: 'synced' as const })));
       this.evidence.set(payload.evidence.map((record) => ({ ...record, sync: 'synced' as const })));
       this.findings.set(payload.findings.map((finding) => ({ ...finding, sync: 'synced' as const })));
+      this.evidenceRequests.set((payload.evidenceRequests ?? []).map((req) => ({ ...req, sync: 'synced' as const })));
       this.capas.set((payload.capas ?? []).map((capa) => ({ ...capa, sync: 'synced' as const })));
       this.auditStatus.set(payload.auditStatus ?? 'fieldwork');
       this.meetings.set((payload.meetings ?? []).map((meeting) => ({ ...meeting, sync: 'synced' as const })));
@@ -2808,6 +3045,7 @@ export class FieldAuditStore {
     if (!saved) return;
     this.items.set(saved.items);
     this.findings.set(saved.findings.map(normalizeFinding));
+    this.evidenceRequests.set(saved.evidenceRequests ?? seedEvidenceRequests());
     this.capas.set(saved.capas ?? []);
     this.auditStatus.set(saved.auditStatus ?? 'fieldwork');
     this.meetings.set(saved.meetings ?? []);

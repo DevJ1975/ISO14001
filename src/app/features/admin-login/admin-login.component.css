@@ -15,7 +15,6 @@
   background: var(--surface);
   padding: clamp(24px, 5vw, 36px);
   box-shadow: var(--shadow-lg);
-  animation: rise 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .brand {
@@ -33,12 +32,6 @@
   background: linear-gradient(135deg, var(--primary-bright), var(--primary));
   color: #fff;
   box-shadow: 0 12px 26px color-mix(in srgb, var(--primary) 34%, transparent);
-}
-
-.brand-mark mat-icon {
-  font-size: 26px;
-  width: 26px;
-  height: 26px;
 }
 
 .brand strong {
@@ -118,38 +111,6 @@ h1 {
   min-height: 52px;
   border-radius: 13px;
   font-weight: 700;
-  transition: transform 0.14s ease, box-shadow 0.2s ease;
-}
-
-.card button[mat-flat-button]:not([disabled]):hover {
-  transform: translateY(-1px);
-  box-shadow: 0 10px 24px color-mix(in srgb, var(--primary) 30%, transparent);
-}
-
-.card button[mat-flat-button]:not([disabled]):active {
-  transform: scale(0.98);
-}
-
-.field input {
-  transition: border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
-}
-
-.demo-roles {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-
-.offline-btn {
-  min-height: 48px;
-  border-radius: 12px;
-  font-weight: 700;
-}
-
-@media (max-width: 380px) {
-  .demo-roles {
-    grid-template-columns: 1fr;
-  }
 }
 
 .hint {
@@ -176,54 +137,4 @@ h1 {
   border-radius: 6px;
   padding: 1px 5px;
   font-size: 12px;
-}
-
-/* Per-field inline validation message (lighter than the boxed .error banner). */
-.field-err {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--tone-critical-fg);
-  font-size: 12.5px;
-  font-weight: 600;
-  text-transform: none;
-  letter-spacing: 0;
-}
-
-.field-err mat-icon {
-  flex: 0 0 auto;
-  font-size: 15px;
-  width: 15px;
-  height: 15px;
-}
-
-.field input[aria-invalid='true'] {
-  border-color: var(--tone-critical-bd);
-}
-
-.field input[aria-invalid='true']:focus-visible {
-  border-color: var(--tone-critical-fg);
-  box-shadow: 0 0 0 3px var(--tone-critical-bg);
-}
-
-.admin-link {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  margin-top: 2px;
-  color: var(--muted);
-  font-size: 12.5px;
-  font-weight: 600;
-  text-decoration: none;
-}
-
-.admin-link:hover {
-  color: var(--primary);
-}
-
-.admin-link mat-icon {
-  font-size: 16px;
-  width: 16px;
-  height: 16px;
 }

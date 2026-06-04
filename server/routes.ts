@@ -6,27 +6,54 @@ import { Db } from 'mongodb';
 import { z, ZodError, ZodType } from 'zod';
 
 import {
+  addTenantUserCommandSchema,
   backendJobSchema,
   buildEvidenceMetadataPath,
   buildPhotoEvidenceStorageRef,
   capaReminderScheduleCommandSchema,
+  evidenceRequestSchema,
   evidenceUploadIntentCommandSchema,
   evidenceUploadIntentSchema,
   memberClaimsAssignmentCommandSchema,
+  memberStatusUpdateCommandSchema,
   photoAnalysisRequestCommandSchema,
+  provisionClientCommandSchema,
   reportPdfGenerationCommandSchema,
+  setPasswordCommandSchema,
+  superadminLoginCommandSchema,
   tenantMemberInviteCommandSchema,
   tenantOnboardingCommandSchema,
 } from '../src/app/core/domain/index.js';
-import { ApiAuthError, authenticateRequest, issueMemberToken, requireAnyRole, requireTenant } from './auth.js';
+import {
+  ApiAuthError,
+  authenticateRequest,
+  issueMemberToken,
+  issuePlatformToken,
+  requireAnyRole,
+  requireSuperadmin,
+  requireTenant,
+} from './auth.js';
 import { mongoCollections } from './collections.js';
 import { ServerConfig } from './config.js';
-import { verifyPassword } from './password.js';
+import { LoggingMailer, Mailer, setPasswordEmail } from './mailer.js';
+import { hashPassword, verifyPassword } from './password.js';
+import {
+  SetPasswordTokenError,
+  consumeSetPasswordToken,
+  describeSetPasswordToken,
+  issueSetPasswordToken,
+  revokeSetPasswordTokens,
+} from './set-password.js';
 
 export interface RouteDependencies {
   readonly db: Db;
   readonly config: ServerConfig;
+  /** Optional; defaults to the logging mailer so callers (and tests) needn't wire one. */
+  readonly mailer?: Mailer;
 }
+
+/** Fallback mailer when a caller doesn't provide one (logs the message). */
+const defaultMailer = new LoggingMailer();
 
 type RouteParams = Record<string, string>;
 
@@ -112,12 +139,95 @@ function sendError(response: ServerResponse, error: unknown, corsOrigin: string)
     return;
   }
 
+  if (error instanceof ApiConflictError) {
+    sendJson(response, 409, { error: error.message }, corsOrigin);
+    return;
+  }
+
+  if (error instanceof SetPasswordTokenError) {
+    sendJson(response, 400, { error: error.message }, corsOrigin);
+    return;
+  }
+
   if (error instanceof ZodError) {
     sendJson(response, 400, { error: 'Invalid request body.', issues: error.issues }, corsOrigin);
     return;
   }
 
   sendJson(response, 500, { error: 'Unexpected backend error.' }, corsOrigin);
+}
+
+/** A request that conflicts with existing state (e.g. an email already in use). */
+class ApiConflictError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ApiConflictError';
+  }
+}
+
+/** Safe member projection for API responses — never leaks the password hash. */
+function toMemberView(doc: Record<string, unknown>): {
+  uid: string;
+  tenantId: string | null;
+  email: string;
+  displayName: string;
+  role: string;
+  status: string;
+  createdAt?: string;
+} {
+  const profile = (doc['profile'] as { email?: string; displayName?: string } | undefined) ?? {};
+  return {
+    uid: String(doc['uid'] ?? ''),
+    tenantId: (doc['tenantId'] as string | null) ?? null,
+    email: profile.email ?? '',
+    displayName: profile.displayName ?? '',
+    role: String(doc['role'] ?? ''),
+    status: String(doc['status'] ?? 'invited'),
+    createdAt: doc['createdAt'] as string | undefined,
+  };
+}
+
+/**
+ * Create an `invited` member (no password yet), mint a single-use set-password
+ * token, and email the link. Returns the safe member view and the link (the
+ * caller decides whether to expose the link in the response). Throws
+ * ApiConflictError if the email is already in use anywhere on the platform.
+ */
+async function inviteNewMember(
+  deps: RouteDependencies,
+  input: { tenantId: string; tenantName: string; role: string; email: string; displayName: string; actorUid: string },
+): Promise<{ member: ReturnType<typeof toMemberView>; link: string }> {
+  const email = input.email.toLowerCase().trim();
+  const existing = await deps.db.collection(mongoCollections.members).findOne({ 'profile.email': email });
+  if (existing) {
+    throw new ApiConflictError('A user with that email already exists.');
+  }
+  const now = new Date().toISOString();
+  const member = {
+    uid: `uid-${randomUUID()}`,
+    tenantId: input.tenantId,
+    role: input.role,
+    status: 'invited' as const,
+    profile: { email, displayName: input.displayName.trim() || email.split('@')[0] },
+    createdAt: now,
+  };
+  await deps.db.collection(mongoCollections.members).insertOne({ ...member });
+  const { link } = await issueSetPasswordToken(
+    deps.db,
+    { uid: member.uid, tenantId: input.tenantId, email, purpose: 'invite' },
+    deps.config,
+  );
+  await (deps.mailer ?? defaultMailer).send(
+    setPasswordEmail({ to: email, displayName: member.profile.displayName, tenantName: input.tenantName, link, purpose: 'invite' }),
+  );
+  await recordChange(deps.db, {
+    tenantId: input.tenantId,
+    actorUid: input.actorUid,
+    action: 'member.invite',
+    target: 'member',
+    targetId: member.uid,
+  });
+  return { member: toMemberView(member), link };
 }
 
 /**
@@ -735,7 +845,10 @@ export async function handleApiRequest(
     const url = new URL(request.url ?? '/', 'http://localhost');
     const isPublic =
       (request.method === 'GET' && url.pathname === '/api/health') ||
-      (request.method === 'POST' && url.pathname === '/api/auth/login');
+      (request.method === 'POST' && url.pathname === '/api/auth/login') ||
+      (request.method === 'POST' && url.pathname === '/api/auth/superadmin-login') ||
+      (request.method === 'POST' && url.pathname === '/api/auth/set-password') ||
+      (request.method === 'GET' && url.pathname.startsWith('/api/auth/set-password/'));
     const actor = isPublic ? null : authenticateRequest(request, dependencies.config);
 
     if (request.method === 'GET' && url.pathname === '/api/health') {
@@ -783,6 +896,247 @@ export async function handleApiRequest(
         },
         corsOrigin,
       );
+      return;
+    }
+
+    if (request.method === 'POST' && url.pathname === '/api/auth/superadmin-login') {
+      const command = await readJson(request, superadminLoginCommandSchema);
+      const fwd = request.headers['x-forwarded-for'];
+      const clientIp = (Array.isArray(fwd) ? fwd[0] : fwd) ?? request.socket?.remoteAddress ?? 'local';
+      const rateKey = `superadmin|${command.email.toLowerCase()}|${clientIp}`;
+      if (loginRateLimited(rateKey)) {
+        sendJson(response, 429, { error: 'Too many failed sign-in attempts. Try again later.' }, corsOrigin);
+        return;
+      }
+      const member = await dependencies.db
+        .collection(mongoCollections.members)
+        .findOne({ 'profile.email': command.email.toLowerCase(), role: 'platformSuperadmin', status: 'active' });
+      if (!member || typeof member['passwordHash'] !== 'string' || !verifyPassword(command.password, member['passwordHash'])) {
+        recordLoginFailure(rateKey);
+        throw new ApiAuthError('Invalid email or password.');
+      }
+      clearLoginFailures(rateKey);
+      const profile = member['profile'] as { displayName?: string; email?: string } | undefined;
+      const { token, expiresAt } = issuePlatformToken({ uid: String(member['uid']) }, dependencies.config);
+      sendJson(
+        response,
+        200,
+        {
+          token,
+          expiresAt,
+          user: {
+            uid: member['uid'],
+            tenantId: null,
+            role: 'platformSuperadmin',
+            displayName: profile?.displayName ?? '',
+            email: profile?.email ?? command.email,
+          },
+        },
+        corsOrigin,
+      );
+      return;
+    }
+
+    const setPasswordInfoMatch = matchPath(/^\/api\/auth\/set-password\/([^/]+)$/, url.pathname, ['token']);
+    if (request.method === 'GET' && setPasswordInfoMatch) {
+      const info = await describeSetPasswordToken(dependencies.db, setPasswordInfoMatch.params['token']!);
+      sendJson(response, 200, info, corsOrigin);
+      return;
+    }
+
+    if (request.method === 'POST' && url.pathname === '/api/auth/set-password') {
+      const command = await readJson(request, setPasswordCommandSchema);
+      const identity = await consumeSetPasswordToken(dependencies.db, command.token);
+      await dependencies.db.collection(mongoCollections.members).updateOne(
+        { tenantId: identity.tenantId, uid: identity.uid },
+        { $set: { passwordHash: hashPassword(command.password), status: 'active', updatedAt: new Date().toISOString() } },
+      );
+      await recordChange(dependencies.db, {
+        tenantId: identity.tenantId ?? 'platform',
+        actorUid: identity.uid,
+        action: 'member.setPassword',
+        target: 'member',
+        targetId: identity.uid,
+      });
+      sendJson(response, 200, { ok: true }, corsOrigin);
+      return;
+    }
+
+    // --- Platform superadmin console (/api/admin/*) --------------------------
+    // Gated by requireSuperadmin (platform token). These deliberately do NOT call
+    // requireTenant, which rejects platform tokens by design.
+    if (request.method === 'POST' && url.pathname === '/api/admin/tenants' && actor) {
+      requireSuperadmin(actor);
+      const command = await readJson(request, provisionClientCommandSchema);
+      // Idempotency: a retried provision returns the original result, no duplicate
+      // tenant and no repeat invite emails.
+      const priorJob = await dependencies.db
+        .collection(mongoCollections.backendJobs)
+        .findOne({ idempotencyKey: command.idempotencyKey });
+      if (priorJob) {
+        sendJson(response, 200, { tenantId: priorJob['resultRef'], idempotent: true, members: [] }, corsOrigin);
+        return;
+      }
+      const now = new Date().toISOString();
+      const tenantId = `tenant-${randomUUID()}`;
+      await dependencies.db.collection(mongoCollections.tenants).insertOne({
+        id: tenantId,
+        name: command.tenantName.trim(),
+        plan: command.plan,
+        status: 'active',
+        createdAt: now,
+        updatedAt: now,
+      });
+      const provisioned: Array<{ member: ReturnType<typeof toMemberView>; link: string }> = [];
+      provisioned.push(
+        await inviteNewMember(dependencies, {
+          tenantId,
+          tenantName: command.tenantName,
+          role: 'leadAuditor',
+          email: command.leadAuditor.email,
+          displayName: command.leadAuditor.displayName,
+          actorUid: actor.uid,
+        }),
+      );
+      for (const user of command.clientUsers) {
+        provisioned.push(
+          await inviteNewMember(dependencies, {
+            tenantId,
+            tenantName: command.tenantName,
+            role: user.role,
+            email: user.email,
+            displayName: user.displayName,
+            actorUid: actor.uid,
+          }),
+        );
+      }
+      await dependencies.db.collection(mongoCollections.backendJobs).insertOne(
+        createBackendJob({
+          tenantId,
+          callableName: 'createTenant',
+          requestedByUid: actor.uid,
+          idempotencyKey: command.idempotencyKey,
+          resultRef: tenantId,
+        }),
+      );
+      await recordChange(dependencies.db, { tenantId, actorUid: actor.uid, action: 'tenant.provision', target: 'tenant', targetId: tenantId });
+      const expose = dependencies.config.exposeSetPasswordLink;
+      sendJson(
+        response,
+        201,
+        {
+          tenantId,
+          members: provisioned.map((p) => ({ ...p.member, setPasswordLink: expose ? p.link : undefined })),
+        },
+        corsOrigin,
+      );
+      return;
+    }
+
+    if (request.method === 'GET' && url.pathname === '/api/admin/tenants' && actor) {
+      requireSuperadmin(actor);
+      const tenants = await dependencies.db
+        .collection(mongoCollections.tenants)
+        .find({}, { projection: { _id: 0 } })
+        .toArray();
+      const members = await dependencies.db
+        .collection(mongoCollections.members)
+        .find({}, { projection: { _id: 0, tenantId: 1 } })
+        .toArray();
+      const counts = members.reduce<Record<string, number>>((map, m) => {
+        const t = String(m['tenantId'] ?? '');
+        map[t] = (map[t] ?? 0) + 1;
+        return map;
+      }, {});
+      sendJson(
+        response,
+        200,
+        { tenants: tenants.map((t) => ({ ...t, memberCount: counts[String(t['id'])] ?? 0 })) },
+        corsOrigin,
+      );
+      return;
+    }
+
+    const adminMembersMatch = matchPath(new RegExp(`^/api/admin/tenants/${tenantPath}/members$`), url.pathname, ['tenantId']);
+    if (adminMembersMatch && actor) {
+      requireSuperadmin(actor);
+      const tenantId = adminMembersMatch.params['tenantId']!;
+      if (request.method === 'GET') {
+        const members = await dependencies.db
+          .collection(mongoCollections.members)
+          .find({ tenantId }, { projection: { _id: 0 } })
+          .toArray();
+        sendJson(response, 200, { members: members.map(toMemberView) }, corsOrigin);
+        return;
+      }
+      if (request.method === 'POST') {
+        const command = await readJson(request, addTenantUserCommandSchema);
+        const tenant = await dependencies.db.collection(mongoCollections.tenants).findOne({ id: tenantId });
+        if (!tenant) throw new ApiAuthError('Unknown tenant.');
+        const { member, link } = await inviteNewMember(dependencies, {
+          tenantId,
+          tenantName: String(tenant['name'] ?? tenantId),
+          role: command.role,
+          email: command.email,
+          displayName: command.displayName,
+          actorUid: actor.uid,
+        });
+        sendJson(response, 201, { member, setPasswordLink: dependencies.config.exposeSetPasswordLink ? link : undefined }, corsOrigin);
+        return;
+      }
+    }
+
+    const adminMemberActionMatch = matchPath(
+      new RegExp(`^/api/admin/tenants/${tenantPath}/members/([^/]+)/(resend|revoke)$`),
+      url.pathname,
+      ['tenantId', 'uid', 'action'],
+    );
+    if (request.method === 'POST' && adminMemberActionMatch && actor) {
+      requireSuperadmin(actor);
+      const { tenantId, uid, action } = adminMemberActionMatch.params as { tenantId: string; uid: string; action: string };
+      const member = await dependencies.db.collection(mongoCollections.members).findOne({ tenantId, uid });
+      if (!member) throw new ApiAuthError('User not found.');
+      if (action === 'revoke') {
+        await revokeSetPasswordTokens(dependencies.db, uid);
+        await recordChange(dependencies.db, { tenantId, actorUid: actor.uid, action: 'link.revoke', target: 'member', targetId: uid });
+        sendJson(response, 200, { ok: true }, corsOrigin);
+        return;
+      }
+      const tenant = await dependencies.db.collection(mongoCollections.tenants).findOne({ id: tenantId });
+      const profile = member['profile'] as { email?: string; displayName?: string } | undefined;
+      const { link } = await issueSetPasswordToken(
+        dependencies.db,
+        { uid, tenantId, email: profile?.email ?? '', purpose: 'invite' },
+        dependencies.config,
+      );
+      await (dependencies.mailer ?? defaultMailer).send(
+        setPasswordEmail({
+          to: profile?.email ?? '',
+          displayName: profile?.displayName ?? '',
+          tenantName: String(tenant?.['name'] ?? tenantId),
+          link,
+          purpose: 'invite',
+        }),
+      );
+      await recordChange(dependencies.db, { tenantId, actorUid: actor.uid, action: 'link.resend', target: 'member', targetId: uid });
+      sendJson(response, 200, { ok: true, setPasswordLink: dependencies.config.exposeSetPasswordLink ? link : undefined }, corsOrigin);
+      return;
+    }
+
+    const adminMemberMatch = matchPath(new RegExp(`^/api/admin/tenants/${tenantPath}/members/([^/]+)$`), url.pathname, [
+      'tenantId',
+      'uid',
+    ]);
+    if (request.method === 'PUT' && adminMemberMatch && actor) {
+      requireSuperadmin(actor);
+      const { tenantId, uid } = adminMemberMatch.params as { tenantId: string; uid: string };
+      const command = await readJson(request, memberStatusUpdateCommandSchema);
+      const result = await dependencies.db
+        .collection(mongoCollections.members)
+        .updateOne({ tenantId, uid }, { $set: { status: command.status, updatedAt: new Date().toISOString() } });
+      if (!result.matchedCount) throw new ApiAuthError('User not found.');
+      await recordChange(dependencies.db, { tenantId, actorUid: actor.uid, action: `member.${command.status}`, target: 'member', targetId: uid });
+      sendJson(response, 200, { ok: true }, corsOrigin);
       return;
     }
 
@@ -891,6 +1245,138 @@ export async function handleApiRequest(
       });
       await dependencies.db.collection(mongoCollections.backendJobs).insertOne(job);
       sendJson(response, 202, { job }, corsOrigin);
+      return;
+    }
+
+    if (request.method === 'POST' && url.pathname === '/api/auth/change-password' && actor) {
+      const command = await readJson(
+        request,
+        z.object({ currentPassword: z.string().min(1), newPassword: z.string().min(8).max(200) }),
+      );
+      const member = await dependencies.db
+        .collection(mongoCollections.members)
+        .findOne({ tenantId: actor.tenantId, uid: actor.uid });
+      if (!member || typeof member['passwordHash'] !== 'string' || !verifyPassword(command.currentPassword, member['passwordHash'])) {
+        throw new ApiAuthError('Current password is incorrect.');
+      }
+      await dependencies.db
+        .collection(mongoCollections.members)
+        .updateOne({ tenantId: actor.tenantId, uid: actor.uid }, { $set: { passwordHash: hashPassword(command.newPassword), updatedAt: new Date().toISOString() } });
+      sendJson(response, 200, { ok: true }, corsOrigin);
+      return;
+    }
+
+    // --- Delegated member management (lead auditor / tenant admin) -----------
+    const membersMatch = matchPath(new RegExp(`^/api/tenants/${tenantPath}/members$`), url.pathname, ['tenantId']);
+    if (membersMatch && actor) {
+      const tenantId = membersMatch.params['tenantId']!;
+      requireTenant(actor, tenantId);
+      requireAnyRole(actor, ['tenantAdmin', 'leadAuditor']);
+      if (request.method === 'GET') {
+        const members = await dependencies.db
+          .collection(mongoCollections.members)
+          .find({ tenantId }, { projection: { _id: 0 } })
+          .sort({ createdAt: 1 })
+          .toArray();
+        sendJson(response, 200, { members: members.map(toMemberView) }, corsOrigin);
+        return;
+      }
+      if (request.method === 'POST') {
+        const command = await readJson(request, addTenantUserCommandSchema);
+        if (command.role === 'tenantAdmin' && actor.role !== 'tenantAdmin') {
+          throw new ApiAuthError('Only a tenant admin can create another tenant admin.');
+        }
+        const tenant = await dependencies.db.collection(mongoCollections.tenants).findOne({ id: tenantId });
+        const { member, link } = await inviteNewMember(dependencies, {
+          tenantId,
+          tenantName: String(tenant?.['name'] ?? tenantId),
+          role: command.role,
+          email: command.email,
+          displayName: command.displayName,
+          actorUid: actor.uid,
+        });
+        sendJson(response, 201, { member, setPasswordLink: dependencies.config.exposeSetPasswordLink ? link : undefined }, corsOrigin);
+        return;
+      }
+    }
+
+    const memberPasswordMatch = matchPath(
+      new RegExp(`^/api/tenants/${tenantPath}/members/([^/]+)/password$`),
+      url.pathname,
+      ['tenantId', 'uid'],
+    );
+    if (request.method === 'POST' && memberPasswordMatch && actor) {
+      const { tenantId, uid } = memberPasswordMatch.params as { tenantId: string; uid: string };
+      requireTenant(actor, tenantId);
+      requireAnyRole(actor, ['tenantAdmin', 'leadAuditor']);
+      const member = await dependencies.db.collection(mongoCollections.members).findOne({ tenantId, uid });
+      if (!member) throw new ApiAuthError('User not found.');
+      const tenant = await dependencies.db.collection(mongoCollections.tenants).findOne({ id: tenantId });
+      const profile = member['profile'] as { email?: string; displayName?: string } | undefined;
+      const { link } = await issueSetPasswordToken(
+        dependencies.db,
+        { uid, tenantId, email: profile?.email ?? '', purpose: 'reset' },
+        dependencies.config,
+      );
+      await (dependencies.mailer ?? defaultMailer).send(
+        setPasswordEmail({
+          to: profile?.email ?? '',
+          displayName: profile?.displayName ?? '',
+          tenantName: String(tenant?.['name'] ?? tenantId),
+          link,
+          purpose: 'reset',
+        }),
+      );
+      await recordChange(dependencies.db, { tenantId, actorUid: actor.uid, action: 'member.passwordReset', target: 'member', targetId: uid });
+      sendJson(response, 200, { ok: true, setPasswordLink: dependencies.config.exposeSetPasswordLink ? link : undefined }, corsOrigin);
+      return;
+    }
+
+    const memberUpdateMatch = matchPath(new RegExp(`^/api/tenants/${tenantPath}/members/([^/]+)$`), url.pathname, [
+      'tenantId',
+      'uid',
+    ]);
+    if (request.method === 'PUT' && memberUpdateMatch && actor) {
+      const { tenantId, uid } = memberUpdateMatch.params as { tenantId: string; uid: string };
+      requireTenant(actor, tenantId);
+      requireAnyRole(actor, ['tenantAdmin', 'leadAuditor']);
+      const command = await readJson(
+        request,
+        z.object({
+          role: z.enum(['tenantAdmin', 'leadAuditor', 'auditor', 'clientViewer']).optional(),
+          status: z.enum(['active', 'disabled']).optional(),
+          displayName: z.string().min(1).max(200).optional(),
+        }),
+      );
+      const target = await dependencies.db.collection(mongoCollections.members).findOne({ tenantId, uid });
+      if (!target) throw new ApiAuthError('User not found.');
+      const patch: Record<string, unknown> = {};
+      if (command.role) {
+        if (command.role === 'tenantAdmin' && actor.role !== 'tenantAdmin') {
+          throw new ApiAuthError('Only a tenant admin can grant tenant admin.');
+        }
+        if (uid === actor.uid && command.role !== actor.role) {
+          throw new ApiAuthError('You cannot change your own role.');
+        }
+        patch['role'] = command.role;
+      }
+      if (command.status) {
+        if (uid === actor.uid && command.status !== 'active') {
+          throw new ApiAuthError('You cannot deactivate your own account.');
+        }
+        patch['status'] = command.status;
+      }
+      if (command.displayName) {
+        patch['profile'] = { ...(target['profile'] as object), displayName: command.displayName.trim() };
+      }
+      if (Object.keys(patch).length === 0) {
+        sendJson(response, 400, { error: 'Nothing to update.' }, corsOrigin);
+        return;
+      }
+      patch['updatedAt'] = new Date().toISOString();
+      await dependencies.db.collection(mongoCollections.members).updateOne({ tenantId, uid }, { $set: patch });
+      const updated = await dependencies.db.collection(mongoCollections.members).findOne({ tenantId, uid });
+      sendJson(response, 200, { member: toMemberView(updated as Record<string, unknown>) }, corsOrigin);
       return;
     }
 
@@ -1106,12 +1592,18 @@ export async function handleApiRequest(
         .find({ tenantId, auditId }, { projection: { _id: 0 } })
         .sort({ at: -1 })
         .toArray();
+      const evidenceRequests = await dependencies.db
+        .collection(mongoCollections.evidenceRequests)
+        .find({ tenantId, auditId }, { projection: { _id: 0 } })
+        .sort({ createdAt: -1 })
+        .toArray();
       sendJson(
         response,
         200,
         {
           items,
           evidence,
+          evidenceRequests,
           findings,
           capas,
           auditStatus: auditDoc?.['status'] ?? 'fieldwork',
@@ -1348,6 +1840,60 @@ export async function handleApiRequest(
         .updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
       await recordChange(dependencies.db, { tenantId, auditId, actorUid: actor.uid, action: 'upsert', target: 'finding', targetId: command.id });
       sendJson(response, 200, { finding: record }, corsOrigin);
+      return;
+    }
+
+    const evidenceRequestMatch = matchPath(
+      new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/evidence-requests/([^/]+)$`),
+      url.pathname,
+      ['tenantId', 'auditId', 'requestId'],
+    );
+    if (request.method === 'PUT' && evidenceRequestMatch && actor) {
+      const tenantId = evidenceRequestMatch.params['tenantId']!;
+      const auditId = evidenceRequestMatch.params['auditId']!;
+      requireTenant(actor, tenantId);
+      requireAnyRole(actor, ['leadAuditor', 'auditor', 'clientViewer']);
+      const command = await readJson(request, evidenceRequestSchema);
+      const collection = dependencies.db.collection(mongoCollections.evidenceRequests);
+      const now = new Date().toISOString();
+
+      if (actor.role === 'clientViewer') {
+        // Auditee write boundary: the client may only append their own
+        // submissions and post messages. The auditor owns the request
+        // definition (title/clause/due) and the accept/return decision, so we
+        // merge onto the stored record instead of trusting the full body, and
+        // stamp auditee authorship on any new thread messages. Status advances
+        // to "submitted" only when fresh evidence is attached.
+        const existing = await collection.findOne({ tenantId, auditId, id: command.id }, { projection: { _id: 0 } });
+        if (!existing) {
+          throw new ApiAuthError('Auditees cannot create evidence requests.');
+        }
+        const priorMessageIds = new Set(
+          ((existing['messages'] as { id: string }[] | undefined) ?? []).map((m) => m.id),
+        );
+        const messages = command.messages.map((m) => (priorMessageIds.has(m.id) ? m : { ...m, author: 'auditee' as const }));
+        const grew = command.submissions.length > ((existing['submissions'] as unknown[] | undefined)?.length ?? 0);
+        const status = grew ? 'submitted' : (existing['status'] as string);
+        const record = {
+          ...existing,
+          tenantId,
+          auditId,
+          id: command.id,
+          submissions: command.submissions,
+          messages,
+          status,
+          updatedAt: now,
+        };
+        await collection.updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
+        await recordChange(dependencies.db, { tenantId, auditId, actorUid: actor.uid, action: 'auditee-update', target: 'evidenceRequest', targetId: command.id });
+        sendJson(response, 200, { evidenceRequest: record }, corsOrigin);
+        return;
+      }
+
+      const record = { ...command, tenantId, auditId, updatedBy: actor.uid, updatedAt: now };
+      await collection.updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
+      await recordChange(dependencies.db, { tenantId, auditId, actorUid: actor.uid, action: 'upsert', target: 'evidenceRequest', targetId: command.id });
+      sendJson(response, 200, { evidenceRequest: record }, corsOrigin);
       return;
     }
 

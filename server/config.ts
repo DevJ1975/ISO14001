@@ -18,6 +18,21 @@ export const serverConfigSchema = z.object({
   allowDevAuthHeaders: booleanFlagSchema,
   jwtSecret: z.string().min(1).default(DEV_JWT_SECRET),
   jwtTtlSeconds: z.coerce.number().int().positive().default(43200),
+  // Public app origin used to build the set-password link in invite emails.
+  appPublicUrl: z.string().min(1).default('http://127.0.0.1:4200'),
+  // Email seam: 'logging' (default) writes the message to the server log; real
+  // providers (smtp/resend) plug in later behind env-supplied credentials.
+  emailProvider: z.enum(['logging', 'smtp', 'resend']).default('logging'),
+  emailFrom: z.string().min(1).default('no-reply@iso-audit.local'),
+  // How long a set-password link stays valid (default 72h).
+  setPasswordTtlSeconds: z.coerce.number().int().positive().default(259200),
+  // Whether provisioning responses include the raw set-password link. Convenient
+  // for local/dev (and the logging mailer); MUST be off in production so links
+  // never leak through the API.
+  exposeSetPasswordLink: booleanFlagSchema,
+  // Optional first-superadmin bootstrap, seeded by `npm run mongo:init`.
+  superadminEmail: z.string().email().optional(),
+  superadminPassword: z.string().min(8).optional(),
 });
 
 export type ServerConfig = z.infer<typeof serverConfigSchema>;
@@ -56,5 +71,12 @@ export function loadServerConfig(env: Record<string, string | undefined> = { ...
     allowDevAuthHeaders: env['ALLOW_DEV_AUTH_HEADERS'],
     jwtSecret: env['JWT_SECRET'],
     jwtTtlSeconds: env['JWT_TTL_SECONDS'],
+    appPublicUrl: env['APP_PUBLIC_URL'],
+    emailProvider: env['EMAIL_PROVIDER'],
+    emailFrom: env['EMAIL_FROM'],
+    setPasswordTtlSeconds: env['SET_PASSWORD_TTL_SECONDS'],
+    exposeSetPasswordLink: env['EXPOSE_SET_PASSWORD_LINK'],
+    superadminEmail: env['SUPERADMIN_EMAIL'],
+    superadminPassword: env['SUPERADMIN_PASSWORD'],
   });
 }

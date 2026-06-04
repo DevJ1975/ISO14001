@@ -1,6 +1,6 @@
 <section class="screen portal">
   <header class="screen-head">
-    <h1>Auditee portal</h1>
+    <h1>Client portal</h1>
     <p>{{ store.auditee() }} · {{ store.criteria() }}</p>
   </header>
 
@@ -8,12 +8,99 @@
     <article class="panel notice">
       <mat-icon aria-hidden="true">lock</mat-icon>
       <div>
-        <strong>Auditee view</strong>
-        <p>This portal is for the audited organisation (auditee) to review and respond to findings. You're signed in with an auditor role, so the full workspace is available from the main navigation. In production the portal sits behind a separate auditee login.</p>
+        <strong>Client (auditee) view</strong>
+        <p>This portal is for the audited organisation to provide evidence and respond to findings. You're signed in with an auditor role, so this is a preview — the full workspace is in the main navigation. In production the portal sits behind a separate client login.</p>
       </div>
     </article>
   }
 
+  <!-- Evidence requests -->
+  <div class="kpis">
+    <div class="kpi" [class.warn]="requestSummary().toUpload > 0"><strong>{{ requestSummary().toUpload }}</strong><span>To upload</span></div>
+    <div class="kpi"><strong>{{ requestSummary().awaitingReview }}</strong><span>Under review</span></div>
+    <div class="kpi crit" [class.crit]="requestSummary().overdue > 0"><strong>{{ requestSummary().overdue }}</strong><span>Overdue</span></div>
+    <div class="kpi ok"><strong>{{ requestSummary().accepted }}</strong><span>Accepted</span></div>
+  </div>
+
+  <article class="panel">
+    <h2>Evidence the auditor needs from you</h2>
+    @for (r of requests(); track r.id) {
+      <div class="req {{ requestStatusTone(r) }}">
+        <div class="r-head">
+          <span class="req-status {{ requestStatusTone(r) }}">{{ requestStatusLabel(r) }}</span>
+          @if (r.clauseId) { <span class="clause">Clause {{ r.clauseId }}{{ r.clauseTitle ? ' — ' + r.clauseTitle : '' }}</span> }
+          @if (r.dueDate) { <span class="due" [class.overdue]="overdue(r)"><mat-icon aria-hidden="true">event</mat-icon>Due {{ formatDate(r.dueDate) }}</span> }
+        </div>
+        <h3 class="r-title">{{ r.title }}</h3>
+        @if (r.detail) { <p class="r-detail">{{ r.detail }}</p> }
+
+        @if (r.submissions.length > 0) {
+          <div class="r-subs">
+            <strong class="subs-label">What you've uploaded</strong>
+            @for (s of r.submissions; track s.id) {
+              <div class="sub">
+                <mat-icon aria-hidden="true">description</mat-icon>
+                <div class="sub-body">
+                  <strong>{{ s.fileName || 'Note' }}</strong>
+                  @if (s.size) { <span class="sub-meta">{{ formatSize(s.size) }}</span> }
+                  <span class="sub-meta">{{ formatTime(s.submittedAt) }}</span>
+                  @if (s.note) { <p class="sub-note">{{ s.note }}</p> }
+                </div>
+              </div>
+            }
+          </div>
+        }
+
+        @if (r.messages.length > 0) {
+          <div class="thread">
+            @for (m of r.messages; track m.id) {
+              <div class="msg {{ m.author }}">
+                <span class="msg-who">{{ m.authorName }} · {{ formatTime(m.at) }}</span>
+                <p>{{ m.body }}</p>
+              </div>
+            }
+          </div>
+        }
+
+        @if (canSubmit(r)) {
+          <div class="upload">
+            <label class="file-btn">
+              <input type="file" (change)="onPickFile(r.id, $event)" />
+              <mat-icon aria-hidden="true">attach_file</mat-icon>
+              <span>{{ pendingFile(r.id)?.fileName || 'Choose a file…' }}</span>
+            </label>
+            <input
+              class="note-input"
+              [value]="note(r.id)"
+              (input)="setNote(r.id, $any($event.target).value)"
+              placeholder="Add a note (optional)…"
+            />
+            <button mat-flat-button color="primary" type="button" [disabled]="!pendingFile(r.id) && note(r.id).trim().length === 0" (click)="submit(r)">
+              <mat-icon aria-hidden="true">upload</mat-icon>Upload
+            </button>
+          </div>
+        } @else {
+          <p class="muted"><mat-icon aria-hidden="true">verified</mat-icon>Accepted by the auditor — nothing further needed.</p>
+        }
+
+        <div class="reply">
+          <input
+            [value]="message(r.id)"
+            (input)="setMessage(r.id, $any($event.target).value)"
+            (keydown.enter)="sendMessage(r)"
+            placeholder="Message the auditor…"
+          />
+          <button mat-icon-button type="button" aria-label="Send message" [disabled]="message(r.id).trim().length === 0" (click)="sendMessage(r)">
+            <mat-icon aria-hidden="true">send</mat-icon>
+          </button>
+        </div>
+      </div>
+    } @empty {
+      <div class="empty"><mat-icon aria-hidden="true">task_alt</mat-icon><strong>No evidence requested</strong><span>The auditor hasn't asked for any documents yet.</span></div>
+    }
+  </article>
+
+  <!-- Findings -->
   <div class="kpis">
     <div class="kpi crit"><strong>{{ summary().major }}</strong><span>Major NCs</span></div>
     <div class="kpi"><strong>{{ summary().minor }}</strong><span>Minor NCs</span></div>
@@ -54,7 +141,7 @@
                 placeholder="Describe the immediate correction and intended corrective action…"
               ></textarea>
             </label>
-            <button mat-flat-button color="primary" type="button" [disabled]="draft(f.id).trim().length < 10" (click)="submit(f)">
+            <button mat-flat-button color="primary" type="button" [disabled]="draft(f.id).trim().length < 10" (click)="submitResponse(f)">
               <mat-icon aria-hidden="true">send</mat-icon>Submit response
             </button>
             @if (saved() === f.id) { <span class="ok"><mat-icon aria-hidden="true">check_circle</mat-icon>Response recorded.</span> }

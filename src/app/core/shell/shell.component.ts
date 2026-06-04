@@ -86,6 +86,14 @@ export class ShellComponent {
 
   protected readonly nav: readonly NavItem[] = NAV_DESTINATIONS;
 
+  /**
+   * Navigation scoped to the signed-in role: auditees (clientViewer) only ever
+   * see the client portal; auditor roles get the full workspace.
+   */
+  protected readonly visibleNav = computed<readonly NavItem[]>(() =>
+    this.auth.isAuditee() ? this.nav.filter((item) => item.path === '/portal') : this.nav,
+  );
+
   protected toggleTheme(): void {
     this.theme.toggle();
   }
