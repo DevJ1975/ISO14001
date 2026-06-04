@@ -90,6 +90,51 @@
   cursor: pointer;
 }
 
+.days {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.days input {
+  width: 84px;
+}
+
+.variance {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  background: var(--surface-guard);
+  color: var(--text);
+}
+
+.variance[data-tone='warning'],
+.kpi strong[data-tone='warning'] {
+  background: var(--tone-progress-bg);
+  color: var(--tone-progress-fg);
+}
+
+.variance[data-tone='positive'],
+.kpi strong[data-tone='positive'] {
+  color: var(--tone-positive-fg, var(--text));
+}
+
+.kpi strong[data-tone] {
+  background: transparent;
+}
+
+.time-summary {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
 .add-row {
   display: flex;
   flex-wrap: wrap;

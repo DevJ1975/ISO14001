@@ -210,4 +210,33 @@
       <div class="sign-copy"><strong>Awaiting lead-auditor sign-off</strong><small>Only the lead auditor can sign the report.</small></div>
     }
   </article>
+
+  <article class="panel audit-trail">
+    <div class="sig-detail">
+      <strong>Tamper-evident audit trail</strong>
+      <dl class="sig-meta">
+        <div><dt>Change-log entries</dt><dd>{{ ledgerLength() }}</dd></div>
+        @if (ledgerHead(); as head) {
+          <div><dt>Head fingerprint</dt><dd><code>{{ head }}</code> <span class="sig-algo">SHA-256</span></dd></div>
+        }
+      </dl>
+      <div class="sig-verify">
+        <button mat-stroked-button type="button" (click)="verifyLedger()">
+          <mat-icon aria-hidden="true">fact_check</mat-icon>Verify integrity
+        </button>
+        @if (isAuditor()) {
+          <button mat-stroked-button type="button" (click)="exportLedger()">
+            <mat-icon aria-hidden="true">download</mat-icon>Download audit trail
+          </button>
+        }
+        @switch (ledgerVerifyState()) {
+          @case ('valid') { <span class="vstate ok"><mat-icon aria-hidden="true">verified_user</mat-icon>Chain intact — no entries altered or reordered.</span> }
+          @case ('tampered') { <span class="vstate bad"><mat-icon aria-hidden="true">gpp_bad</mat-icon>Chain broken at entry #{{ (ledgerBrokenAt() ?? 0) + 1 }}.</span> }
+          @case ('checking') { <span class="vstate">Checking…</span> }
+          @default {}
+        }
+      </div>
+      <p class="sig-note">Each entry's hash folds in the previous one, so any altered, removed or reordered change-log entry is detectable. The export carries the head hash for external re-verification.</p>
+    </div>
+  </article>
 </section>

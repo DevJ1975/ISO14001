@@ -3,8 +3,19 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { RouterLink } from '@angular/router';
 
-import { buildWorkingPapers, shortFingerprint, verifyReportSignature, workingPapersFindingRows } from '../../core/domain';
+import {
+  buildLedgerChain,
+  buildLedgerChainExport,
+  ChainedLedgerEntry,
+  buildWorkingPapers,
+  ledgerHeadHash,
+  shortFingerprint,
+  verifyLedgerChain,
+  verifyReportSignature,
+  workingPapersFindingRows,
+} from '../../core/domain';
 import { AuthService } from '../../core/auth/auth.service';
+import { LedgerChainExportService } from '../../core/export/ledger-chain-export.service';
 import { WorkingPapersExportService } from '../../core/export/working-papers-export.service';
 import { AuditType, FieldAuditStore, Recommendation } from '../../core/field/field-audit-store';
 import { ToastService } from '../../core/ui/toast.service';
@@ -22,6 +33,7 @@ export class ReportComponent {
   private readonly auth = inject(AuthService);
   private readonly toast = inject(ToastService);
   private readonly workingPapers = inject(WorkingPapersExportService);
+  private readonly ledgerExport = inject(LedgerChainExportService);
 
   protected readonly isLead = computed(() => this.auth.user()?.role === 'leadAuditor');
   /** Any auditor-side role may export the working-papers archive (not the auditee portal). */
@@ -163,6 +175,44 @@ export class ReportComponent {
     this.verifyState.set('checking');
     const ok = await verifyReportSignature(sig, this.store.signableReport());
     this.verifyState.set(ok ? 'valid' : 'tampered');
+  }
+
+  // --- Tamper-evident audit trail (hash-chain over the change-log) ---
+
+  /** Number of entries in the change-log / activity ledger. */
+  protected readonly ledgerLength = computed(() => this.store.changeLog().length);
+
+  /** Short fingerprint of the chain head, recomputed when a chain is built. */
+  protected readonly ledgerHead = signal<string | null>(null);
+
+  /** Mirrors the signature `verifyState` pattern for the ledger chain. */
+  protected readonly ledgerVerifyState = signal<'idle' | 'valid' | 'tampered' | 'checking'>('idle');
+  /** 0-based index of the first broken link, when the chain fails verification. */
+  protected readonly ledgerBrokenAt = signal<number | null>(null);
+
+  /** Build the chain over the current ordered change-log (input order is authoritative). */
+  private buildChain(): Promise<ChainedLedgerEntry[]> {
+    return buildLedgerChain(this.store.changeLog());
+  }
+
+  /** Recompute the chain and verify its integrity (detects altered/removed/reordered entries). */
+  protected async verifyLedger(): Promise<void> {
+    this.ledgerVerifyState.set('checking');
+    this.ledgerBrokenAt.set(null);
+    const chain = await this.buildChain();
+    this.ledgerHead.set(chain.length ? shortFingerprint(ledgerHeadHash(chain)) : null);
+    const result = await verifyLedgerChain(chain);
+    this.ledgerBrokenAt.set(result.ok ? null : result.brokenAt ?? null);
+    this.ledgerVerifyState.set(result.ok ? 'valid' : 'tampered');
+  }
+
+  /** Build the chain and download the audit trail as JSON (with head hash) for external re-verification. */
+  protected async exportLedger(): Promise<void> {
+    const auditee = this.store.auditee();
+    const chain = await this.buildChain();
+    this.ledgerHead.set(chain.length ? shortFingerprint(ledgerHeadHash(chain)) : null);
+    this.ledgerExport.download(buildLedgerChainExport(auditee, chain), auditee);
+    this.toast.saved('Audit trail exported');
   }
 
   /**

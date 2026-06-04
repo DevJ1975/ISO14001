@@ -2,6 +2,7 @@ import { evaluateRiskRating } from '../../core/domain';
 import { CsvColumn } from '../../core/export/csv';
 import type {
   CalibrationRecord,
+  ContextItem,
   DocumentedInfoRecord,
   Hazard,
   HiraEntry,
@@ -99,6 +100,21 @@ export const leadershipColumns: CsvColumn<LeadershipItem>[] = [
   { header: 'Person / owner', value: (r) => r.owner },
   { header: 'Evidence / notes', value: (r) => r.notes },
   { header: 'Flag', value: (r) => `${LEADERSHIP_FLAG_LABELS[r.kind]}: ${r.flag ? 'yes' : 'no'}` },
+  { header: 'Related clause', value: (r) => r.relatedClause },
+  { header: 'Result', value: (r) => r.result },
+];
+
+const CONTEXT_KIND_LABELS: Record<ContextItem['kind'], string> = {
+  issue: 'Context issue',
+  interestedParty: 'Interested party',
+  scope: 'Scope & boundary',
+};
+
+export const contextColumns: CsvColumn<ContextItem>[] = [
+  { header: 'Group', value: (r) => CONTEXT_KIND_LABELS[r.kind] },
+  { header: 'Item', value: (r) => r.label },
+  { header: 'Internal/external', value: (r) => r.category },
+  { header: 'Evidence / notes', value: (r) => r.notes },
   { header: 'Related clause', value: (r) => r.relatedClause },
   { header: 'Result', value: (r) => r.result },
 ];

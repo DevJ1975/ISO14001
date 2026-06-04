@@ -28,6 +28,10 @@ export interface PlannedAudit {
   type: AuditTypeKind;
   dueDate: string;
   status: PlannedStatus;
+  /** Justified planned audit-days for this certification audit (IAF MD 5). */
+  plannedDays?: number;
+  /** Audit-days actually spent, reconciled against the plan. */
+  actualDays?: number;
 }
 
 export interface CompetenceRecord {

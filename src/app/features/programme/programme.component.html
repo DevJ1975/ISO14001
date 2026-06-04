@@ -25,6 +25,13 @@
             <select [value]="audit.status" (change)="store.updatePlannedAudit(audit.id, { status: $any($event.target).value })" [disabled]="!canEdit()">
               @for (s of statuses; track s) { <option [value]="s">{{ s }}</option> }
             </select>
+            <label class="days"><span>Planned days</span><input type="number" min="0" step="0.5" [value]="audit.plannedDays ?? ''" (change)="store.updatePlannedAudit(audit.id, { plannedDays: num($any($event.target).value) })" [disabled]="!canEdit()" /></label>
+            <label class="days"><span>Actual days</span><input type="number" min="0" step="0.5" [value]="audit.actualDays ?? ''" (change)="store.updatePlannedAudit(audit.id, { actualDays: num($any($event.target).value) })" [disabled]="!canEdit()" /></label>
+            @if (rowVariance(audit); as v) {
+              <span class="variance" [attr.data-tone]="varianceTone(v)">{{ v > 0 ? '+' : '' }}{{ v }} d</span>
+            } @else if (rowVariance(audit) === 0) {
+              <span class="variance" [attr.data-tone]="'neutral'">0 d</span>
+            }
             <span [attr.data-tone]="statusTone(audit.status)">{{ audit.status }}</span>
             @if (canEdit()) {
               <button class="icon" type="button" (click)="confirmRemovePlanned(audit.id)" aria-label="Remove"><mat-icon aria-hidden="true">delete</mat-icon></button>
@@ -41,6 +48,17 @@
             @for (t of types; track t.value) { <option [value]="t.value">{{ t.label }}</option> }
           </select>
           <button mat-stroked-button type="button" (click)="addPlanned()"><mat-icon aria-hidden="true">event</mat-icon>Add planned audit</button>
+        </div>
+      }
+
+      @if (timeSummary(); as ts) {
+        <div class="time-summary">
+          <p class="muted small">Audit-time reconciliation — planned vs actual audit-days (IAF MD 5).</p>
+          <div class="aid-out">
+            <div class="kpi"><strong>{{ ts.totalPlanned }}</strong><span>total planned days</span></div>
+            <div class="kpi"><strong>{{ ts.totalActual }}</strong><span>total actual days</span></div>
+            <div class="kpi"><strong [attr.data-tone]="varianceTone(ts.variance)">{{ ts.variance > 0 ? '+' : '' }}{{ ts.variance }}</strong><span>net variance · {{ ts.overCount }} over / {{ ts.underCount }} under</span></div>
+          </div>
         </div>
       }
     }

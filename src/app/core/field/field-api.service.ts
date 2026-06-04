@@ -30,6 +30,7 @@ import type {
   FieldEvidenceRequest,
   FieldFinding,
   FieldResult,
+  ContextItem,
   InterestedParty,
   LeadershipItem,
   ManagementOfChangeRecord,
@@ -89,6 +90,7 @@ export interface FieldStatePayload {
   changes?: Array<Omit<ManagementOfChangeRecord, 'sync'>>;
   operationalControls?: Array<Omit<OperationalControl, 'sync'>>;
   leadership?: Array<Omit<LeadershipItem, 'sync'>>;
+  context?: Array<Omit<ContextItem, 'sync'>>;
   reportMeta?: Omit<ReportMeta, 'sync'> | null;
   changeLog?: ChangeLogEntry[];
 }
@@ -371,6 +373,10 @@ export class FieldApiService {
 
   upsertLeadershipItem(body: Omit<LeadershipItem, 'sync'>): Promise<unknown> {
     return firstValueFrom(this.http.put(`${this.base()}/leadership/${encodeURIComponent(body.id)}`, body));
+  }
+
+  upsertContextItem(body: Omit<ContextItem, 'sync'>): Promise<unknown> {
+    return firstValueFrom(this.http.put(`${this.base()}/context/${encodeURIComponent(body.id)}`, body));
   }
 
   private tenantBase(): string {

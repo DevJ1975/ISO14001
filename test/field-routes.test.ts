@@ -497,6 +497,42 @@ describe('field-audit API routes', () => {
     assert.equal(body.leadership.length, 1);
   });
 
+  it('upserts a context & scope item (cl. 4.1/4.2/4.3) and returns it in field-state', async () => {
+    const { db, store } = createFakeDb();
+    const res = makeRes();
+    await handleApiRequest(
+      makeReq({
+        method: 'PUT',
+        url: '/api/tenants/t/audits/a/context/ctx-1',
+        headers: authHeaders('t'),
+        body: {
+          id: 'ctx-1',
+          kind: 'issue',
+          label: 'Tight labour market for skilled trades',
+          notes: 'Recruitment pressure raises reliance on agency labour.',
+          category: 'external',
+          relatedClause: '4.1',
+          result: 'needsFollowUp',
+        },
+      }),
+      res,
+      { db, config },
+    );
+    assert.equal(res.statusCode, 200);
+    const saved = store.get('context')!.find((d) => d['id'] === 'ctx-1');
+    assert.equal(saved?.['kind'], 'issue');
+    assert.equal(saved?.['category'], 'external');
+
+    const state = makeRes();
+    await handleApiRequest(
+      makeReq({ method: 'GET', url: '/api/tenants/t/audits/a/field-state', headers: authHeaders('t') }),
+      state,
+      { db, config },
+    );
+    const body = JSON.parse(state.body) as { context: unknown[] };
+    assert.equal(body.context.length, 1);
+  });
+
   it('lets lead/admin manage the tenant audit programme', async () => {
     const { db } = createFakeDb();
     const denied = makeRes();
