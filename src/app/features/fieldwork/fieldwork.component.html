@@ -37,6 +37,65 @@
     </div>
   }
 
+  <article class="panel fw-tailor">
+    <div class="fw-tailor-head">
+      <div>
+        <h2>Tailor to client</h2>
+        <p>Adapt the checklist emphasis to this client's sector, size, hazards and prior findings.</p>
+      </div>
+      <button mat-stroked-button type="button" [disabled]="tailoringBusy()" (click)="tailorToClient()">
+        <mat-icon aria-hidden="true">tune</mat-icon>{{ tailoringBusy() ? 'Tailoring…' : 'Tailor to client' }}
+      </button>
+    </div>
+
+    @if (tailoringInfo(); as info) {
+      <p class="fw-tailor-note">
+        <mat-icon aria-hidden="true">info</mat-icon>
+        Emphasis tailored from this client's context ({{ info.source === 'ai' ? 'AI' : 'rule-based' }}, {{ formatTime(info.generatedAt) }}) — guidance, not a substitute for your judgement.
+      </p>
+    }
+
+    @if (tailoring(); as result) {
+      <p class="fw-tailor-summary">{{ result.summary }}</p>
+
+      @if (result.areas.length) {
+        <ul class="fw-tailor-areas">
+          @for (area of result.areas; track area.clauseId) {
+            <li>
+              <div class="fw-tailor-area-head">
+                <span class="chip" [class.on]="area.priority === 'high'">Clause {{ area.clauseId }} · {{ area.clauseTitle }}</span>
+                <span class="fw-tailor-prio" [class.high]="area.priority === 'high'">{{ area.priority === 'high' ? 'Prioritise' : 'Cover' }}</span>
+              </div>
+              @if (area.rationale) {
+                <p class="fw-tailor-rationale">{{ area.rationale }}</p>
+              }
+              @if (area.focusPrompts.length) {
+                <ul class="fw-tailor-prompts">
+                  @for (prompt of area.focusPrompts; track prompt) {
+                    <li>{{ prompt }}</li>
+                  }
+                </ul>
+              }
+            </li>
+          }
+        </ul>
+      }
+
+      @if (result.riskNotes.length) {
+        <div class="fw-tailor-risks">
+          <h3>Risk-based notes</h3>
+          <ul>
+            @for (note of result.riskNotes; track note) {
+              <li>{{ note }}</li>
+            }
+          </ul>
+        </div>
+      }
+    } @else {
+      <p class="fw-tailor-hint">Generate prioritised clause areas, focus prompts and risk notes for this specific client.</p>
+    }
+  </article>
+
   <div class="filters">
     @for (option of filters; track option.value) {
       <button type="button" class="chip" [class.on]="filter() === option.value" (click)="setFilter(option.value)">

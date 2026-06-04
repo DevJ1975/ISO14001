@@ -635,3 +635,114 @@
   gap: 8px;
   align-items: center;
 }
+
+/* --- Tailor to client panel --- */
+.fw-tailor {
+  margin-bottom: 16px;
+}
+
+.fw-tailor-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.fw-tailor-head h2 {
+  margin: 0;
+}
+
+.fw-tailor-head p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 13.5px;
+}
+
+.fw-tailor-note,
+.fw-tailor-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 12px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.fw-tailor-note mat-icon {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+  color: var(--primary);
+}
+
+.fw-tailor-summary {
+  margin: 12px 0 0;
+  font-weight: 600;
+}
+
+.fw-tailor-areas {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.fw-tailor-areas > li {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: var(--surface);
+}
+
+.fw-tailor-area-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.fw-tailor-prio {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.fw-tailor-prio.high {
+  color: var(--primary);
+}
+
+.fw-tailor-rationale {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 13.5px;
+}
+
+.fw-tailor-prompts {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 4px;
+  font-size: 13.5px;
+}
+
+.fw-tailor-risks {
+  margin-top: 12px;
+}
+
+.fw-tailor-risks h3 {
+  margin: 0 0 6px;
+  font-size: 14px;
+}
+
+.fw-tailor-risks ul {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 4px;
+  font-size: 13.5px;
+  color: var(--muted);
+}
