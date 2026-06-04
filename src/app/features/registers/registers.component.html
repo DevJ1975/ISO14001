@@ -587,6 +587,84 @@
         }
       </div>
     }
+    @case ('hira') {
+      <div class="reg">
+        <div class="reg-head">
+          <h2>Hazard Identification &amp; Risk Assessment (HIRA)</h2>
+          <button mat-flat-button color="primary" type="button" (click)="store.addHira()"><mat-icon aria-hidden="true">add</mat-icon>Add</button>
+        </div>
+        @for (row of store.hira(); track row.id) {
+          <article class="tile row">
+            <div class="grid2">
+              <label class="fld"><span>Activity / task</span><input [value]="row.activity" (change)="store.updateHira(row.id, { activity: $any($event.target).value })" /></label>
+              <label class="fld"><span>Routineness</span>
+                <select [value]="row.routineness" (change)="store.updateHira(row.id, { routineness: $any($event.target).value })">
+                  <option value="routine">Routine</option><option value="nonRoutine">Non-routine</option><option value="emergency">Emergency</option>
+                </select>
+              </label>
+            </div>
+            <div class="grid2">
+              <label class="fld"><span>Hazard</span><input [value]="row.hazard" (change)="store.updateHira(row.id, { hazard: $any($event.target).value })" /></label>
+              <label class="fld"><span>Who could be harmed</span><input [value]="row.whoAtHarm || ''" (change)="store.updateHira(row.id, { whoAtHarm: $any($event.target).value })" /></label>
+            </div>
+            <label class="fld"><span>Existing controls</span><input [value]="row.existingControls || ''" (change)="store.updateHira(row.id, { existingControls: $any($event.target).value })" /></label>
+            <fieldset class="scoring">
+              <legend>Initial risk — severity × likelihood (cl. 6.1.2)</legend>
+              <div class="grid3">
+                <label class="fld"><span>Severity (1–5)</span>
+                  <select [value]="row.severity ?? ''" (change)="store.updateHira(row.id, { severity: num($any($event.target).value) })">
+                    <option value="">—</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>
+                  </select>
+                </label>
+                <label class="fld"><span>Likelihood (1–5)</span>
+                  <select [value]="row.likelihood ?? ''" (change)="store.updateHira(row.id, { likelihood: num($any($event.target).value) })">
+                    <option value="">—</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>
+                  </select>
+                </label>
+                <div class="fld"><span>Initial band</span>
+                  <output class="suggest {{ hiraInitialBand(row).band }}">{{ hiraInitialBand(row).band }} · {{ hiraInitialBand(row).score }}</output>
+                </div>
+              </div>
+            </fieldset>
+            <div class="grid2">
+              <label class="fld"><span>Additional controls</span><input [value]="row.additionalControls || ''" (change)="store.updateHira(row.id, { additionalControls: $any($event.target).value })" /></label>
+              <label class="fld"><span>Control (hierarchy)</span>
+                <select [value]="row.controlType ?? ''" (change)="store.updateHira(row.id, { controlType: $any($event.target).value })">
+                  <option value="">—</option><option value="elimination">Elimination</option><option value="substitution">Substitution</option><option value="engineering">Engineering</option><option value="administrative">Administrative</option><option value="ppe">PPE</option>
+                </select>
+              </label>
+            </div>
+            <fieldset class="scoring">
+              <legend>Residual risk — after additional controls (cl. 6.1.2 / 8.1.2)</legend>
+              <div class="grid3">
+                <label class="fld"><span>Residual severity (1–5)</span>
+                  <select [value]="row.residualSeverity ?? ''" (change)="store.updateHira(row.id, { residualSeverity: num($any($event.target).value) })">
+                    <option value="">—</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>
+                  </select>
+                </label>
+                <label class="fld"><span>Residual likelihood (1–5)</span>
+                  <select [value]="row.residualLikelihood ?? ''" (change)="store.updateHira(row.id, { residualLikelihood: num($any($event.target).value) })">
+                    <option value="">—</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>
+                  </select>
+                </label>
+                <div class="fld"><span>Residual band</span>
+                  <output class="suggest {{ hiraResidualBand(row).band }}">{{ hiraResidualBand(row).band }} · {{ hiraResidualBand(row).score }}</output>
+                </div>
+              </div>
+            </fieldset>
+            <label class="fld"><span>Related clause</span><input [value]="row.relatedClauseId || ''" placeholder="6.1.2" (change)="store.updateHira(row.id, { relatedClauseId: $any($event.target).value })" /></label>
+            <div class="results">
+              @for (r of results; track r.value) {
+                <button type="button" class="rp {{ r.tone }}" [class.on]="row.result === r.value" (click)="store.updateHira(row.id, { result: r.value })">{{ r.label }}</button>
+              }
+              <button type="button" class="att-del" aria-label="Remove HIRA row" (click)="confirmRemoveHira(row)"><mat-icon aria-hidden="true">delete</mat-icon></button>
+            </div>
+          </article>
+        } @empty {
+          <div class="panel empty"><mat-icon aria-hidden="true">warning</mat-icon><strong>No HIRA rows yet</strong><span>Identify hazards by activity, rate the initial severity &amp; likelihood, apply the hierarchy of controls and re-rate the residual risk (cl. 6.1.2).</span></div>
+        }
+      </div>
+    }
     @case ('calibration') {
       <div class="reg">
         <div class="reg-head">

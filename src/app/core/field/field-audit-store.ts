@@ -431,6 +431,32 @@ export interface Incident {
   sync: SyncState;
 }
 
+/**
+ * Hazard Identification & Risk Assessment (HIRA) register row — the dedicated
+ * ISO 45001 cl. 6.1.2 hazard-by-hazard risk assessment, distinct from the
+ * environmental "aspects" tab. Each row scores an initial severity × likelihood
+ * risk, records existing and additional controls (with their place in the
+ * hierarchy of controls, cl. 8.1.2), then re-scores the residual risk.
+ */
+export interface HiraEntry {
+  id: string;
+  activity: string;
+  routineness: 'routine' | 'nonRoutine' | 'emergency';
+  hazard: string;
+  whoAtHarm?: string;
+  existingControls?: string;
+  severity?: number;
+  likelihood?: number;
+  additionalControls?: string;
+  controlType?: 'elimination' | 'substitution' | 'engineering' | 'administrative' | 'ppe';
+  residualSeverity?: number;
+  residualLikelihood?: number;
+  relatedClauseId?: string;
+  result: RegisterResult;
+  updatedAt: string;
+  sync: SyncState;
+}
+
 /** OH&S performance indicator — monitoring & measurement (ISO 45001 cl. 9.1.1). */
 export interface PerformanceMetric {
   id: string;
@@ -552,6 +578,7 @@ interface PersistedState {
   performanceMetrics: PerformanceMetric[];
   permits: Permit[];
   incidents: Incident[];
+  hira: HiraEntry[];
   calibration: CalibrationRecord[];
   training: TrainingRecord[];
   suppliers: SupplierRecord[];
@@ -706,6 +733,53 @@ function seedIncidents(): Incident[] {
   return [
     base({ title: 'Lost-time injury — fall from step ladder', occurredAt: '2026-05-12', location: 'Assembly hall', incidentType: 'injury', severity: 'high', status: 'investigating', result: 'needsFollowUp', immediateAction: 'First aid given; casualty referred to A&E. Ladder quarantined.', injuryClassification: 'lostTime', reportableToRegulator: true }),
     base({ title: 'Near-miss: dropped load from forklift', occurredAt: '2026-04-28', location: 'Warehouse', incidentType: 'nearMiss', severity: 'low', status: 'closed', result: 'conforming', injuryClassification: 'none', rootCause: 'Load not secured per SSOW; refresher training completed.' }),
+  ];
+}
+
+/** Demonstration HIRA rows — a routine and a non-routine task, each with initial & residual risk (cl. 6.1.2). */
+function seedHira(): HiraEntry[] {
+  const now = '2026-06-15T15:00:00.000Z';
+  const base = (extra: Partial<HiraEntry>): HiraEntry => ({
+    id: uid('hira'),
+    activity: '',
+    routineness: 'routine',
+    hazard: '',
+    result: 'notStarted',
+    updatedAt: now,
+    sync: 'synced',
+    ...extra,
+  });
+  return [
+    base({
+      activity: 'Roof-mounted plant access',
+      routineness: 'nonRoutine',
+      hazard: 'Working at height — fall from edge',
+      whoAtHarm: 'Maintenance technicians',
+      existingControls: 'Fixed access ladder; permit-to-work',
+      severity: 5,
+      likelihood: 3,
+      additionalControls: 'Install fixed guardrail to roof perimeter',
+      controlType: 'engineering',
+      residualSeverity: 5,
+      residualLikelihood: 1,
+      relatedClauseId: '6.1.2',
+      result: 'needsFollowUp',
+    }),
+    base({
+      activity: 'Manual handling of finished goods',
+      routineness: 'routine',
+      hazard: 'Musculoskeletal injury from repetitive lifting',
+      whoAtHarm: 'Warehouse operatives',
+      existingControls: 'Manual-handling training; trolleys provided',
+      severity: 3,
+      likelihood: 3,
+      additionalControls: 'Provide height-adjustable lift tables at pack stations',
+      controlType: 'engineering',
+      residualSeverity: 3,
+      residualLikelihood: 2,
+      relatedClauseId: '6.1.2',
+      result: 'conforming',
+    }),
   ];
 }
 
@@ -895,6 +969,7 @@ export class FieldAuditStore {
   readonly performanceMetrics = signal<PerformanceMetric[]>(seedPerformanceMetrics());
   readonly permits = signal<Permit[]>(seedPermits());
   readonly incidents = signal<Incident[]>(seedIncidents());
+  readonly hira = signal<HiraEntry[]>(seedHira());
   readonly calibration = signal<CalibrationRecord[]>(seedCalibration());
   readonly training = signal<TrainingRecord[]>(seedTraining());
   readonly suppliers = signal<SupplierRecord[]>(seedSuppliers());
@@ -948,6 +1023,7 @@ export class FieldAuditStore {
       this.performanceMetrics().filter((m) => m.sync !== 'synced').length +
       this.permits().filter((p) => p.sync !== 'synced').length +
       this.incidents().filter((i) => i.sync !== 'synced').length +
+      this.hira().filter((h) => h.sync !== 'synced').length +
       this.calibration().filter((c) => c.sync !== 'synced').length +
       this.training().filter((t) => t.sync !== 'synced').length +
       this.suppliers().filter((s) => s.sync !== 'synced').length +
@@ -1761,6 +1837,28 @@ export class FieldAuditStore {
     this.autoFlush();
   }
 
+  addHira(): void {
+    this.hira.update((list) => [
+      { id: uid('hira'), activity: '', routineness: 'routine', hazard: '', result: 'notStarted', updatedAt: new Date().toISOString(), sync: 'queued' },
+      ...list,
+    ]);
+    this.persist();
+    this.autoFlush();
+  }
+
+  updateHira(id: string, patch: Partial<HiraEntry>): void {
+    this.hira.update((list) =>
+      list.map((entry) => (entry.id === id ? { ...entry, ...patch, updatedAt: new Date().toISOString(), sync: 'queued' } : entry)),
+    );
+    this.persist();
+    this.autoFlush();
+  }
+
+  removeHira(id: string): void {
+    this.hira.update((list) => list.filter((entry) => entry.id !== id));
+    this.persist();
+  }
+
   addCalibration(): void {
     this.calibration.update((list) => [
       { id: uid('calib'), equipment: '', result: 'notStarted', updatedAt: new Date().toISOString(), sync: 'queued' },
@@ -1942,6 +2040,7 @@ export class FieldAuditStore {
     this.performanceMetrics.set(seedPerformanceMetrics());
     this.permits.set(seedPermits());
     this.incidents.set(seedIncidents());
+    this.hira.set(seedHira());
     this.calibration.set(seedCalibration());
     this.training.set(seedTraining());
     this.suppliers.set(seedSuppliers());
@@ -2269,6 +2368,17 @@ export class FieldAuditStore {
           this.setSync('incidents', record.id, 'queued');
         }
       }
+      for (const record of this.hira().filter((entry) => entry.sync !== 'synced')) {
+        this.setSync('hira', record.id, 'syncing');
+        try {
+          const { sync, ...payload } = record;
+          void sync;
+          await this.api.upsertHira(payload);
+          this.setSync('hira', record.id, 'synced');
+        } catch {
+          this.setSync('hira', record.id, 'queued');
+        }
+      }
       for (const record of this.calibration().filter((entry) => entry.sync !== 'synced')) {
         this.setSync('calibration', record.id, 'syncing');
         try {
@@ -2342,6 +2452,7 @@ export class FieldAuditStore {
       | 'performanceMetrics'
       | 'permits'
       | 'incidents'
+      | 'hira'
       | 'calibration'
       | 'training'
       | 'suppliers'
@@ -2372,6 +2483,7 @@ export class FieldAuditStore {
       performanceMetrics: this.performanceMetrics,
       permits: this.permits,
       incidents: this.incidents,
+      hira: this.hira,
       calibration: this.calibration,
       training: this.training,
       suppliers: this.suppliers,
@@ -2436,6 +2548,7 @@ export class FieldAuditStore {
       performanceMetrics: this.performanceMetrics(),
       permits: this.permits(),
       incidents: this.incidents(),
+      hira: this.hira(),
       calibration: this.calibration(),
       training: this.training(),
       suppliers: this.suppliers(),
@@ -2476,6 +2589,7 @@ export class FieldAuditStore {
       this.performanceMetrics.set((payload.performanceMetrics ?? []).map((m) => ({ ...m, sync: 'synced' as const })));
       this.permits.set((payload.permits ?? []).map((p) => ({ ...p, sync: 'synced' as const })));
       this.incidents.set((payload.incidents ?? []).map((i) => ({ ...i, sync: 'synced' as const })));
+      this.hira.set((payload.hira ?? []).map((h) => ({ ...h, sync: 'synced' as const })));
       this.calibration.set((payload.calibration ?? []).map((c) => ({ ...c, sync: 'synced' as const })));
       this.training.set((payload.training ?? []).map((t) => ({ ...t, sync: 'synced' as const })));
       this.suppliers.set((payload.suppliers ?? []).map((s) => ({ ...s, sync: 'synced' as const })));
@@ -2534,6 +2648,7 @@ export class FieldAuditStore {
     this.performanceMetrics.set(saved.performanceMetrics ?? seedPerformanceMetrics());
     this.permits.set(saved.permits ?? seedPermits());
     this.incidents.set(saved.incidents ?? seedIncidents());
+    this.hira.set(saved.hira ?? seedHira());
     this.calibration.set(saved.calibration ?? seedCalibration());
     this.training.set(saved.training ?? seedTraining());
     this.suppliers.set(saved.suppliers ?? seedSuppliers());

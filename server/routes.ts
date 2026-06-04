@@ -507,6 +507,23 @@ const incidentUpsertCommandSchema = z.object({
   result: registerResultSchema.default('notStarted'),
 });
 
+const hiraUpsertCommandSchema = z.object({
+  id: z.string().min(1),
+  activity: z.string().max(300).default(''),
+  routineness: z.enum(['routine', 'nonRoutine', 'emergency']).default('routine'),
+  hazard: z.string().max(300).default(''),
+  whoAtHarm: z.string().max(300).optional(),
+  existingControls: z.string().max(2000).optional(),
+  severity: z.number().int().min(1).max(5).optional(),
+  likelihood: z.number().int().min(1).max(5).optional(),
+  additionalControls: z.string().max(2000).optional(),
+  controlType: z.enum(['elimination', 'substitution', 'engineering', 'administrative', 'ppe']).optional(),
+  residualSeverity: z.number().int().min(1).max(5).optional(),
+  residualLikelihood: z.number().int().min(1).max(5).optional(),
+  relatedClauseId: z.string().max(40).optional(),
+  result: registerResultSchema.default('notStarted'),
+});
+
 const calibrationUpsertCommandSchema = z.object({
   id: z.string().min(1),
   equipment: z.string().max(300).default(''),
@@ -1056,9 +1073,10 @@ export async function handleApiRequest(
         dependencies.db.collection(mongoCollections.documentedInfo).find({ tenantId, auditId }, { projection: { _id: 0 } }).toArray(),
         dependencies.db.collection(mongoCollections.performanceMetrics).find({ tenantId, auditId }, { projection: { _id: 0 } }).toArray(),
       ]);
-      const [permits, incidents] = await Promise.all([
+      const [permits, incidents, hira] = await Promise.all([
         dependencies.db.collection(mongoCollections.permits).find({ tenantId, auditId }, { projection: { _id: 0 } }).toArray(),
         dependencies.db.collection(mongoCollections.incidents).find({ tenantId, auditId }, { projection: { _id: 0 } }).toArray(),
+        dependencies.db.collection(mongoCollections.hira).find({ tenantId, auditId }, { projection: { _id: 0 } }).toArray(),
       ]);
       const calibration = await dependencies.db
         .collection(mongoCollections.calibration)
@@ -1114,6 +1132,7 @@ export async function handleApiRequest(
           performanceMetrics,
           permits,
           incidents,
+          hira,
           calibration,
           training,
           suppliers,
@@ -1859,6 +1878,25 @@ export async function handleApiRequest(
         .collection(mongoCollections.incidents)
         .updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
       sendJson(response, 200, { incident: record }, corsOrigin);
+      return;
+    }
+
+    const hiraMatch = matchPath(
+      new RegExp(`^/api/tenants/${tenantPath}/audits/${auditPath}/hira/([^/]+)$`),
+      url.pathname,
+      ['tenantId', 'auditId', 'id'],
+    );
+    if (request.method === 'PUT' && hiraMatch && actor) {
+      const tenantId = hiraMatch.params['tenantId']!;
+      const auditId = hiraMatch.params['auditId']!;
+      requireTenant(actor, tenantId);
+      requireAnyRole(actor, ['leadAuditor', 'auditor']);
+      const command = await readJson(request, hiraUpsertCommandSchema);
+      const record = { ...command, tenantId, auditId, updatedAt: new Date().toISOString() };
+      await dependencies.db
+        .collection(mongoCollections.hira)
+        .updateOne({ tenantId, auditId, id: command.id }, { $set: record }, { upsert: true });
+      sendJson(response, 200, { hira: record }, corsOrigin);
       return;
     }
 
