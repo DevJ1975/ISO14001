@@ -112,6 +112,18 @@
   margin: 18px 0 6px;
 }
 
+@media (max-width: 480px) {
+  .summary {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 360px) {
+  .summary {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
 .kpi {
   text-align: center;
   border: 1px solid #d9dde3;

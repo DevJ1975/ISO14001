@@ -5,7 +5,8 @@
 .app-shell {
   display: grid;
   grid-template-columns: 1fr;
-  min-height: 100vh;
+  min-height: 100vh; /* fallback */
+  min-height: 100dvh;
 }
 
 /* ----------------------------------------------------------------------------
@@ -16,7 +17,8 @@
   position: sticky;
   top: 0;
   align-self: start;
-  height: 100vh;
+  height: 100vh; /* fallback */
+  height: 100dvh;
   flex-direction: column;
   border-right: 1px solid rgba(255, 255, 255, 0.08);
   background:
@@ -238,7 +240,8 @@
 .frame {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  min-height: 100vh; /* fallback */
+  min-height: 100dvh;
 }
 
 .topbar {
@@ -516,10 +519,23 @@
   .topbar {
     padding-left: 28px;
   }
+
+  /* Desktop shows every header control inline; the overflow menu is mobile-only. */
+  .more-wrap {
+    display: none;
+  }
 }
 
-@media (max-width: 420px) {
-  .clock {
+/* Below the desktop breakpoint, collapse secondary header controls into the
+   "More" menu so the top bar never overflows on phones. */
+@media (max-width: 979px) {
+  .util-collapse {
+    display: none !important;
+  }
+}
+
+@media (max-width: 560px) {
+  .conditions {
     display: none;
   }
 }
@@ -551,6 +567,67 @@
 
 .tabbar .tab {
   position: relative;
+}
+
+/* Mobile "More" overflow menu (mirrors the notifications dropdown) */
+.more-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.more-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 41;
+  width: min(260px, 92vw);
+  max-height: 75vh;
+  display: flex;
+  flex-direction: column;
+  padding: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.22);
+  overflow-y: auto;
+}
+
+.more-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.more-item:hover {
+  background: var(--surface-guard);
+}
+
+.more-item > mat-icon {
+  flex: 0 0 auto;
+  font-size: 20px;
+  width: 20px;
+  height: 20px;
+  color: var(--muted);
+}
+
+.more-locale {
+  cursor: default;
+}
+
+.more-locale:hover {
+  background: transparent;
 }
 
 /* Notification bell + dropdown */

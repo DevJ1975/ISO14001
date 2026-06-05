@@ -98,13 +98,14 @@ import { Toast, ToastService, ToastTone } from './toast.service';
       }
       .toast-action {
         flex: none;
+        min-height: 44px;
         border: 0;
         background: transparent;
         color: var(--primary);
         font: inherit;
         font-weight: 800;
         cursor: pointer;
-        padding: 4px 8px;
+        padding: 4px 10px;
         border-radius: 8px;
       }
       .toast-action:hover {
@@ -115,8 +116,8 @@ import { Toast, ToastService, ToastTone } from './toast.service';
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        width: 28px;
-        height: 28px;
+        width: 44px;
+        height: 44px;
         border: 0;
         border-radius: 8px;
         background: transparent;

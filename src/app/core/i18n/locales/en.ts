@@ -56,6 +56,7 @@ export const en = {
   'shell.signOut': 'Sign out',
   'shell.language': 'Language',
   'shell.jurisdiction': 'Jurisdiction',
+  'shell.more': 'More',
 
   // Login screen.
   'login.signIn': 'Sign in',

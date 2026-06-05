@@ -99,23 +99,23 @@
         </div>
       </div>
 
-      <button class="icon-btn" type="button" (click)="palette.openPalette()" [attr.aria-label]="'shell.search' | t" title="Search (⌘K)">
+      <button class="icon-btn util-collapse" type="button" (click)="palette.openPalette()" [attr.aria-label]="'shell.search' | t" title="Search (⌘K)">
         <mat-icon aria-hidden="true">search</mat-icon>
       </button>
 
-      <button class="icon-btn" type="button" (click)="takeTour()" [attr.aria-label]="'shell.tour' | t" title="Take a tour">
+      <button class="icon-btn util-collapse" type="button" (click)="takeTour()" [attr.aria-label]="'shell.tour' | t" title="Take a tour">
         <mat-icon aria-hidden="true">tips_and_updates</mat-icon>
       </button>
 
-      <a class="icon-btn" routerLink="/guide" routerLinkActive="active" aria-label="Auditor's field guide" title="Auditor's field guide">
+      <a class="icon-btn util-collapse" routerLink="/guide" routerLinkActive="active" aria-label="Auditor's field guide" title="Auditor's field guide">
         <mat-icon aria-hidden="true">school</mat-icon>
       </a>
 
-      <a class="icon-btn" routerLink="/manual" routerLinkActive="active" aria-label="Auditor's manual" title="Auditor's manual">
+      <a class="icon-btn util-collapse" routerLink="/manual" routerLinkActive="active" aria-label="Auditor's manual" title="Auditor's manual">
         <mat-icon aria-hidden="true">menu_book</mat-icon>
       </a>
 
-      <a class="icon-btn" routerLink="/copilot" routerLinkActive="active" aria-label="Auditor copilot" title="Auditor copilot">
+      <a class="icon-btn util-collapse" routerLink="/copilot" routerLinkActive="active" aria-label="Auditor copilot" title="Auditor copilot">
         <mat-icon aria-hidden="true">smart_toy</mat-icon>
       </a>
 
@@ -163,10 +163,10 @@
         }
       </div>
 
-      <app-locale-switcher />
+      <app-locale-switcher class="util-collapse" />
 
       <button
-        class="icon-btn"
+        class="icon-btn util-collapse"
         type="button"
         (click)="toggleTheme()"
         [attr.aria-label]="(theme.resolved() === 'dark' ? 'shell.theme.toLight' : 'shell.theme.toDark') | t"
@@ -175,10 +175,59 @@
       </button>
 
       @if (auth.user()) {
-        <button class="icon-btn" type="button" (click)="logout()" [attr.aria-label]="'shell.signOut' | t">
+        <button class="icon-btn util-collapse" type="button" (click)="logout()" [attr.aria-label]="'shell.signOut' | t">
           <mat-icon aria-hidden="true">logout</mat-icon>
         </button>
       }
+
+      <!-- Mobile-only overflow menu: collapses the secondary header controls so
+           the bar never overflows on phones. Mirrors the notifications dropdown. -->
+      <div class="more-wrap">
+        <button
+          class="icon-btn"
+          type="button"
+          (click)="toggleMore()"
+          [attr.aria-expanded]="moreOpen()"
+          aria-haspopup="menu"
+          [attr.aria-label]="'shell.more' | t"
+          title="More"
+        >
+          <mat-icon aria-hidden="true">more_horiz</mat-icon>
+        </button>
+        @if (moreOpen()) {
+          <button class="notif-scrim" type="button" aria-label="Close menu" (click)="closeMore()"></button>
+          <div class="more-panel" role="menu" aria-label="More">
+            <button type="button" class="more-item" role="menuitem" (click)="palette.openPalette(); closeMore()">
+              <mat-icon aria-hidden="true">search</mat-icon>{{ 'shell.search' | t }}
+            </button>
+            <button type="button" class="more-item" role="menuitem" (click)="takeTour(); closeMore()">
+              <mat-icon aria-hidden="true">tips_and_updates</mat-icon>{{ 'shell.tour' | t }}
+            </button>
+            <a class="more-item" role="menuitem" routerLink="/guide" (click)="closeMore()">
+              <mat-icon aria-hidden="true">school</mat-icon>Field guide
+            </a>
+            <a class="more-item" role="menuitem" routerLink="/manual" (click)="closeMore()">
+              <mat-icon aria-hidden="true">menu_book</mat-icon>Manual
+            </a>
+            <a class="more-item" role="menuitem" routerLink="/copilot" (click)="closeMore()">
+              <mat-icon aria-hidden="true">smart_toy</mat-icon>Copilot
+            </a>
+            <button type="button" class="more-item" role="menuitem" (click)="toggleTheme()">
+              <mat-icon aria-hidden="true">{{ theme.resolved() === 'dark' ? 'light_mode' : 'dark_mode' }}</mat-icon>
+              {{ (theme.resolved() === 'dark' ? 'shell.theme.toLight' : 'shell.theme.toDark') | t }}
+            </button>
+            <div class="more-item more-locale">
+              <mat-icon aria-hidden="true">language</mat-icon>
+              <app-locale-switcher />
+            </div>
+            @if (auth.user()) {
+              <button type="button" class="more-item" role="menuitem" (click)="logout(); closeMore()">
+                <mat-icon aria-hidden="true">logout</mat-icon>{{ 'shell.signOut' | t }}
+              </button>
+            }
+          </div>
+        }
+      </div>
     </header>
 
     <main class="outlet">
