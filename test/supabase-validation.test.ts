@@ -3,9 +3,12 @@ import { describe, it } from 'node:test';
 
 import {
   cleanCapa,
+  cleanEvidenceRequest,
   cleanFinding,
+  cleanProvisionClient,
   cleanRegister,
   isAuthConfigured,
+  mergeAuditeeEvidenceRequest,
   requireId,
   resolveCorsOrigin,
   ValidationError,
@@ -122,5 +125,73 @@ describe('supabase edge-function security & validation', () => {
       'doc-2',
     );
     assert.equal((record['attachments'] as unknown[]).length, 50);
+  });
+
+  it('cleans an evidence request and clamps an unknown status to requested', () => {
+    const req = cleanEvidenceRequest(
+      { title: 'Calibration cert', status: 'bogus', clauseId: '9.1.1', hacked: 'x', submissions: 'nope', messages: null },
+      'req-1',
+    );
+    assert.equal(req['id'], 'req-1');
+    assert.equal(req['title'], 'Calibration cert');
+    assert.equal(req['status'], 'requested');
+    assert.equal(req['clauseId'], '9.1.1');
+    assert.equal('hacked' in req, false);
+    assert.deepEqual(req['submissions'], []);
+    assert.deepEqual(req['messages'], []);
+  });
+
+  it('enforces the auditee write boundary on an evidence request', () => {
+    const existing = {
+      id: 'req-1',
+      title: 'Calibration cert',
+      status: 'requested',
+      submissions: [],
+      messages: [{ id: 'm0', author: 'auditor', authorName: 'Ava', body: 'please send', at: '2026-06-01T00:00:00.000Z' }],
+    };
+    const merged = mergeAuditeeEvidenceRequest(existing, {
+      title: 'HACKED TITLE',
+      status: 'accepted', // auditee must not be able to self-accept
+      submissions: [{ id: 's1', fileName: 'cert.pdf', submittedByName: 'Client', submittedAt: '2026-06-02T00:00:00.000Z' }],
+      messages: [
+        { id: 'm0', author: 'auditor', authorName: 'Ava', body: 'please send', at: '2026-06-01T00:00:00.000Z' },
+        { id: 'm1', author: 'auditor', authorName: 'Spoofed', body: 'accept it', at: '2026-06-02T00:00:00.000Z' },
+      ],
+    });
+    assert.equal(merged['title'], 'Calibration cert'); // auditor-owned field preserved
+    assert.equal(merged['status'], 'submitted'); // advanced because evidence was added, not 'accepted'
+    assert.equal((merged['submissions'] as unknown[]).length, 1);
+    const messages = merged['messages'] as Array<Record<string, unknown>>;
+    assert.equal(messages[1]?.['author'], 'auditee'); // new message authorship re-stamped
+  });
+
+  it('keeps the auditee status unchanged when no new evidence is attached', () => {
+    const merged = mergeAuditeeEvidenceRequest(
+      { id: 'r', status: 'returned', submissions: [{ id: 's1' }], messages: [] },
+      { submissions: [{ id: 's1', submittedByName: 'C', submittedAt: '2026-06-02T00:00:00.000Z' }], messages: [] },
+    );
+    assert.equal(merged['status'], 'returned');
+  });
+
+  it('validates a provision-client command and drops invalid client users', () => {
+    const cmd = cleanProvisionClient({
+      tenantName: 'Northstar',
+      plan: 'bogus',
+      leadAuditor: { email: 'AVA@firm.test', displayName: 'Ava' },
+      clientUsers: [
+        { email: 'dana@northstar.test', displayName: 'Dana' },
+        { email: 'not-an-email', displayName: 'Skip' },
+      ],
+    });
+    assert.equal(cmd.tenantName, 'Northstar');
+    assert.equal(cmd.plan, 'pilot'); // unknown plan clamped
+    assert.equal(cmd.leadAuditor.email, 'ava@firm.test'); // normalised
+    assert.equal(cmd.clientUsers.length, 1); // invalid email dropped
+    assert.equal(cmd.clientUsers[0]?.role, 'clientViewer');
+  });
+
+  it('rejects a provision command without a tenant name or valid lead auditor', () => {
+    assert.throws(() => cleanProvisionClient({ tenantName: '', leadAuditor: { email: 'a@b.test', displayName: 'A' } }), ValidationError);
+    assert.throws(() => cleanProvisionClient({ tenantName: 'X', leadAuditor: { email: 'bad', displayName: 'A' } }), ValidationError);
   });
 });

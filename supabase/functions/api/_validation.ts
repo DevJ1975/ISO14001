@@ -11,6 +11,15 @@ export const REGISTER_RESULTS = ['notStarted', 'conforming', 'nonconforming', 'n
 // ISO 45001 cl. 10.2: CAPA action intent + recognised root-cause methods.
 export const CAPA_INTENTS = ['correction', 'correctiveAction', 'preventiveAction'];
 export const ROOT_CAUSE_METHODS = ['fiveWhys', 'fishbone', 'faultTree', 'other'];
+// Client portal + provisioning.
+export const EVIDENCE_REQUEST_STATUSES = ['requested', 'submitted', 'accepted', 'returned'];
+export const TENANT_ROLES = ['tenantAdmin', 'leadAuditor', 'auditor', 'clientViewer'];
+export const TENANT_PLANS = ['pilot', 'team', 'enterprise'];
+export const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+
+export function normEmail(value: unknown): string {
+  return String(value ?? '').toLowerCase().trim();
+}
 
 export function str(value: unknown, max: number, field: string): string {
   const out = value == null ? '' : String(value);
@@ -115,6 +124,112 @@ function cleanArrayItem(item: unknown): unknown {
     return cleaned;
   }
   return str(item, 2000, 'item');
+}
+
+/** Sanitise the auditee-provided submissions on an evidence request (bounded). */
+function cleanSubmissions(value: unknown): Array<Record<string, unknown>> {
+  if (!Array.isArray(value)) return [];
+  return value.slice(0, 100).map((raw) => {
+    const s = (raw ?? {}) as Record<string, unknown>;
+    const out: Record<string, unknown> = {
+      id: requireId(s['id']),
+      submittedByName: str(s['submittedByName'], 200, 'submittedByName'),
+      submittedAt: str(s['submittedAt'], 40, 'submittedAt'),
+    };
+    if (s['fileName'] != null) out['fileName'] = str(s['fileName'], 300, 'fileName');
+    if (s['mime'] != null) out['mime'] = str(s['mime'], 200, 'mime');
+    if (typeof s['size'] === 'number' && Number.isFinite(s['size'])) out['size'] = s['size'];
+    if (s['note'] != null) out['note'] = str(s['note'], 4000, 'note');
+    return out;
+  });
+}
+
+/** Sanitise the request thread messages (bounded). */
+function cleanMessages(value: unknown): Array<Record<string, unknown>> {
+  if (!Array.isArray(value)) return [];
+  return value.slice(0, 500).map((raw) => {
+    const m = (raw ?? {}) as Record<string, unknown>;
+    return {
+      id: requireId(m['id']),
+      author: m['author'] === 'auditor' ? 'auditor' : 'auditee',
+      authorName: str(m['authorName'], 200, 'authorName'),
+      body: str(m['body'], 4000, 'body'),
+      at: str(m['at'], 40, 'at'),
+    };
+  });
+}
+
+/** Auditor-side evidence request: vetted fields + bounded submissions/messages. */
+export function cleanEvidenceRequest(body: Record<string, unknown>, id: string): Record<string, unknown> {
+  const out: Record<string, unknown> = {
+    id,
+    title: str(body['title'], 300, 'title'),
+    detail: str(body['detail'], 4000, 'detail'),
+    status: EVIDENCE_REQUEST_STATUSES.includes(body['status'] as string) ? (body['status'] as string) : 'requested',
+    createdByName: str(body['createdByName'], 200, 'createdByName'),
+    createdAt: str(body['createdAt'], 40, 'createdAt'),
+    updatedAt: new Date().toISOString(),
+    submissions: cleanSubmissions(body['submissions']),
+    messages: cleanMessages(body['messages']),
+  };
+  const clauseId = str(body['clauseId'], 40, 'clauseId');
+  if (clauseId) out['clauseId'] = clauseId;
+  const clauseTitle = str(body['clauseTitle'], 300, 'clauseTitle');
+  if (clauseTitle) out['clauseTitle'] = clauseTitle;
+  const dueDate = str(body['dueDate'], 40, 'dueDate');
+  if (dueDate) out['dueDate'] = dueDate;
+  return out;
+}
+
+/**
+ * The auditee write boundary: a clientViewer may only append their own
+ * submissions and post messages. Auditor-owned fields (title/clause/due/status)
+ * are preserved from the stored record; status advances to "submitted" only when
+ * fresh evidence is attached; and any *new* thread message is stamped as auditee
+ * authorship (no impersonating the auditor).
+ */
+export function mergeAuditeeEvidenceRequest(
+  existing: Record<string, unknown>,
+  body: Record<string, unknown>,
+): Record<string, unknown> {
+  const submissions = cleanSubmissions(body['submissions']);
+  const priorSubs = Array.isArray(existing['submissions']) ? (existing['submissions'] as unknown[]) : [];
+  const priorMessages = Array.isArray(existing['messages']) ? (existing['messages'] as Array<Record<string, unknown>>) : [];
+  const priorIds = new Set(priorMessages.map((m) => m && m['id']));
+  const messages = cleanMessages(body['messages']).map((m) => (priorIds.has(m['id']) ? m : { ...m, author: 'auditee' }));
+  const grew = submissions.length > priorSubs.length;
+  return {
+    ...existing,
+    submissions,
+    messages,
+    status: grew ? 'submitted' : existing['status'],
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+/** Validate a superadmin "provision client" command (tenant + lead auditor + client users). */
+export function cleanProvisionClient(body: Record<string, unknown>): {
+  tenantName: string;
+  plan: string;
+  leadAuditor: { email: string; displayName: string };
+  clientUsers: Array<{ email: string; displayName: string; role: string }>;
+} {
+  const tenantName = str(body['tenantName'], 300, 'tenantName').trim();
+  if (!tenantName) throw new ValidationError('A client/tenant name is required.');
+  const plan = TENANT_PLANS.includes(body['plan'] as string) ? (body['plan'] as string) : 'pilot';
+  const la = (body['leadAuditor'] ?? {}) as Record<string, unknown>;
+  const leadAuditor = { email: normEmail(la['email']), displayName: str(la['displayName'], 200, 'displayName').trim() };
+  if (!EMAIL_RE.test(leadAuditor.email)) throw new ValidationError('A valid lead auditor email is required.');
+  const rawUsers = Array.isArray(body['clientUsers']) ? (body['clientUsers'] as unknown[]) : [];
+  const clientUsers = rawUsers
+    .slice(0, 50)
+    .map((raw) => {
+      const u = (raw ?? {}) as Record<string, unknown>;
+      const role = TENANT_ROLES.includes(u['role'] as string) ? (u['role'] as string) : 'clientViewer';
+      return { email: normEmail(u['email']), displayName: str(u['displayName'], 200, 'displayName').trim(), role };
+    })
+    .filter((u) => EMAIL_RE.test(u.email));
+  return { tenantName, plan, leadAuditor, clientUsers };
 }
 
 /**

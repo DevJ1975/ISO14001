@@ -6,9 +6,12 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 
 import {
   cleanCapa,
+  cleanEvidenceRequest,
   cleanFinding,
+  cleanProvisionClient,
   cleanRegister,
   isAuthConfigured,
+  mergeAuditeeEvidenceRequest,
   requireId,
   resolveCorsOrigin,
   ValidationError,
@@ -23,6 +26,17 @@ const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 // than silently degrade to an insecure mode.
 const JWT_SECRET = Deno.env.get('APP_JWT_SECRET') ?? '';
 const JWT_TTL = 43200;
+
+// Client-portal / superadmin provisioning config.
+const APP_PUBLIC_URL = (Deno.env.get('APP_PUBLIC_URL') ?? '').replace(/\/+$/, '');
+// Return raw set-password links in API responses (dev/admin convenience). Keep
+// off in production so links are delivered only via the emailed message.
+const EXPOSE_SET_PASSWORD_LINK = (Deno.env.get('EXPOSE_SET_PASSWORD_LINK') ?? '') === 'true';
+// Secret that gates the one-time first-superadmin bootstrap endpoint.
+const SUPERADMIN_BOOTSTRAP_SECRET = Deno.env.get('SUPERADMIN_BOOTSTRAP_SECRET') ?? '';
+const SET_PASSWORD_TTL_MS = 72 * 60 * 60 * 1000;
+// Sentinel tenant for the tenant-less platform superadmin (avoids a null PK).
+const PLATFORM_TENANT = 'platform';
 
 // SECURITY: lock CORS to an explicit allow-list of app origins (comma-separated
 // in APP_ALLOWED_ORIGINS). The deployed function runs with verify_jwt=false, so
@@ -285,6 +299,88 @@ function requireTenant(actor, tenantId) {
 function requireRole(actor, roles) {
   if (!roles.includes(actor.role)) throw new AuthError('Role not allowed');
 }
+// Platform-superadmin gate for /admin/*. Tenant routes keep using requireTenant,
+// which (by design) rejects platform tokens.
+function requireSuperadmin(actor) {
+  if (!actor.platform) throw new AuthError('Platform superadmin access is required.');
+}
+
+// --- Set-password links + email seam -------------------------------------
+function buildSetPasswordLink(token) {
+  return `${APP_PUBLIC_URL}/set-password?token=${encodeURIComponent(token)}`;
+}
+// Email seam: logs by default. A real provider (SMTP/Resend/SES) plugs in here.
+async function sendInviteEmail(to, link, tenantName, purpose) {
+  const subject = purpose === 'reset' ? 'Reset your Soteria Signum password' : `You've been added to ${tenantName} on Soteria Signum`;
+  try {
+    console.log(`[email] to=${to} subject=${JSON.stringify(subject)}\n${link}`);
+  } catch {
+    /* logging must never throw */
+  }
+}
+async function issueSetPasswordToken(uid, tenantId, email, purpose) {
+  const token = b64url(crypto.getRandomValues(new Uint8Array(32)));
+  const tokenHash = await sha256Hex(token);
+  const now = new Date();
+  // Supersede any prior live link for this (uid, purpose) so a re-send revokes the old one.
+  await db.from('set_password_tokens').update({ consumed_at: now.toISOString() }).eq('uid', uid).eq('purpose', purpose).is('consumed_at', null);
+  await db.from('set_password_tokens').insert({
+    id: `spt-${crypto.randomUUID()}`,
+    token_hash: tokenHash,
+    uid,
+    tenant_id: tenantId,
+    email,
+    purpose,
+    created_at: now.toISOString(),
+    expires_at: new Date(now.getTime() + SET_PASSWORD_TTL_MS).toISOString(),
+    consumed_at: null,
+  });
+  return { token, link: buildSetPasswordLink(token) };
+}
+async function describeSetPasswordToken(token) {
+  const tokenHash = await sha256Hex(token);
+  const { data } = await db.from('set_password_tokens').select('*').eq('token_hash', tokenHash).maybeSingle();
+  if (!data || data.consumed_at || new Date(data.expires_at).getTime() < Date.now()) return { valid: false };
+  return { valid: true, email: data.email, purpose: data.purpose, platform: data.tenant_id === PLATFORM_TENANT };
+}
+async function consumeSetPasswordToken(token) {
+  const tokenHash = await sha256Hex(token);
+  const { data } = await db.from('set_password_tokens').select('*').eq('token_hash', tokenHash).maybeSingle();
+  if (!data) throw new ValidationError('This link is invalid.');
+  if (new Date(data.expires_at).getTime() < Date.now()) throw new ValidationError('This link has expired.');
+  // Single-use: only the request that flips consumed_at from null wins.
+  const { data: claimed } = await db
+    .from('set_password_tokens')
+    .update({ consumed_at: new Date().toISOString() })
+    .eq('token_hash', tokenHash)
+    .is('consumed_at', null)
+    .select('id');
+  if (!claimed || claimed.length !== 1) throw new ValidationError('This link has already been used.');
+  return { uid: data.uid, tenantId: data.tenant_id, email: data.email, purpose: data.purpose };
+}
+async function tenantNameFor(tenantId) {
+  const { data } = await db.from('tenants').select('doc').eq('id', tenantId).maybeSingle();
+  return data?.doc?.name ?? tenantId;
+}
+// Create an `invited` member (no password) + emailed set-password link. Caller
+// must have already checked the email is free.
+async function createInvitedMember({ tenantId, tenantName, role, email, displayName }) {
+  const normalized = email.toLowerCase().trim();
+  const uid = `uid-${crypto.randomUUID()}`;
+  const doc = {
+    tenant_id: tenantId,
+    uid,
+    email: normalized,
+    role,
+    display_name: (displayName ?? '').trim() || normalized.split('@')[0],
+    status: 'invited',
+  };
+  const { error } = await db.from('members').insert(doc);
+  if (error) throw new ValidationError('Could not create the user.');
+  const { link } = await issueSetPasswordToken(uid, tenantId, normalized, 'invite');
+  await sendInviteEmail(normalized, link, tenantName, 'invite');
+  return { member: toMember(doc), link };
+}
 
 async function listRecords(tenantId, auditId) {
   const { data } = await db.from('field_records').select('kind,doc').eq('tenant_id', tenantId).eq('audit_id', auditId);
@@ -374,6 +470,158 @@ Deno.serve(async (req) => {
         expiresAt: new Date(exp * 1000).toISOString(),
         user: { uid: member.uid, tenantId: member.tenant_id, role: member.role, displayName: member.display_name, email: member.email },
       });
+    }
+
+    // Dedicated platform-superadmin sign-in: mints a tenant-less platform token.
+    if (method === 'POST' && seg[0] === 'auth' && seg[1] === 'superadmin-login') {
+      const body = await readJson(req);
+      const email = String(body.email ?? '').toLowerCase().trim();
+      const password = String(body.password ?? '');
+      const clientIp = (req.headers.get('x-forwarded-for') ?? '').split(',')[0].trim() || 'edge';
+      const rateKey = `superadmin|${email}|${clientIp}`;
+      if (loginRateLimited(rateKey)) return json(429, { error: 'Too many failed sign-in attempts. Try again later.' }, req);
+      const { data: member } = await db.from('members').select('*').ilike('email', email).maybeSingle();
+      if (
+        !member ||
+        member.role !== 'platformSuperadmin' ||
+        member.status !== 'active' ||
+        typeof member.password_hash !== 'string' ||
+        !(await verifyPassword(password, member.password_hash))
+      ) {
+        recordLoginFailure(rateKey);
+        return json(401, { error: 'Invalid email or password.' }, req);
+      }
+      loginAttempts.delete(rateKey);
+      const { token, exp } = await signJwt({ sub: member.uid, role: 'platformSuperadmin', platform: true });
+      return json(200, {
+        token,
+        expiresAt: new Date(exp * 1000).toISOString(),
+        user: { uid: member.uid, tenantId: null, role: 'platformSuperadmin', displayName: member.display_name, email: member.email },
+      }, req);
+    }
+
+    // One-time, secret-gated first-superadmin bootstrap. Self-disables once any
+    // superadmin exists. Creates the account 'invited' and returns/sends a
+    // set-password link so the operator chooses their own password.
+    if (method === 'POST' && seg[0] === 'auth' && seg[1] === 'superadmin-bootstrap') {
+      const body = await readJson(req);
+      if (!SUPERADMIN_BOOTSTRAP_SECRET || String(body.secret ?? '') !== SUPERADMIN_BOOTSTRAP_SECRET) {
+        return json(403, { error: 'Bootstrap is not enabled.' }, req);
+      }
+      const { data: anySuper } = await db.from('members').select('uid').eq('role', 'platformSuperadmin').limit(1);
+      if ((anySuper ?? []).length > 0) return json(409, { error: 'A superadmin already exists.' }, req);
+      const email = String(body.email ?? '').toLowerCase().trim();
+      const displayName = String(body.displayName ?? '').trim() || 'Platform Superadmin';
+      if (!EMAIL_RE.test(email)) return json(400, { error: 'Enter a valid email address.' }, req);
+      const uid = `uid-${crypto.randomUUID()}`;
+      const { error } = await db.from('members').insert({ tenant_id: PLATFORM_TENANT, uid, email, role: 'platformSuperadmin', display_name: displayName, status: 'invited' });
+      if (error) return json(500, { error: 'Could not create the superadmin.' }, req);
+      const { link } = await issueSetPasswordToken(uid, PLATFORM_TENANT, email, 'invite');
+      await sendInviteEmail(email, link, 'Platform', 'invite');
+      return json(201, { ok: true, email, setPasswordLink: EXPOSE_SET_PASSWORD_LINK ? link : undefined }, req);
+    }
+
+    // Public set-password page lookup (generic invalid → no account enumeration).
+    if (method === 'GET' && seg[0] === 'auth' && seg[1] === 'set-password' && seg[2]) {
+      return json(200, await describeSetPasswordToken(seg[2]), req);
+    }
+    // Public set-password consume: single-use, activates the account.
+    if (method === 'POST' && seg[0] === 'auth' && seg[1] === 'set-password' && !seg[2]) {
+      const body = await readJson(req);
+      const token = String(body.token ?? '');
+      const password = String(body.password ?? '');
+      if (password.length < 8) return json(400, { error: 'New password must be at least 8 characters.' }, req);
+      const id = await consumeSetPasswordToken(token);
+      await db
+        .from('members')
+        .update({ password_hash: await hashPassword(password), status: 'active' })
+        .eq('tenant_id', id.tenantId)
+        .eq('uid', id.uid);
+      return json(200, { ok: true }, req);
+    }
+
+    // --- Platform superadmin console (/admin/*) -----------------------------
+    if (seg[0] === 'admin' && seg[1] === 'tenants') {
+      const actor = await getActor(req);
+      requireSuperadmin(actor);
+
+      // Onboard a client: tenant + lead auditor + client users, in one call.
+      if (method === 'POST' && seg.length === 2) {
+        const body = await readJson(req);
+        const cmd = cleanProvisionClient(body);
+        const idem = String(body.idempotencyKey ?? '');
+        if (idem) {
+          const { data: prior } = await db.from('tenants').select('id').eq('idempotency_key', idem).maybeSingle();
+          if (prior) return json(200, { tenantId: prior.id, idempotent: true, members: [] }, req);
+        }
+        const tenantId = `tenant-${crypto.randomUUID()}`;
+        const now = new Date().toISOString();
+        await db.from('tenants').insert({
+          id: tenantId,
+          idempotency_key: idem || null,
+          doc: { id: tenantId, name: cmd.tenantName, plan: cmd.plan, status: 'active', createdAt: now },
+          created_at: now,
+        });
+        const members = [];
+        for (const u of [{ ...cmd.leadAuditor, role: 'leadAuditor' }, ...cmd.clientUsers]) {
+          const { data: existing } = await db.from('members').select('uid').ilike('email', u.email).maybeSingle();
+          if (existing) continue; // idempotent: skip an email already on the platform
+          const { member, link } = await createInvitedMember({ tenantId, tenantName: cmd.tenantName, role: u.role, email: u.email, displayName: u.displayName });
+          members.push({ ...member, tenantId, setPasswordLink: EXPOSE_SET_PASSWORD_LINK ? link : undefined });
+          await logChange(tenantId, PLATFORM_TENANT, actor.uid, 'member.invite', 'member', member.uid);
+        }
+        await logChange(tenantId, PLATFORM_TENANT, actor.uid, 'tenant.provision', 'tenant', tenantId);
+        return json(201, { tenantId, members }, req);
+      }
+
+      if (method === 'GET' && seg.length === 2) {
+        const { data: tenants } = await db.from('tenants').select('doc').order('created_at', { ascending: false });
+        const { data: allMembers } = await db.from('members').select('tenant_id');
+        const counts = {};
+        for (const m of allMembers ?? []) counts[m.tenant_id] = (counts[m.tenant_id] ?? 0) + 1;
+        return json(200, { tenants: (tenants ?? []).map((t) => ({ ...t.doc, memberCount: counts[t.doc.id] ?? 0 })) }, req);
+      }
+
+      const tenantId = seg[2];
+      // /admin/tenants/:t/members ...
+      if (seg[3] === 'members') {
+        const targetUid = seg[4];
+        if (method === 'GET' && !targetUid) {
+          const { data } = await db.from('members').select('uid,email,role,display_name,status,created_at,tenant_id').eq('tenant_id', tenantId).order('created_at', { ascending: true });
+          return json(200, { members: (data ?? []).map((m) => ({ ...toMember(m), tenantId: m.tenant_id })) }, req);
+        }
+        if (method === 'POST' && !targetUid) {
+          const body = await readJson(req);
+          const email = String(body.email ?? '').toLowerCase().trim();
+          const role = TENANT_ROLES.includes(String(body.role)) ? String(body.role) : 'clientViewer';
+          if (!EMAIL_RE.test(email)) return json(400, { error: 'Enter a valid email address.' }, req);
+          const { data: existing } = await db.from('members').select('uid').ilike('email', email).maybeSingle();
+          if (existing) return json(409, { error: 'A user with that email already exists.' }, req);
+          const { member, link } = await createInvitedMember({ tenantId, tenantName: await tenantNameFor(tenantId), role, email, displayName: String(body.displayName ?? '') });
+          return json(201, { member: { ...member, tenantId }, setPasswordLink: EXPOSE_SET_PASSWORD_LINK ? link : undefined }, req);
+        }
+        if (targetUid && method === 'POST' && (seg[5] === 'resend' || seg[5] === 'revoke')) {
+          const { data: target } = await db.from('members').select('uid,email,display_name').eq('tenant_id', tenantId).eq('uid', targetUid).maybeSingle();
+          if (!target) return json(404, { error: 'User not found.' }, req);
+          if (seg[5] === 'revoke') {
+            await db.from('set_password_tokens').update({ consumed_at: new Date().toISOString() }).eq('uid', targetUid).is('consumed_at', null);
+            await logChange(tenantId, PLATFORM_TENANT, actor.uid, 'link.revoke', 'member', targetUid);
+            return json(200, { ok: true }, req);
+          }
+          const { link } = await issueSetPasswordToken(targetUid, tenantId, target.email, 'invite');
+          await sendInviteEmail(target.email, link, await tenantNameFor(tenantId), 'invite');
+          await logChange(tenantId, PLATFORM_TENANT, actor.uid, 'link.resend', 'member', targetUid);
+          return json(200, { ok: true, setPasswordLink: EXPOSE_SET_PASSWORD_LINK ? link : undefined }, req);
+        }
+        if (targetUid && method === 'PUT' && !seg[5]) {
+          const body = await readJson(req);
+          if (!['active', 'disabled'].includes(String(body.status))) return json(400, { error: 'Unknown status.' }, req);
+          const { error } = await db.from('members').update({ status: body.status }).eq('tenant_id', tenantId).eq('uid', targetUid);
+          if (error) return json(500, { error: 'Could not update the user.' }, req);
+          await logChange(tenantId, PLATFORM_TENANT, actor.uid, `member.${body.status}`, 'member', targetUid);
+          return json(200, { ok: true }, req);
+        }
+      }
     }
 
     // Step 2 of MFA login: exchange the challenge token + a valid TOTP code for a real token.
@@ -617,21 +865,9 @@ Deno.serve(async (req) => {
         }
         const { data: existing } = await db.from('members').select('uid').ilike('email', email).maybeSingle();
         if (existing) return json(409, { error: 'A user with that email already exists.' });
-        const provided = typeof body.password === 'string' && body.password.length >= 8 ? body.password : '';
-        const temp = provided ? '' : tempPassword();
-        const uid = `uid-${crypto.randomUUID()}`;
-        const doc = {
-          tenant_id: tenantId,
-          uid,
-          email,
-          role,
-          display_name: displayName || email.split('@')[0],
-          password_hash: await hashPassword(provided || temp),
-          status: 'active',
-        };
-        const { error } = await db.from('members').insert(doc);
-        if (error) return json(500, { error: 'Could not create the user.' });
-        return json(201, { member: toMember(doc), tempPassword: temp || undefined });
+        // Invite flow: create 'invited' (no password) and email a set-password link.
+        const { member, link } = await createInvitedMember({ tenantId, tenantName: await tenantNameFor(tenantId), role, email, displayName });
+        return json(201, { member, setPasswordLink: EXPOSE_SET_PASSWORD_LINK ? link : undefined });
       }
 
       if (targetUid) {
@@ -644,11 +880,10 @@ Deno.serve(async (req) => {
         if (!target) return json(404, { error: 'User not found.' });
 
         if (method === 'POST' && seg[4] === 'password') {
-          const body = await readJson(req);
-          const provided = typeof body.password === 'string' && body.password.length >= 8 ? body.password : '';
-          const temp = provided ? '' : tempPassword();
-          await db.from('members').update({ password_hash: await hashPassword(provided || temp) }).eq('tenant_id', tenantId).eq('uid', targetUid);
-          return json(200, { ok: true, tempPassword: temp || undefined });
+          // Issue a single-use set-password link instead of a raw temp password.
+          const { link } = await issueSetPasswordToken(targetUid, tenantId, target.email, 'reset');
+          await sendInviteEmail(target.email, link, await tenantNameFor(tenantId), 'reset');
+          return json(200, { ok: true, setPasswordLink: EXPOSE_SET_PASSWORD_LINK ? link : undefined });
         }
 
         if (method === 'PUT') {
@@ -756,6 +991,7 @@ Deno.serve(async (req) => {
           audit: auditRow?.doc ?? null,
           items: byKind('checklist'),
           evidence: byKind('evidence'),
+          evidenceRequests: byKind('evidenceRequest'),
           findings: byKind('finding'),
           capas: byKind('capa'),
           aspects: byKind('aspect'),
@@ -930,6 +1166,26 @@ Deno.serve(async (req) => {
         const finding = cleanFinding(body, requireId(rest[1]));
         await upsertRecord(tenantId, auditId, 'finding', finding.id, finding);
         return json(200, { finding });
+      }
+
+      // Client portal evidence request. Auditors author it; an auditee
+      // (clientViewer) may only append submissions/messages (merge boundary).
+      if (method === 'PUT' && rest[0] === 'evidence-requests' && rest[1]) {
+        requireRole(actor, ['leadAuditor', 'auditor', 'clientViewer']);
+        const body = await readJson(req);
+        const id = requireId(rest[1]);
+        if (actor.role === 'clientViewer') {
+          const existing = await getRecord(tenantId, auditId, 'evidenceRequest', id);
+          if (!existing) throw new AuthError('Auditees cannot create evidence requests.');
+          const merged = mergeAuditeeEvidenceRequest(existing, body);
+          await upsertRecord(tenantId, auditId, 'evidenceRequest', id, merged);
+          await logChange(tenantId, auditId, actor.uid, 'auditee-update', 'evidenceRequest', id);
+          return json(200, { evidenceRequest: merged }, req);
+        }
+        const record = cleanEvidenceRequest(body, id);
+        await upsertRecord(tenantId, auditId, 'evidenceRequest', id, record);
+        await logChange(tenantId, auditId, actor.uid, 'upsert', 'evidenceRequest', id);
+        return json(200, { evidenceRequest: record }, req);
       }
 
       if (method === 'POST' && rest[0] === 'capa' && rest[1] && rest[2] === 'verify') {
