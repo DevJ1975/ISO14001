@@ -8,8 +8,17 @@ import { test, expect } from '@playwright/test';
  * updates the compliance-register framing hint.
  */
 async function enterOfflineDemo(page: import('@playwright/test').Page): Promise<void> {
+  // Suppress the unrelated first-run welcome tour (its scrim overlay intercepts clicks).
+  await page.addInitScript(() => {
+    try {
+      localStorage.setItem('soteria-tour-seen', '1');
+      localStorage.setItem('soteria-guided-tour-done', '1');
+    } catch {
+      /* ignore */
+    }
+  });
   await page.goto('/login');
-  await page.getByRole('button', { name: /offline demo mode/i }).click();
+  await page.getByRole('button', { name: /Demo as auditor/i }).click();
   await expect(page.getByRole('navigation', { name: /primary/i }).first()).toBeVisible();
 }
 
@@ -46,8 +55,10 @@ test.describe('i18n + jurisdiction', () => {
 
     await page.reload();
 
-    await expect(localeSelect(page)).toHaveValue('fr');
+    // The user-visible outcome: the navigation is still French after a reload…
     await expect(page.getByRole('link', { name: 'Registres' }).first()).toBeVisible();
+    // …and the switcher reflects the persisted choice.
+    await expect(localeSelect(page)).toHaveValue('fr');
   });
 
   test('switching the jurisdiction updates the compliance framing hint', async ({ page }) => {

@@ -8,8 +8,17 @@ import { test, expect } from '@playwright/test';
  * allowed to draft, and the demo seeds one Minor NC finding to act on.
  */
 async function enterOfflineDemo(page: import('@playwright/test').Page): Promise<void> {
+  // Suppress the unrelated first-run welcome tour (its scrim overlay intercepts clicks).
+  await page.addInitScript(() => {
+    try {
+      localStorage.setItem('soteria-tour-seen', '1');
+      localStorage.setItem('soteria-guided-tour-done', '1');
+    } catch {
+      /* ignore */
+    }
+  });
   await page.goto('/login');
-  await page.getByRole('button', { name: /offline demo mode/i }).click();
+  await page.getByRole('button', { name: /Demo as auditor/i }).click();
   await expect(page.getByRole('navigation', { name: /primary/i }).first()).toBeVisible();
 }
 
