@@ -12,7 +12,8 @@
     "lint": "eslint .",
     "e2e": "playwright test",
     "typecheck": "tsc --noEmit -p tsconfig.spec.json",
-    "mongo:init": "tsx server/scripts/init-mongo.ts"
+    "mongo:init": "tsx server/scripts/init-mongo.ts",
+    "superadmin:invite": "tsx server/scripts/create-superadmin.ts"
   },
   "engines": {
     "node": "20.x"

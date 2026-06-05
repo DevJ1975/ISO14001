@@ -11,6 +11,8 @@ interface TokenInfo {
   valid: boolean;
   email?: string;
   purpose?: 'invite' | 'reset';
+  /** True for a tenant-less platform superadmin account (signs in at /admin/login). */
+  platform?: boolean;
 }
 
 /**
@@ -86,6 +88,6 @@ export class SetPasswordComponent {
   }
 
   protected goToSignIn(): void {
-    void this.router.navigateByUrl('/login');
+    void this.router.navigateByUrl(this.info().platform ? '/admin/login' : '/login');
   }
 }

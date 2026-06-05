@@ -72,14 +72,15 @@ export async function issueSetPasswordToken(
 export async function describeSetPasswordToken(
   db: Db,
   token: string,
-): Promise<{ valid: false } | { valid: true; email: string; purpose: SetPasswordPurpose }> {
+): Promise<{ valid: false } | { valid: true; email: string; purpose: SetPasswordPurpose; platform: boolean }> {
   const record = (await db
     .collection(mongoCollections.setPasswordTokens)
     .findOne({ tokenHash: hashToken(token) }, { projection: { _id: 0 } })) as SetPasswordTokenRecord | null;
   if (!record || record.consumedAt || new Date(record.expiresAt).getTime() < Date.now()) {
     return { valid: false };
   }
-  return { valid: true, email: record.email, purpose: record.purpose };
+  // platform: a tenant-less account (the platform superadmin) signs in elsewhere.
+  return { valid: true, email: record.email, purpose: record.purpose, platform: record.tenantId === null };
 }
 
 /**
