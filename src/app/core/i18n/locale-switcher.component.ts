@@ -22,12 +22,11 @@ import type { JurisdictionId } from '../domain/jurisdiction';
       <mat-icon aria-hidden="true">language</mat-icon>
       <span class="sr-only">{{ 'shell.language' | t }}</span>
       <select
-        [value]="i18n.locale()"
         (change)="onLocale($any($event.target).value)"
         [attr.aria-label]="'shell.language' | t"
       >
         @for (opt of i18n.options; track opt.id) {
-          <option [value]="opt.id">{{ opt.label }}</option>
+          <option [value]="opt.id" [selected]="opt.id === i18n.locale()">{{ opt.label }}</option>
         }
       </select>
     </label>
@@ -36,12 +35,11 @@ import type { JurisdictionId } from '../domain/jurisdiction';
       <mat-icon aria-hidden="true">public</mat-icon>
       <span class="sr-only">{{ 'shell.jurisdiction' | t }}</span>
       <select
-        [value]="jurisdiction.jurisdiction()"
         (change)="onJurisdiction($any($event.target).value)"
         [attr.aria-label]="'shell.jurisdiction' | t"
       >
         @for (opt of jurisdiction.options; track opt.id) {
-          <option [value]="opt.id">{{ opt.label }}</option>
+          <option [value]="opt.id" [selected]="opt.id === jurisdiction.jurisdiction()">{{ opt.label }}</option>
         }
       </select>
     </label>

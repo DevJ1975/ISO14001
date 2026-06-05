@@ -134,7 +134,11 @@ export class AuthService {
 
   private readValidToken(): string | null {
     const token = this.read(TOKEN_KEY);
-    if (!token || this.isExpired(token)) {
+    // No token at all (e.g. an offline demo session) is a valid state — leave any
+    // persisted user intact so a page reload keeps the offline identity & its role.
+    if (!token) return null;
+    // A token that exists but has expired is a stale session — clear it and the user.
+    if (this.isExpired(token)) {
       this.remove(TOKEN_KEY);
       this.remove(USER_KEY);
       return null;

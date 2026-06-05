@@ -6,8 +6,17 @@ import * as path from 'node:path';
 const SHOTS = '/tmp/p0-shots';
 
 async function enterOfflineDemo(page: import('@playwright/test').Page): Promise<void> {
+  // Suppress the unrelated first-run welcome tour (its scrim overlay intercepts clicks).
+  await page.addInitScript(() => {
+    try {
+      localStorage.setItem('soteria-tour-seen', '1');
+      localStorage.setItem('soteria-guided-tour-done', '1');
+    } catch {
+      /* ignore */
+    }
+  });
   await page.goto('/login');
-  await page.getByRole('button', { name: /offline demo mode/i }).click();
+  await page.getByRole('button', { name: /Demo as auditor/i }).click();
   await expect(page.getByRole('navigation', { name: /primary/i })).toBeVisible();
 }
 
