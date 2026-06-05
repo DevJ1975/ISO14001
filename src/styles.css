@@ -143,6 +143,14 @@ select {
   font: inherit;
 }
 
+/* Accessible placeholder contrast. The browser default placeholder colour falls
+   well below WCAG AA (≈1.7–3.9:1); pin it to the muted-text token (≈6–7:1 in
+   both themes) with full opacity so hints stay legible for low-vision users. */
+::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
+
 /* Material Symbols rendering */
 .material-symbols-outlined {
   font-variation-settings: 'FILL' 0, 'wght' 420, 'GRAD' 0, 'opsz' 24;
