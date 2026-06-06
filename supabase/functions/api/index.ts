@@ -17,6 +17,31 @@ import {
   ValidationError,
 } from './_validation.ts';
 
+// Anthropic Messages call with retry/backoff (mirrors server/anthropic.ts).
+// Rate limits (429), overload (529) and transient 5xx are retried with capped
+// exponential backoff + jitter, honoring `retry-after`; callers keep their
+// existing non-OK handling and the client falls back to its offline draft.
+const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
+function isRetryableAnthropicStatus(status: number): boolean {
+  return status === 429 || status === 529 || (status >= 500 && status <= 599);
+}
+function anthropicBackoffMs(attempt: number, retryAfter: string | null): number {
+  const base = 500;
+  const cap = 4000;
+  if (retryAfter && /^\d+$/.test(retryAfter.trim())) return Math.min(Number(retryAfter.trim()) * 1000, cap);
+  const exp = base * 2 ** (Math.max(1, attempt) - 1);
+  return Math.min(Math.round(exp + Math.random() * base), cap);
+}
+async function anthropicFetch(init: RequestInit): Promise<Response> {
+  const maxRetries = 3;
+  for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
+    const res = await fetch(ANTHROPIC_URL, init);
+    if (res.ok || !isRetryableAnthropicStatus(res.status) || attempt > maxRetries) return res;
+    await new Promise((resolve) => setTimeout(resolve, anthropicBackoffMs(attempt, res.headers.get('retry-after'))));
+  }
+  return fetch(ANTHROPIC_URL, init);
+}
+
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 // SECURITY: the app JWT must be signed with a dedicated secret. We deliberately
@@ -1113,7 +1138,7 @@ Deno.serve(async (req) => {
         const system =
           'You are an ISO 45001 occupational health & safety auditor assistant reviewing a single site photo. Suggest only what is visible. Use ISO 45001 clause numbers and short titles only; do NOT quote or paraphrase verbatim ISO requirement text. Respond with a strict JSON object only with keys: observations (string[]), hazardTags (string[]), suggestedClauseId (string), suggestedFindingStatement (string), suggestedType (one of minorNc, majorNc, ofi, conformity). Every suggestion is a candidate for an auditor to review; do not assert conclusions.';
         try {
-          const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
+          const aiRes = await anthropicFetch({
             method: 'POST',
             headers: { 'content-type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
             body: JSON.stringify({
@@ -1278,7 +1303,7 @@ Deno.serve(async (req) => {
         const system =
           'You are an ISO 45001 lead auditor assistant drafting an audit report. Use ONLY the audit data provided and ISO 45001 clause numbers and short titles. Do NOT quote or paraphrase verbatim ISO requirement text. Respond with a strict JSON object only, with keys overallConformity, emsEffectivenessOpinion, criteriaMetStatement, recommendation. recommendation must be one of recommend, conditional, notRecommended, satisfactory, actionRequired.';
         try {
-          const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
+          const aiRes = await anthropicFetch({
             method: 'POST',
             headers: { 'content-type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
             body: JSON.stringify({
@@ -1326,7 +1351,7 @@ Deno.serve(async (req) => {
         const system =
           'You are an ISO 45001 lead auditor assistant drafting (a) a tailored audit agenda and (b) opening- and closing-meeting talking-point scripts. Use ONLY the audit data provided and ISO 45001 clause numbers and short titles. Do NOT quote or paraphrase verbatim ISO requirement text. Respond with a strict JSON object only, with two keys: "agenda" and "scripts". "agenda" has keys title, scope, criteria, objectives (string array), itinerary (array of {clause, title, duration, focus}) and samplingNotes (string array). "scripts" has keys opening and closing, each an object with heading and talkingPoints (string array). The opening script covers introductions, confidentiality, safety induction/PPE/permits, scope+criteria+methods, the sampling caveat, how findings are graded and communicated, and closing-meeting arrangements. The closing script covers a findings summary by grade, agreed correction timelines (major ~30 days, minor ~90 days), auditee acknowledgement, and the recommendation plus next steps.';
         try {
-          const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
+          const aiRes = await anthropicFetch({
             method: 'POST',
             headers: { 'content-type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
             body: JSON.stringify({
@@ -1398,7 +1423,7 @@ Deno.serve(async (req) => {
         const system =
           "You are an ISO 45001 lead auditor assistant. Answer the auditor's question using ISO 45001 clause numbers and short titles plus general OH&S auditing good practice. Do NOT quote or paraphrase verbatim ISO requirement text. Respond with a strict JSON object only: { \"answer\": string, \"clauseRefs\": [{ \"clauseId\": string, \"title\": string }] }.";
         try {
-          const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
+          const aiRes = await anthropicFetch({
             method: 'POST',
             headers: { 'content-type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
             body: JSON.stringify({ model, max_tokens: 900, system, messages: [{ role: 'user', content: question }] }),
@@ -1433,7 +1458,7 @@ Deno.serve(async (req) => {
         const system =
           'You are an ISO 45001 lead auditor assistant drafting a single audit finding (nonconformity). Use ONLY the finding data provided (clause id/title, note, result, evidence labels) and ISO 45001 clause numbers and short titles. Do NOT quote or paraphrase verbatim ISO requirement text; never use the word "shall". Respond with a strict JSON object only, with keys draftStatement, requirementSummary, objectiveEvidence, suggestedType, gradingRationale, rootCausePrompts. suggestedType must be one of majorNc, minorNc, ofi. rootCausePrompts must be an array of short question strings.';
         try {
-          const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
+          const aiRes = await anthropicFetch({
             method: 'POST',
             headers: { 'content-type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
             body: JSON.stringify({
@@ -1486,7 +1511,7 @@ Deno.serve(async (req) => {
         const system =
           'You are an ISO 45001 lead auditor assistant tailoring the audit checklist emphasis to a specific client. Use ONLY the client context provided (sector, headcount, sites, key hazards/processes, prior findings) and ISO 45001 clause numbers and short titles. Do NOT quote or paraphrase verbatim ISO requirement text; never use the word "shall". Respond with a strict JSON object only, with keys summary, areas, riskNotes. "areas" is an array of { clauseId, clauseTitle, priority, rationale, focusPrompts } where priority is one of high, medium and focusPrompts is an array of short question strings. "riskNotes" is an array of short strings. Order areas with the highest-priority first.';
         try {
-          const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
+          const aiRes = await anthropicFetch({
             method: 'POST',
             headers: { 'content-type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
             body: JSON.stringify({
@@ -1542,7 +1567,7 @@ Deno.serve(async (req) => {
         const system =
           'You are an ISO 45001 lead auditor assistant suggesting a root-cause analysis and a draft corrective-action plan for a single finding (nonconformity or opportunity for improvement). Use ONLY the finding data provided (clause id/title, type, title, description, systemic flag, related register context) and ISO 45001 clause numbers and short titles. Do NOT quote or paraphrase verbatim ISO requirement text; never use the word "shall". Frame root causes as hypotheses to test, not conclusions. Respond with a strict JSON object only, with keys rootCauseHypotheses, correctiveActions, containment, summary. "rootCauseHypotheses" is an array of short strings. "correctiveActions" is an array of { action, owner, why } where owner is a suggested role and why is a short rationale. "containment" is a short string (or omit it for an opportunity for improvement). "summary" is a one-line string.';
         try {
-          const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
+          const aiRes = await anthropicFetch({
             method: 'POST',
             headers: { 'content-type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
             body: JSON.stringify({
