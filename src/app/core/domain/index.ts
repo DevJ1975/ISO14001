@@ -19,6 +19,7 @@ export * from './ohs-documents.js';
 export * from './multi-site-sampling.js';
 export * from './ohs-governance.js';
 export * from './ohs-incidents.js';
+export * from './incident-metrics.js';
 export * from './ohs-legal.js';
 export * from './ohs-performance.js';
 export * from './ohs-registers.js';

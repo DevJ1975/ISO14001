@@ -11,15 +11,22 @@ import {
   CalibrationStatus,
   calibrationStatus,
   clauseGuideFor,
+  CorrectiveActionDraft,
   editionFromCriteria,
   DocumentReviewStatus,
   documentReviewStatus,
   evaluateRiskRating,
+  type IncidentRates,
+  computeIncidentRates,
   metricVariance,
   MocAttention,
   mocAttention,
   PermitExpiryStatus,
   permitExpiryStatus,
+  type ReportingDeadline,
+  reportingDeadline,
+  type RegulatorSubmissionStatus,
+  regulatorSubmissionStatus,
   SupplierEvaluationStatus,
   supplierEvaluationStatus,
   TrainingStatus,
@@ -28,9 +35,15 @@ import {
 import { CsvExportService } from '../../core/export/csv-export.service';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { JurisdictionService } from '../../core/jurisdiction/jurisdiction.service';
-import { ComplianceEvaluation, ContextItem, EnvironmentalAspect, EnvironmentalObjective, EnvironmentalObligation, Hazard, FieldAuditStore, HiraEntry, Interview, LeadershipItem, OperationalControl, Permit, RegisterResult } from '../../core/field/field-audit-store';
+import { ComplianceEvaluation, ContextItem, EnvironmentalAspect, EnvironmentalObjective, EnvironmentalObligation, Hazard, FieldAuditStore, HiraEntry, Incident, Interview, LeadershipItem, OperationalControl, Permit, RegisterResult } from '../../core/field/field-audit-store';
 import { ConfirmService } from '../../core/ui/confirm.service';
 import { ToastService } from '../../core/ui/toast.service';
+import {
+  buildOsha300ASummaryCsv,
+  buildOsha300Log,
+  buildOsha301ReportCsv,
+  buildRiddorReportCsv,
+} from './incident-forms';
 import {
   calibrationColumns,
   changeColumns,
@@ -491,6 +504,155 @@ export class RegistersComponent {
   protected async openAttachment(blobKey: string | undefined): Promise<void> {
     const url = await this.store.resolveAttachmentUrl(blobKey);
     if (url && typeof window !== 'undefined') window.open(url, '_blank');
+  }
+
+  // --- Incident reporting (cl. 10.2): investigation depth, jurisdiction-aware
+  //     recordability/reporting, attachments, CAPA spawn, analytics ---
+
+  /** IDs of incidents whose corrective-action suggestion is currently generating, for the busy state. */
+  protected readonly incidentSuggesting = signal<ReadonlySet<string>>(new Set());
+
+  /** True when the active jurisdiction is the US (drives the OSHA field set). */
+  protected isUs(): boolean {
+    return this.jurisdiction.jurisdiction() === 'US';
+  }
+
+  /** True when the active jurisdiction is the UK (drives the RIDDOR framing). */
+  protected isUk(): boolean {
+    return this.jurisdiction.jurisdiction() === 'UK';
+  }
+
+  /** Label for the "reportable" flag, jurisdiction-aware (OSHA / RIDDOR / generic). */
+  protected reportableLabel(): string {
+    if (this.isUs()) return 'Reportable to OSHA';
+    if (this.isUk()) return 'RIDDOR reportable';
+    return 'Reportable to regulator';
+  }
+
+  /** Short label for the regulator the report goes to, jurisdiction-aware. */
+  protected regulatorLabel(): string {
+    if (this.isUs()) return 'OSHA';
+    if (this.isUk()) return 'RIDDOR';
+    return 'Regulator';
+  }
+
+  /** Attach a picked evidence file to an incident, then reset the input. */
+  protected onIncidentFile(incidentId: string, event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (file) void this.store.addIncidentAttachment(incidentId, file);
+    input.value = '';
+  }
+
+  /** Confirm before removing an incident attachment (destructive, no undo). */
+  protected async confirmRemoveIncidentAttachment(incidentId: string, attachmentId: string, name: string): Promise<void> {
+    const ok = await this.confirm.ask({
+      title: 'Remove attachment?',
+      message: `"${name}" will be removed from this incident.`,
+      confirmLabel: 'Remove',
+      danger: true,
+    });
+    if (ok) void this.store.removeIncidentAttachment(incidentId, attachmentId);
+  }
+
+  /**
+   * Update an incident's status from the dropdown, honouring the effectiveness
+   * closure gate. A blocked closure (not yet verified effective) shows an inline
+   * toast hint instead of hard-failing; the select is reset by the re-render.
+   */
+  protected setIncidentStatus(incident: Incident, status: string): void {
+    const applied = this.store.updateIncident(incident.id, { status: status as Incident['status'] });
+    if (!applied) {
+      this.toast.saved('Verify effectiveness before closing this incident (cl. 10.2).');
+    }
+  }
+
+  /** True when the incident may not be closed yet because effectiveness is unverified. */
+  protected closureBlocked(incident: Incident): boolean {
+    return incident.status !== 'closed' && incident.verifiedEffective !== true;
+  }
+
+  /** True when the incident's corrective-action ref points at a real spawned finding. */
+  protected hasLinkedFinding(incident: Incident): boolean {
+    return !!incident.correctiveActionRef && this.store.findings().some((f) => f.id === incident.correctiveActionRef);
+  }
+
+  /** Spawn a finding + CAPA from an incident and link it back (cl. 10.2). */
+  protected createCorrectiveAction(incident: Incident): void {
+    const finding = this.store.createCorrectiveActionFromIncident(incident.id);
+    if (finding) this.toast.saved('Corrective action created in Findings.');
+  }
+
+  /** Generate a read-only corrective-action suggestion seeded from the incident. */
+  protected async suggestIncidentCorrectiveAction(incident: Incident): Promise<void> {
+    if (this.incidentSuggesting().has(incident.id)) return;
+    this.incidentSuggesting.update((set) => new Set(set).add(incident.id));
+    try {
+      await this.store.generateIncidentCorrectiveAction(incident.id);
+    } finally {
+      this.incidentSuggesting.update((set) => {
+        const next = new Set(set);
+        next.delete(incident.id);
+        return next;
+      });
+    }
+  }
+
+  protected isIncidentSuggesting(id: string): boolean {
+    return this.incidentSuggesting().has(id);
+  }
+
+  protected incidentCorrectiveAction(id: string): CorrectiveActionDraft | null {
+    return this.store.correctiveActionDrafts()[id] ?? null;
+  }
+
+  protected incidentCorrectiveActionInfo(id: string): { source: 'ai' | 'ruleBased'; generatedAt: string } | null {
+    return this.store.correctiveActionInfo()[id] ?? null;
+  }
+
+  protected formatTime(iso: string): string {
+    return new Date(iso).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+  }
+
+  /** Statutory reporting-deadline determination for an incident (OSHA / RIDDOR / generic). */
+  protected incidentDeadline(incident: Incident): ReportingDeadline {
+    return reportingDeadline(incident, this.jurisdiction.jurisdiction());
+  }
+
+  /** Regulator-submission status for an incident, for the inline badge. */
+  protected incidentSubmissionStatus(incident: Incident): RegulatorSubmissionStatus {
+    return regulatorSubmissionStatus(incident, this.jurisdiction.jurisdiction());
+  }
+
+  /** Computed safety-performance rates over the incident list and hours worked. */
+  protected readonly incidentRates = computed<IncidentRates>(() =>
+    computeIncidentRates(this.store.incidents(), this.store.hoursWorked()),
+  );
+
+  /** Persist the hours-worked denominator for the incident-rate KPIs. */
+  protected onHoursWorked(value: string): void {
+    const parsed = Number(String(value ?? '').replace(/[, ]/g, ''));
+    this.store.setHoursWorked(Number.isFinite(parsed) ? parsed : 0);
+  }
+
+  /** Export the OSHA 300 Log (recordable cases only) as CSV. */
+  protected exportOsha300(): void {
+    this.csv.downloadRaw('OSHA 300 Log', buildOsha300Log(this.store.incidents()));
+  }
+
+  /** Export the OSHA 300A annual-summary totals (with computed rates) as CSV. */
+  protected exportOsha300A(): void {
+    this.csv.downloadRaw('OSHA 300A summary', buildOsha300ASummaryCsv(this.store.incidents(), this.store.hoursWorked()));
+  }
+
+  /** Export an OSHA 301-style per-incident report as CSV. */
+  protected exportOsha301(incident: Incident): void {
+    this.csv.downloadRaw(`OSHA 301 ${incident.reference || incident.title || 'incident'}`, buildOsha301ReportCsv(incident));
+  }
+
+  /** Export a RIDDOR-style per-incident report as CSV. */
+  protected exportRiddor(incident: Incident): void {
+    this.csv.downloadRaw(`RIDDOR ${incident.reference || incident.title || 'incident'}`, buildRiddorReportCsv(incident));
   }
 
   /** Count of permits expiring soon or already expired, for the register alert. */

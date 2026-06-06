@@ -647,21 +647,53 @@ const permitUpsertCommandSchema = z.object({
   result: registerResultSchema.default('notStarted'),
 });
 
+const incidentAttachmentSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().max(300),
+  mime: z.string().max(200).optional(),
+  size: z.number().int().min(0).optional(),
+  blobKey: z.string().max(200),
+  uploaded: z.boolean().optional(),
+  addedAt: z.string().max(40),
+});
+
 const incidentUpsertCommandSchema = z.object({
   id: z.string().min(1),
+  reference: z.string().max(40).optional(),
   title: z.string().max(300).default(''),
   occurredAt: z.string().max(40).optional(),
+  reportedAt: z.string().max(40).optional(),
   location: z.string().max(300).optional(),
   incidentType: z
     .enum(['injury', 'illHealth', 'nearMiss', 'dangerousOccurrence', 'propertyDamage', 'fatality', 'other'])
     .default('injury'),
   severity: z.enum(['low', 'medium', 'high']).default('low'),
+  potentialSeverity: z.enum(['low', 'medium', 'high']).optional(),
   description: z.string().max(2000).optional(),
   immediateAction: z.string().max(2000).optional(),
+  peopleInvolved: z.string().max(2000).optional(),
   rootCause: z.string().max(2000).optional(),
+  investigator: z.string().max(300).optional(),
+  investigationMethod: z.enum(['fiveWhys', 'fishbone', 'icam', 'tapRoot', 'other']).optional(),
+  contributingFactors: z.string().max(2000).optional(),
+  investigationFindings: z.string().max(2000).optional(),
+  workerParticipation: z.string().max(2000).optional(),
+  attachments: z.array(incidentAttachmentSchema).max(50).optional(),
   correctiveActionRef: z.string().max(200).optional(),
   injuryClassification: z.enum(['none', 'firstAid', 'medicalTreatment', 'lostTime', 'riddor']).optional(),
+  agency: z.string().max(300).optional(),
+  bodyPart: z.string().max(200).optional(),
+  oshaRecordable: z.boolean().optional(),
+  oshaCaseClassification: z.enum(['death', 'daysAway', 'restrictedOrTransfer', 'otherRecordable']).optional(),
+  daysAway: z.number().int().min(0).max(9999).optional(),
+  daysRestricted: z.number().int().min(0).max(9999).optional(),
+  privacyConcern: z.boolean().optional(),
   reportableToRegulator: z.boolean().optional(),
+  reportedToRegulatorAt: z.string().max(40).optional(),
+  regulatorReference: z.string().max(200).optional(),
+  reportingChannel: z.string().max(200).optional(),
+  verifiedEffective: z.boolean().optional(),
+  verificationNote: z.string().max(2000).optional(),
   status: z.enum(['open', 'investigating', 'actioned', 'closed']).default('open'),
   result: registerResultSchema.default('notStarted'),
 });

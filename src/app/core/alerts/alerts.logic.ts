@@ -2,11 +2,13 @@ import {
   calibrationStatus,
   type ComplaintStatus,
   type IncidentStatus,
+  type JurisdictionId,
   isComplaintOverdue,
   isIncidentOpen,
   mocAttention,
   type MocStatus,
   permitExpiryStatus,
+  regulatorSubmissionStatus,
   supplierEvaluationStatus,
   trainingStatus,
 } from '../domain';
@@ -41,9 +43,22 @@ export interface AlertInput {
   training: { id: string; person: string; course: string; completedAt?: string; expiresAt?: string; mandatory?: boolean }[];
   suppliers: { id: string; name: string; environmentallyRelevant?: boolean; lastEvaluatedAt?: string; nextEvaluationAt?: string }[];
   changes: { id: string; title: string; status: string; aspectsReviewed?: boolean; targetDate?: string }[];
-  incidents: { id: string; title: string; severity: string; status: string }[];
+  incidents: {
+    id: string;
+    title: string;
+    severity: string;
+    status: string;
+    incidentType?: string;
+    injuryClassification?: string;
+    oshaCaseClassification?: 'death' | 'daysAway' | 'restrictedOrTransfer' | 'otherRecordable';
+    reportableToRegulator?: boolean;
+    occurredAt?: string;
+    reportedToRegulatorAt?: string;
+  }[];
   plannedAudits: { id: string; type: string; dueDate: string; status: string }[];
   complaints: { id: string; kind: string; subject: string; dueDate?: string; status: string }[];
+  /** Active jurisdiction — drives statutory reporting-deadline alerts (OSHA / RIDDOR). */
+  jurisdiction?: JurisdictionId;
   outboxCount: number;
 }
 
@@ -93,6 +108,32 @@ export function buildAlerts(input: AlertInput): AlertItem[] {
         severity: incident.severity === 'high' ? 'critical' : 'warning',
         category: 'Incident',
         title: `Open incident: ${incident.title || 'untitled'}`,
+        link: '/registers',
+        fragment: 'incidents',
+      });
+    }
+    // Statutory reporting-deadline awareness: a reportable incident whose
+    // regulator submission is still missing or already past its window
+    // (OSHA 1904.39 8h/24h, RIDDOR) is a critical, time-bound gap.
+    const submission = regulatorSubmissionStatus(
+      {
+        incidentType: incident.incidentType,
+        injuryClassification: incident.injuryClassification,
+        oshaCaseClassification: incident.oshaCaseClassification,
+        reportableToRegulator: incident.reportableToRegulator,
+        occurredAt: incident.occurredAt,
+        reportedToRegulatorAt: incident.reportedToRegulatorAt,
+      },
+      input.jurisdiction ?? 'UK',
+      new Date(input.now),
+    );
+    if (submission === 'overdue' || submission === 'pending') {
+      items.push({
+        id: `incident-report-${incident.id}`,
+        severity: submission === 'overdue' ? 'critical' : 'warning',
+        category: 'Reporting',
+        title: `Regulator report ${submission === 'overdue' ? 'overdue' : 'due'}: ${incident.title || 'incident'}`,
+        due: incident.occurredAt,
         link: '/registers',
         fragment: 'incidents',
       });

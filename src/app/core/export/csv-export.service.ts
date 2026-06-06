@@ -12,7 +12,15 @@ import { CsvColumn, csvFilename, toCsv } from './csv';
 export class CsvExportService {
   /** Serialise `rows` with the given columns and trigger a browser download. */
   download<T>(stem: string, rows: readonly T[], columns: readonly CsvColumn<T>[]): void {
-    const csv = toCsv(rows, columns);
+    this.downloadRaw(stem, toCsv(rows, columns));
+  }
+
+  /**
+   * Trigger a browser download of an already-serialised CSV string. Used by the
+   * statutory-form builders (OSHA 300/300A/301, RIDDOR) which produce their own
+   * CSV rather than a single column-spec mapping.
+   */
+  downloadRaw(stem: string, csv: string): void {
     const filename = csvFilename(stem);
     if (typeof document === 'undefined' || typeof URL === 'undefined' || typeof Blob === 'undefined') return;
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });

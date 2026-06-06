@@ -47,6 +47,11 @@ test.describe('P0 verification', () => {
     await page.goto('/registers#incidents');
     const incidents = page.getByRole('button', { name: /Incidents/i });
     await expect(incidents).toHaveClass(/on/);
+    // The upgraded incidents tab surfaces the safety-performance rates (cl. 9.1)
+    // and the demo seed shows the auto-generated human-readable reference.
+    await expect(page.getByText(/Safety-performance rates/i)).toBeVisible();
+    await expect(page.locator('.kpi-rates')).toBeVisible();
+    await expect(page.locator('input[value="INC-2026-001"]')).toBeVisible();
     await page.screenshot({ path: `${SHOTS}/03-registers-incidents.png` });
   });
 

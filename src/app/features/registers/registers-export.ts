@@ -151,14 +151,27 @@ export const hiraColumns: CsvColumn<HiraEntry>[] = [
 ];
 
 export const incidentColumns: CsvColumn<Incident>[] = [
+  { header: 'Reference', value: (r) => r.reference },
   { header: 'Title', value: (r) => r.title },
   { header: 'Occurred', value: (r) => r.occurredAt },
+  { header: 'Reported', value: (r) => r.reportedAt },
   { header: 'Location', value: (r) => r.location },
   { header: 'Type', value: (r) => r.incidentType },
   { header: 'Severity', value: (r) => r.severity },
+  { header: 'Potential severity', value: (r) => r.potentialSeverity },
   { header: 'Injury class', value: (r) => r.injuryClassification },
+  { header: 'Body part', value: (r) => r.bodyPart },
+  { header: 'Investigator', value: (r) => r.investigator },
+  { header: 'Method', value: (r) => r.investigationMethod },
+  { header: 'OSHA recordable', value: (r) => (r.oshaRecordable ? 'yes' : 'no') },
+  { header: 'Case classification', value: (r) => r.oshaCaseClassification },
+  { header: 'Days away', value: (r) => r.daysAway },
+  { header: 'Days restricted', value: (r) => r.daysRestricted },
+  { header: 'Reportable to regulator', value: (r) => (r.reportableToRegulator ? 'yes' : 'no') },
+  { header: 'Reported to regulator', value: (r) => r.reportedToRegulatorAt },
+  { header: 'Regulator reference', value: (r) => r.regulatorReference },
+  { header: 'Verified effective', value: (r) => (r.verifiedEffective ? 'yes' : 'no') },
   { header: 'Status', value: (r) => r.status },
-  { header: 'RIDDOR reportable', value: (r) => (r.reportableToRegulator ? 'yes' : 'no') },
   { header: 'Result', value: (r) => r.result },
 ];
 

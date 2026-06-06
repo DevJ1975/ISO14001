@@ -34,6 +34,7 @@ import {
   composeReportDraft,
   editionFromCriteria,
   normalizePhotoAnalysisPayload,
+  nextIncidentReference,
   reportContentHash,
   standardChecklist,
 } from '../domain';
@@ -611,20 +612,77 @@ export interface CalibrationRecord {
   sync: SyncState;
 }
 
-/** OH&S incident / near-miss (logged occurrence; ISO 45001 cl. 10.2 / 8.2). */
+/** Metadata for an evidence file attached to an incident (blob held locally; mirrors document attachments). */
+export interface IncidentAttachment {
+  id: string;
+  name: string;
+  mime?: string;
+  size?: number;
+  blobKey: string;
+  uploaded?: boolean;
+  addedAt: string;
+}
+
+/**
+ * OH&S incident / near-miss (logged occurrence; ISO 45001 cl. 10.2 / 8.2).
+ *
+ * The base fields capture the occurrence and its immediate action; the extended
+ * fields add investigation depth (cl. 10.2 closure incl. worker participation),
+ * jurisdiction-aware recordability/reporting (OSHA 300/301 + RIDDOR), and the
+ * effectiveness gate that mirrors the CAPA verification idea.
+ */
 export interface Incident {
   id: string;
+  /** Human-readable reference (e.g. INC-2026-001), auto-generated on add. */
+  reference?: string;
   title: string;
   occurredAt?: string;
+  /** Date the incident was reported internally (distinct from when it occurred). */
+  reportedAt?: string;
   location?: string;
   incidentType: 'injury' | 'illHealth' | 'nearMiss' | 'dangerousOccurrence' | 'propertyDamage' | 'fatality' | 'other';
   severity: 'low' | 'medium' | 'high';
+  /** Risk-based triage of the worst credible outcome (so a high-potential near-miss is prioritisable). */
+  potentialSeverity?: 'low' | 'medium' | 'high';
   description?: string;
   immediateAction?: string;
+  /** Injured/affected persons and witnesses (names/roles). */
+  peopleInvolved?: string;
   rootCause?: string;
+  // --- Investigation depth (cl. 10.2) ---
+  investigator?: string;
+  investigationMethod?: 'fiveWhys' | 'fishbone' | 'icam' | 'tapRoot' | 'other';
+  contributingFactors?: string;
+  investigationFindings?: string;
+  /** Note evidencing worker participation in evaluating the action (cl. 10.2). */
+  workerParticipation?: string;
+  /** Evidence files (photos/docs) using the shared local blob mechanism. */
+  attachments?: IncidentAttachment[];
   correctiveActionRef?: string;
   injuryClassification?: 'none' | 'firstAid' | 'medicalTreatment' | 'lostTime' | 'riddor';
+  // --- Jurisdiction-aware recordability / reporting (OSHA 300/301, RIDDOR) ---
+  /** Object/substance/agency that directly caused harm (OSHA 301). */
+  agency?: string;
+  /** Part of body affected (OSHA 301). */
+  bodyPart?: string;
+  oshaRecordable?: boolean;
+  /** OSHA 300-Log case classification (columns G/H/I/J). */
+  oshaCaseClassification?: 'death' | 'daysAway' | 'restrictedOrTransfer' | 'otherRecordable';
+  /** Days away from work (DART; capped at 180 in helper logic). */
+  daysAway?: number;
+  /** Days on job transfer or restriction (DART; capped at 180 in helper logic). */
+  daysRestricted?: number;
+  /** Privacy-concern case — omit the employee name on the 300 Log (OSHA 1904.29(b)). */
+  privacyConcern?: boolean;
   reportableToRegulator?: boolean;
+  /** Date the report was submitted to the regulator (OSHA / RIDDOR / other). */
+  reportedToRegulatorAt?: string;
+  regulatorReference?: string;
+  /** How the report was made (e.g. phone, online form, area office). */
+  reportingChannel?: string;
+  // --- Effectiveness / closure gate (mirrors CAPA verification) ---
+  verifiedEffective?: boolean;
+  verificationNote?: string;
   status: 'open' | 'investigating' | 'actioned' | 'closed';
   result: RegisterResult;
   updatedAt: string;
@@ -794,6 +852,7 @@ interface PersistedState {
   performanceMetrics: PerformanceMetric[];
   permits: Permit[];
   incidents: Incident[];
+  hoursWorked?: number;
   hira: HiraEntry[];
   calibration: CalibrationRecord[];
   training: TrainingRecord[];
@@ -1113,8 +1172,62 @@ function seedIncidents(): Incident[] {
     ...extra,
   });
   return [
-    base({ title: 'Lost-time injury — fall from step ladder', occurredAt: '2026-05-12', location: 'Assembly hall', incidentType: 'injury', severity: 'high', status: 'investigating', result: 'needsFollowUp', immediateAction: 'First aid given; casualty referred to A&E. Ladder quarantined.', injuryClassification: 'lostTime', reportableToRegulator: true }),
-    base({ title: 'Near-miss: dropped load from forklift', occurredAt: '2026-04-28', location: 'Warehouse', incidentType: 'nearMiss', severity: 'low', status: 'closed', result: 'conforming', injuryClassification: 'none', rootCause: 'Load not secured per SSOW; refresher training completed.' }),
+    base({
+      reference: 'INC-2026-001',
+      title: 'Lost-time injury — fall from step ladder',
+      occurredAt: '2026-05-12',
+      reportedAt: '2026-05-12',
+      location: 'Assembly hall',
+      incidentType: 'injury',
+      severity: 'high',
+      potentialSeverity: 'high',
+      status: 'investigating',
+      result: 'needsFollowUp',
+      description: 'Operative lost footing on the second rung of a step ladder while reaching a high shelf and fell to the floor.',
+      immediateAction: 'First aid given; casualty referred to hospital. Ladder quarantined and tagged out of use.',
+      peopleInvolved: 'Injured: A. Okafor (assembly operative). Witness: L. Hartmann (team lead).',
+      injuryClassification: 'lostTime',
+      investigator: 'S. Mendes (OH&S lead)',
+      investigationMethod: 'fiveWhys',
+      contributingFactors: 'Ladder footing on a worn floor mat; no spotter; reach beyond the safe working zone.',
+      investigationFindings: 'Task needed access equipment rated for the shelf height; the step ladder was the wrong tool for the reach.',
+      workerParticipation: 'Reviewed at the shift safety huddle; operatives helped agree the move to a mobile platform and a fixed pick zone.',
+      // OSHA recordability captured so the US view and the 300 Log demo are populated.
+      oshaRecordable: true,
+      oshaCaseClassification: 'daysAway',
+      agency: 'Step ladder',
+      bodyPart: 'Left wrist',
+      daysAway: 6,
+      daysRestricted: 0,
+      reportableToRegulator: true,
+      reportedToRegulatorAt: '2026-05-12',
+      regulatorReference: 'RIDDOR-2026-0488',
+      reportingChannel: 'Online notification form',
+      correctiveActionRef: 'Pending — see corrective action',
+    }),
+    base({
+      reference: 'INC-2026-002',
+      title: 'Near-miss: dropped load from forklift',
+      occurredAt: '2026-04-28',
+      reportedAt: '2026-04-29',
+      location: 'Warehouse',
+      incidentType: 'nearMiss',
+      severity: 'low',
+      potentialSeverity: 'high',
+      status: 'closed',
+      result: 'conforming',
+      description: 'A palletised load shifted and fell from forklift forks while turning; no person was in the path.',
+      peopleInvolved: 'Driver: M. Quaye (FLT operator). Reported by: warehouse supervisor.',
+      injuryClassification: 'none',
+      investigator: 'S. Mendes (OH&S lead)',
+      investigationMethod: 'fishbone',
+      contributingFactors: 'Load not banded to pallet; travel speed for the turn radius.',
+      rootCause: 'Load not secured per the safe system of work; refresher training completed and a banding check added to the pick list.',
+      workerParticipation: 'Drivers consulted on the revised pre-move check; feedback folded into the toolbox talk.',
+      oshaRecordable: false,
+      verifiedEffective: true,
+      verificationNote: 'Spot checks over four weeks confirmed loads banded before travel; no recurrence.',
+    }),
   ];
 }
 
@@ -1498,6 +1611,13 @@ export class FieldAuditStore {
   readonly performanceMetrics = signal<PerformanceMetric[]>(seedPerformanceMetrics());
   readonly permits = signal<Permit[]>(seedPermits());
   readonly incidents = signal<Incident[]>(seedIncidents());
+  /**
+   * Total hours worked over the reporting period — the denominator for the
+   * recordable-injury rates (TRIR/DART/LTIFR/severity). Persisted with the audit
+   * so the analytics survive a reload; defaults to a realistic demo figure
+   * (~100 FTE × 2,000 h) so the KPIs are populated out of the box.
+   */
+  readonly hoursWorked = signal<number>(200_000);
   readonly hira = signal<HiraEntry[]>(seedHira());
   readonly calibration = signal<CalibrationRecord[]>(seedCalibration());
   readonly training = signal<TrainingRecord[]>(seedTraining());
@@ -2836,20 +2956,178 @@ export class FieldAuditStore {
   }
 
   addIncident(): void {
+    const reference = nextIncidentReference(this.incidents().map((entry) => entry.reference));
     this.incidents.update((list) => [
-      { id: uid('incident'), title: '', incidentType: 'injury', severity: 'low', status: 'open', result: 'notStarted', updatedAt: new Date().toISOString(), sync: 'queued' },
+      { id: uid('incident'), reference, title: '', incidentType: 'injury', severity: 'low', status: 'open', result: 'notStarted', updatedAt: new Date().toISOString(), sync: 'queued' },
       ...list,
     ]);
     this.persist();
     this.autoFlush();
   }
 
-  updateIncident(id: string, patch: Partial<Incident>): void {
+  /**
+   * Apply a patch to an incident. Closure gate (mirrors CAPA effectiveness):
+   * a move to `status: 'closed'` is blocked unless the incident is verified
+   * effective (either already, or set true in the same patch). Blocked closures
+   * are dropped silently and the method returns false so the UI can keep showing
+   * its inline hint rather than hard-failing. Returns true otherwise.
+   */
+  updateIncident(id: string, patch: Partial<Incident>): boolean {
+    let applied = true;
     this.incidents.update((list) =>
-      list.map((entry) => (entry.id === id ? { ...entry, ...patch, updatedAt: new Date().toISOString(), sync: 'queued' } : entry)),
+      list.map((entry) => {
+        if (entry.id !== id) return entry;
+        const merged = { ...entry, ...patch };
+        if (patch.status === 'closed' && merged.verifiedEffective !== true) {
+          // Apply every other field in the patch but hold the status open.
+          applied = false;
+          return { ...merged, status: entry.status === 'closed' ? 'actioned' : entry.status, updatedAt: new Date().toISOString(), sync: 'queued' };
+        }
+        return { ...merged, updatedAt: new Date().toISOString(), sync: 'queued' };
+      }),
     );
     this.persist();
     this.autoFlush();
+    return applied;
+  }
+
+  /** Attach an evidence file to an incident; the blob is stored locally (mirrors document attachments). */
+  async addIncidentAttachment(incidentId: string, file: File): Promise<void> {
+    const attachmentId = uid('incfile');
+    const blobKey = attachmentId;
+    await idbSet('blobs', blobKey, file);
+    const attachment: IncidentAttachment = {
+      id: attachmentId,
+      name: file.name || 'Attachment',
+      mime: file.type || undefined,
+      size: file.size || undefined,
+      blobKey,
+      addedAt: new Date().toISOString(),
+    };
+    this.incidents.update((list) =>
+      list.map((entry) =>
+        entry.id === incidentId
+          ? { ...entry, attachments: [...(entry.attachments ?? []), attachment], updatedAt: new Date().toISOString(), sync: 'queued' }
+          : entry,
+      ),
+    );
+    this.persist();
+    this.autoFlush();
+  }
+
+  /** Remove an evidence attachment from an incident and delete its local blob. */
+  async removeIncidentAttachment(incidentId: string, attachmentId: string): Promise<void> {
+    const incident = this.incidents().find((entry) => entry.id === incidentId);
+    const attachment = incident?.attachments?.find((a) => a.id === attachmentId);
+    if (attachment?.blobKey) await idbDelete('blobs', attachment.blobKey);
+    this.incidents.update((list) =>
+      list.map((entry) =>
+        entry.id === incidentId
+          ? { ...entry, attachments: (entry.attachments ?? []).filter((a) => a.id !== attachmentId), updatedAt: new Date().toISOString(), sync: 'queued' }
+          : entry,
+      ),
+    );
+    this.persist();
+    this.autoFlush();
+  }
+
+  /**
+   * Spawn a finding (and its CAPA shell) from an incident, reusing the findings
+   * path so the incident's corrective action is tracked and verified like any
+   * other (cl. 10.2). The incident's `correctiveActionRef` is populated with the
+   * real created finding id and linked back. No-op if a link already exists.
+   * Returns the created (or existing) finding, or null if the incident is gone.
+   */
+  createCorrectiveActionFromIncident(incidentId: string): FieldFinding | null {
+    const incident = this.incidents().find((entry) => entry.id === incidentId);
+    if (!incident) return null;
+    // If we already spawned a finding for this incident, return it rather than duplicate.
+    const existing = this.findings().find((f) => f.id === incident.correctiveActionRef);
+    if (existing) return existing;
+    const clauseId = '10.2';
+    const clauseTitle = this.items().find((item) => item.clauseId === clauseId)?.clauseTitle ?? 'Incident, nonconformity and corrective action';
+    const label = incident.reference ? `${incident.reference} — ${incident.title || 'incident'}` : incident.title || 'incident';
+    const evidenceParts = [
+      incident.description?.trim(),
+      incident.investigationFindings?.trim() ? `Investigation: ${incident.investigationFindings.trim()}` : '',
+      incident.contributingFactors?.trim() ? `Contributing factors: ${incident.contributingFactors.trim()}` : '',
+    ].filter((part): part is string => !!part);
+    const finding: FieldFinding = {
+      id: uid('finding'),
+      clauseId,
+      clauseTitle,
+      type: incident.severity === 'high' || incident.potentialSeverity === 'high' ? 'majorNc' : 'minorNc',
+      description: `Corrective action arising from incident ${label}.`,
+      requirementSummary: `Clause ${clauseId} — ${clauseTitle}`,
+      objectiveEvidence: evidenceParts.join(' '),
+      evidenceIds: [],
+      status: 'open',
+      createdByName: AUDITOR,
+      createdAt: new Date().toISOString(),
+      sync: 'queued',
+    };
+    this.findings.update((list) => [finding, ...list]);
+    // Start the CAPA shell so the cl. 10.2 loop is ready for the auditee/lead.
+    this.startCapa(finding.id);
+    // Link the real finding id back onto the incident.
+    this.incidents.update((list) =>
+      list.map((entry) =>
+        entry.id === incidentId ? { ...entry, correctiveActionRef: finding.id, updatedAt: new Date().toISOString(), sync: 'queued' } : entry,
+      ),
+    );
+    this.persist();
+    this.autoFlush();
+    return finding;
+  }
+
+  /**
+   * Suggest a root-cause analysis + draft corrective-action plan for an incident,
+   * seeded from the incident's own data. Reuses the same composer/AI boundary as
+   * findings; the result is held per-incident (read-only, with a source badge)
+   * for the auditor to review and adapt before committing — prompts, not
+   * conclusions. AI when live & online; deterministic offline.
+   */
+  async generateIncidentCorrectiveAction(incidentId: string): Promise<'ai' | 'ruleBased' | null> {
+    const incident = this.incidents().find((entry) => entry.id === incidentId);
+    if (!incident) return null;
+    const detailParts = [
+      incident.description?.trim(),
+      incident.contributingFactors?.trim() ? `Contributing factors: ${incident.contributingFactors.trim()}` : '',
+      incident.investigationFindings?.trim() ? `Investigation findings: ${incident.investigationFindings.trim()}` : '',
+    ].filter((part): part is string => !!part);
+    const input: CorrectiveActionInput = {
+      clauseId: '10.2',
+      clauseTitle: 'Incident, nonconformity and corrective action',
+      type: incident.severity === 'high' || incident.potentialSeverity === 'high' ? 'majorNc' : 'minorNc',
+      title: incident.title || incident.reference,
+      description: detailParts.join(' '),
+      systemic: false,
+      relatedContext: incident.rootCause?.trim()
+        ? [{ label: `Incident ${incident.reference ?? ''}`.trim(), detail: incident.rootCause.trim() }]
+        : undefined,
+    };
+    let suggestion: CorrectiveActionDraft;
+    if (this.source() === 'live' && this.online()) {
+      try {
+        suggestion = await this.api.draftCorrectiveAction(input);
+      } catch {
+        suggestion = composeCorrectiveAction(input);
+      }
+    } else {
+      suggestion = composeCorrectiveAction(input);
+    }
+    this.correctiveActionDrafts.update((map) => ({ ...map, [incidentId]: suggestion }));
+    this.correctiveActionInfo.update((map) => ({
+      ...map,
+      [incidentId]: { source: suggestion.source, generatedAt: suggestion.generatedAt },
+    }));
+    return suggestion.source;
+  }
+
+  /** Set the hours-worked denominator for the incident-rate KPIs (blank/invalid → 0). */
+  setHoursWorked(hours: number): void {
+    this.hoursWorked.set(Number.isFinite(hours) && hours > 0 ? Math.round(hours) : 0);
+    this.persist();
   }
 
   addHira(): void {
@@ -3871,6 +4149,7 @@ export class FieldAuditStore {
       performanceMetrics: this.performanceMetrics(),
       permits: this.permits(),
       incidents: this.incidents(),
+      hoursWorked: this.hoursWorked(),
       hira: this.hira(),
       calibration: this.calibration(),
       training: this.training(),
@@ -3992,6 +4271,7 @@ export class FieldAuditStore {
     this.performanceMetrics.set(saved.performanceMetrics ?? seedPerformanceMetrics());
     this.permits.set(saved.permits ?? seedPermits());
     this.incidents.set(saved.incidents ?? seedIncidents());
+    this.hoursWorked.set(typeof saved.hoursWorked === 'number' && saved.hoursWorked > 0 ? saved.hoursWorked : 200_000);
     this.hira.set(saved.hira ?? seedHira());
     this.calibration.set(saved.calibration ?? seedCalibration());
     this.training.set(saved.training ?? seedTraining());
