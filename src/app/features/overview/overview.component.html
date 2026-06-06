@@ -92,6 +92,19 @@
     </article>
   </div>
 
+  <!-- Recordable-injury rates (cl. 9.1) — computed from incidents + hours worked. -->
+  <article class="panel">
+    <h2>Recordable-injury rates (cl. 9.1)</h2>
+    <div class="kpis">
+      <a class="kpi" routerLink="/registers" fragment="incidents"><strong>{{ incidentRates().trir }}</strong><span>TRIR</span></a>
+      <a class="kpi" routerLink="/registers" fragment="incidents"><strong>{{ incidentRates().dartRate }}</strong><span>DART rate</span></a>
+      <a class="kpi" routerLink="/registers" fragment="incidents"><strong>{{ incidentRates().ltifr }}</strong><span>LTIFR</span></a>
+      <a class="kpi" routerLink="/registers" fragment="incidents"><strong>{{ incidentRates().severityRate }}</strong><span>Severity rate</span></a>
+      <a class="kpi" routerLink="/registers" fragment="incidents"><strong>{{ incidentRates().recordableCases }}</strong><span>Recordable</span></a>
+      <a class="kpi" routerLink="/registers" fragment="incidents"><strong>{{ incidentRates().lostTimeCases }}</strong><span>Lost-time</span></a>
+    </div>
+  </article>
+
   <!-- Performance trend strip -->
   @if (performance().length) {
     <article class="panel">

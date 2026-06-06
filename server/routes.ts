@@ -52,6 +52,7 @@ import {
   resolveProvisioningToken,
   revokeProvisioningTokens,
 } from './provisioning-token.js';
+import { anthropicFetch } from './anthropic.js';
 import { mongoCollections } from './collections.js';
 import { ServerConfig } from './config.js';
 import { LoggingMailer, Mailer, setPasswordEmail } from './mailer.js';
@@ -647,21 +648,53 @@ const permitUpsertCommandSchema = z.object({
   result: registerResultSchema.default('notStarted'),
 });
 
+const incidentAttachmentSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().max(300),
+  mime: z.string().max(200).optional(),
+  size: z.number().int().min(0).optional(),
+  blobKey: z.string().max(200),
+  uploaded: z.boolean().optional(),
+  addedAt: z.string().max(40),
+});
+
 const incidentUpsertCommandSchema = z.object({
   id: z.string().min(1),
+  reference: z.string().max(40).optional(),
   title: z.string().max(300).default(''),
   occurredAt: z.string().max(40).optional(),
+  reportedAt: z.string().max(40).optional(),
   location: z.string().max(300).optional(),
   incidentType: z
     .enum(['injury', 'illHealth', 'nearMiss', 'dangerousOccurrence', 'propertyDamage', 'fatality', 'other'])
     .default('injury'),
   severity: z.enum(['low', 'medium', 'high']).default('low'),
+  potentialSeverity: z.enum(['low', 'medium', 'high']).optional(),
   description: z.string().max(2000).optional(),
   immediateAction: z.string().max(2000).optional(),
+  peopleInvolved: z.string().max(2000).optional(),
   rootCause: z.string().max(2000).optional(),
+  investigator: z.string().max(300).optional(),
+  investigationMethod: z.enum(['fiveWhys', 'fishbone', 'icam', 'tapRoot', 'other']).optional(),
+  contributingFactors: z.string().max(2000).optional(),
+  investigationFindings: z.string().max(2000).optional(),
+  workerParticipation: z.string().max(2000).optional(),
+  attachments: z.array(incidentAttachmentSchema).max(50).optional(),
   correctiveActionRef: z.string().max(200).optional(),
   injuryClassification: z.enum(['none', 'firstAid', 'medicalTreatment', 'lostTime', 'riddor']).optional(),
+  agency: z.string().max(300).optional(),
+  bodyPart: z.string().max(200).optional(),
+  oshaRecordable: z.boolean().optional(),
+  oshaCaseClassification: z.enum(['death', 'daysAway', 'restrictedOrTransfer', 'otherRecordable']).optional(),
+  daysAway: z.number().int().min(0).max(9999).optional(),
+  daysRestricted: z.number().int().min(0).max(9999).optional(),
+  privacyConcern: z.boolean().optional(),
   reportableToRegulator: z.boolean().optional(),
+  reportedToRegulatorAt: z.string().max(40).optional(),
+  regulatorReference: z.string().max(200).optional(),
+  reportingChannel: z.string().max(200).optional(),
+  verifiedEffective: z.boolean().optional(),
+  verificationNote: z.string().max(2000).optional(),
   status: z.enum(['open', 'investigating', 'actioned', 'closed']).default('open'),
   result: registerResultSchema.default('notStarted'),
 });
@@ -2269,7 +2302,7 @@ export async function handleApiRequest(
       const system =
         'You are an ISO 45001 occupational health & safety auditor assistant reviewing a single site photo. Suggest only what is visible. Use ISO 45001 clause numbers and short titles only; do NOT quote or paraphrase verbatim ISO requirement text. Respond with a strict JSON object only with keys: observations (string[]), hazardTags (string[]), suggestedClauseId (string), suggestedFindingStatement (string), suggestedType (one of minorNc, majorNc, ofi, conformity). Every suggestion is a candidate for an auditor to review; do not assert conclusions.';
       try {
-        const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
+        const aiRes = await anthropicFetch({
           method: 'POST',
           headers: { 'content-type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
           body: JSON.stringify({
@@ -2612,7 +2645,7 @@ export async function handleApiRequest(
       const system =
         'You are an ISO 45001 lead auditor assistant drafting an audit report. Use ONLY the audit data provided and ISO 45001 clause numbers and short titles. Do NOT quote or paraphrase verbatim ISO requirement text. Respond with a strict JSON object only, with keys overallConformity, emsEffectivenessOpinion, criteriaMetStatement, recommendation. recommendation must be one of recommend, conditional, notRecommended, satisfactory, actionRequired.';
       try {
-        const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
+        const aiRes = await anthropicFetch({
           method: 'POST',
           headers: { 'content-type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
           body: JSON.stringify({
@@ -2680,7 +2713,7 @@ export async function handleApiRequest(
       const system =
         'You are an ISO 45001 lead auditor assistant drafting (a) a tailored audit agenda and (b) opening- and closing-meeting talking-point scripts. Use ONLY the audit data provided and ISO 45001 clause numbers and short titles. Do NOT quote or paraphrase verbatim ISO requirement text. Respond with a strict JSON object only, with two keys: "agenda" and "scripts". "agenda" has keys title, scope, criteria, objectives (string array), itinerary (array of {clause, title, duration, focus}) and samplingNotes (string array). "scripts" has keys opening and closing, each an object with heading and talkingPoints (string array). The opening script covers introductions, confidentiality, safety induction/PPE/permits, scope+criteria+methods, the sampling caveat, how findings are graded and communicated, and closing-meeting arrangements. The closing script covers a findings summary by grade, agreed correction timelines (major ~30 days, minor ~90 days), auditee acknowledgement, and the recommendation plus next steps.';
       try {
-        const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
+        const aiRes = await anthropicFetch({
           method: 'POST',
           headers: { 'content-type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
           body: JSON.stringify({
@@ -2770,7 +2803,7 @@ export async function handleApiRequest(
       const system =
         "You are an ISO 45001 lead auditor assistant. Answer the auditor's question using ISO 45001 clause numbers and short titles plus general OH&S auditing good practice. Do NOT quote or paraphrase verbatim ISO requirement text. Respond with a strict JSON object only: { \"answer\": string, \"clauseRefs\": [{ \"clauseId\": string, \"title\": string }] }.";
       try {
-        const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
+        const aiRes = await anthropicFetch({
           method: 'POST',
           headers: { 'content-type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
           body: JSON.stringify({ model, max_tokens: 900, system, messages: [{ role: 'user', content: body.question }] }),
@@ -2822,7 +2855,7 @@ export async function handleApiRequest(
       const system =
         'You are an ISO 45001 lead auditor assistant drafting a single audit finding (nonconformity). Use ONLY the finding data provided (clause id/title, note, result, evidence labels) and ISO 45001 clause numbers and short titles. Do NOT quote or paraphrase verbatim ISO requirement text; never use the word "shall". Respond with a strict JSON object only, with keys draftStatement, requirementSummary, objectiveEvidence, suggestedType, gradingRationale, rootCausePrompts. suggestedType must be one of majorNc, minorNc, ofi. rootCausePrompts must be an array of short question strings.';
       try {
-        const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
+        const aiRes = await anthropicFetch({
           method: 'POST',
           headers: { 'content-type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
           body: JSON.stringify({
@@ -2896,7 +2929,7 @@ export async function handleApiRequest(
       const system =
         'You are an ISO 45001 lead auditor assistant tailoring the audit checklist emphasis to a specific client. Use ONLY the client context provided (sector, headcount, sites, key hazards/processes, prior findings) and ISO 45001 clause numbers and short titles. Do NOT quote or paraphrase verbatim ISO requirement text; never use the word "shall". Respond with a strict JSON object only, with keys summary, areas, riskNotes. "areas" is an array of { clauseId, clauseTitle, priority, rationale, focusPrompts } where priority is one of high, medium and focusPrompts is an array of short question strings. "riskNotes" is an array of short strings. Order areas with the highest-priority first.';
       try {
-        const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
+        const aiRes = await anthropicFetch({
           method: 'POST',
           headers: { 'content-type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
           body: JSON.stringify({
@@ -2970,7 +3003,7 @@ export async function handleApiRequest(
       const system =
         'You are an ISO 45001 lead auditor assistant suggesting a root-cause analysis and a draft corrective-action plan for a single finding (nonconformity or opportunity for improvement). Use ONLY the finding data provided (clause id/title, type, title, description, systemic flag, related register context) and ISO 45001 clause numbers and short titles. Do NOT quote or paraphrase verbatim ISO requirement text; never use the word "shall". Frame root causes as hypotheses to test, not conclusions. Respond with a strict JSON object only, with keys rootCauseHypotheses, correctiveActions, containment, summary. "rootCauseHypotheses" is an array of short strings. "correctiveActions" is an array of { action, owner, why } where owner is a suggested role and why is a short rationale. "containment" is a short string (or omit it for an opportunity for improvement). "summary" is a one-line string.';
       try {
-        const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
+        const aiRes = await anthropicFetch({
           method: 'POST',
           headers: { 'content-type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
           body: JSON.stringify({

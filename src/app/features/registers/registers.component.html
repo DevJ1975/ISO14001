@@ -570,41 +570,206 @@
           <h2>Incident, near-miss &amp; investigation register</h2>
           <button mat-flat-button color="primary" type="button" (click)="store.addIncident()"><mat-icon aria-hidden="true">add</mat-icon>Add</button>
         </div>
+
+        <!-- Safety-performance KPIs (cl. 9.1) — recordable-injury rates over hours worked. -->
+        <article class="tile incident-kpis">
+          <div class="att-head">
+            <span>Safety-performance rates ({{ regulatorLabel() }} basis)</span>
+            <label class="fld hours-fld"><span>Hours worked (period)</span>
+              <input type="number" min="0" step="1000" [value]="store.hoursWorked()" (change)="onHoursWorked($any($event.target).value)" />
+            </label>
+          </div>
+          <div class="kpis kpi-rates">
+            <span class="kpi"><strong>{{ incidentRates().trir }}</strong><span>TRIR</span></span>
+            <span class="kpi"><strong>{{ incidentRates().dartRate }}</strong><span>DART rate</span></span>
+            <span class="kpi"><strong>{{ incidentRates().ltifr }}</strong><span>LTIFR</span></span>
+            <span class="kpi"><strong>{{ incidentRates().severityRate }}</strong><span>Severity rate</span></span>
+            <span class="kpi"><strong>{{ incidentRates().recordableCases }}</strong><span>Recordable</span></span>
+            <span class="kpi"><strong>{{ incidentRates().dartCases }}</strong><span>DART cases</span></span>
+          </div>
+          <div class="form-exports">
+            <span class="hint-inline">Statutory outputs:</span>
+            @if (isUs()) {
+              <button mat-stroked-button type="button" (click)="exportOsha300()"><mat-icon aria-hidden="true">table_view</mat-icon>OSHA 300 Log</button>
+              <button mat-stroked-button type="button" (click)="exportOsha300A()"><mat-icon aria-hidden="true">summarize</mat-icon>OSHA 300A summary</button>
+            } @else {
+              <button mat-stroked-button type="button" (click)="exportOsha300()"><mat-icon aria-hidden="true">table_view</mat-icon>OSHA 300 Log</button>
+            }
+          </div>
+        </article>
+
         @for (row of store.incidents(); track row.id) {
           <article class="tile row">
-            <label class="fld"><span>Title</span><input [value]="row.title" (change)="store.updateIncident(row.id, { title: $any($event.target).value })" /></label>
+            <div class="grid3">
+              <label class="fld"><span>Reference</span><input [value]="row.reference || ''" (change)="store.updateIncident(row.id, { reference: $any($event.target).value })" /></label>
+              <label class="fld grow2"><span>Title</span><input [value]="row.title" (change)="store.updateIncident(row.id, { title: $any($event.target).value })" /></label>
+            </div>
             <div class="grid3">
               <label class="fld"><span>Occurred</span><input type="date" [value]="row.occurredAt || ''" (change)="store.updateIncident(row.id, { occurredAt: $any($event.target).value })" /></label>
+              <label class="fld"><span>Reported (internal)</span><input type="date" [value]="row.reportedAt || ''" (change)="store.updateIncident(row.id, { reportedAt: $any($event.target).value })" /></label>
+              <label class="fld"><span>Location</span><input [value]="row.location || ''" (change)="store.updateIncident(row.id, { location: $any($event.target).value })" /></label>
+            </div>
+            <div class="grid3">
               <label class="fld"><span>Type</span>
                 <select [value]="row.incidentType" (change)="store.updateIncident(row.id, { incidentType: $any($event.target).value })">
                   <option value="injury">Injury</option><option value="illHealth">Ill-health</option><option value="nearMiss">Near-miss</option><option value="dangerousOccurrence">Dangerous occurrence</option><option value="propertyDamage">Property damage</option><option value="fatality">Fatality</option><option value="other">Other</option>
                 </select>
               </label>
-              <label class="fld"><span>Severity</span>
+              <label class="fld"><span>Severity (actual)</span>
                 <select [value]="row.severity" (change)="store.updateIncident(row.id, { severity: $any($event.target).value })">
                   <option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option>
                 </select>
               </label>
-            </div>
-            <div class="grid2">
-              <label class="fld"><span>Injury classification</span>
-                <select [value]="row.injuryClassification ?? ''" (change)="store.updateIncident(row.id, { injuryClassification: $any($event.target).value })">
-                  <option value="none">None</option><option value="firstAid">First aid</option><option value="medicalTreatment">Medical treatment</option><option value="lostTime">Lost time</option><option value="riddor">RIDDOR reportable</option>
+              <label class="fld"><span>Potential severity</span>
+                <select [value]="row.potentialSeverity ?? ''" (change)="store.updateIncident(row.id, { potentialSeverity: $any($event.target).value || undefined })">
+                  <option value="">—</option><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option>
                 </select>
               </label>
-              <label class="fld"><span>Location</span><input [value]="row.location || ''" (change)="store.updateIncident(row.id, { location: $any($event.target).value })" /></label>
             </div>
             <label class="fld"><span>What happened</span><input [value]="row.description || ''" (change)="store.updateIncident(row.id, { description: $any($event.target).value })" /></label>
+            <label class="fld"><span>People involved / witnesses</span><input [value]="row.peopleInvolved || ''" placeholder="Injured/affected persons and witnesses (names/roles)" (change)="store.updateIncident(row.id, { peopleInvolved: $any($event.target).value })" /></label>
             <label class="fld"><span>Immediate action / containment</span><input [value]="row.immediateAction || ''" (change)="store.updateIncident(row.id, { immediateAction: $any($event.target).value })" /></label>
-            <label class="fld"><span>Root cause</span><input [value]="row.rootCause || ''" (change)="store.updateIncident(row.id, { rootCause: $any($event.target).value })" /></label>
-            <div class="grid2">
+
+            <fieldset class="scoring">
+              <legend>Investigation (cl. 10.2)</legend>
+              <div class="grid2">
+                <label class="fld"><span>Investigator</span><input [value]="row.investigator || ''" (change)="store.updateIncident(row.id, { investigator: $any($event.target).value })" /></label>
+                <label class="fld"><span>Method</span>
+                  <select [value]="row.investigationMethod ?? ''" (change)="store.updateIncident(row.id, { investigationMethod: $any($event.target).value || undefined })">
+                    <option value="">—</option><option value="fiveWhys">5 Whys</option><option value="fishbone">Fishbone</option><option value="icam">ICAM</option><option value="tapRoot">TapRooT</option><option value="other">Other</option>
+                  </select>
+                </label>
+              </div>
+              <label class="fld"><span>Contributing factors</span><input [value]="row.contributingFactors || ''" (change)="store.updateIncident(row.id, { contributingFactors: $any($event.target).value })" /></label>
+              <label class="fld"><span>Root cause</span><input [value]="row.rootCause || ''" (change)="store.updateIncident(row.id, { rootCause: $any($event.target).value })" /></label>
+              <label class="fld"><span>Investigation findings</span><input [value]="row.investigationFindings || ''" (change)="store.updateIncident(row.id, { investigationFindings: $any($event.target).value })" /></label>
+              <label class="fld"><span>Worker participation in evaluating the action</span><input [value]="row.workerParticipation || ''" placeholder="How workers were involved in evaluating the corrective action (cl. 10.2)" (change)="store.updateIncident(row.id, { workerParticipation: $any($event.target).value })" /></label>
+            </fieldset>
+
+            <!-- Evidence attachments — shared local blob mechanism. -->
+            <div class="attachments">
+              <div class="att-head">
+                <span>Evidence</span>
+                <label class="att-add"><input type="file" hidden (change)="onIncidentFile(row.id, $event)" /><mat-icon aria-hidden="true">attach_file</mat-icon>Attach file</label>
+              </div>
+              @for (att of row.attachments || []; track att.id) {
+                <div class="att-item">
+                  <button type="button" class="att-name" (click)="openAttachment(att.blobKey)"><mat-icon aria-hidden="true">description</mat-icon>{{ att.name }}</button>
+                  <button type="button" class="att-del" aria-label="Remove attachment" (click)="confirmRemoveIncidentAttachment(row.id, att.id, att.name)"><mat-icon aria-hidden="true">close</mat-icon></button>
+                </div>
+              } @empty {
+                <span class="att-empty">No evidence attached.</span>
+              }
+            </div>
+
+            <!-- Recordability & classification — jurisdiction-aware (US shows the OSHA set). -->
+            <fieldset class="scoring">
+              <legend>Recordability &amp; classification</legend>
+              <div class="grid2">
+                <label class="fld"><span>Injury classification</span>
+                  <select [value]="row.injuryClassification ?? ''" (change)="store.updateIncident(row.id, { injuryClassification: $any($event.target).value })">
+                    <option value="none">None</option><option value="firstAid">First aid</option><option value="medicalTreatment">Medical treatment</option><option value="lostTime">Lost time</option><option value="riddor">{{ isUs() ? 'Reportable injury' : 'RIDDOR reportable' }}</option>
+                  </select>
+                </label>
+                <label class="fld"><span>Body part</span><input [value]="row.bodyPart || ''" (change)="store.updateIncident(row.id, { bodyPart: $any($event.target).value })" /></label>
+              </div>
+              @if (isUs()) {
+                <div class="grid2">
+                  <label class="fld"><span>Object/substance/agency</span><input [value]="row.agency || ''" (change)="store.updateIncident(row.id, { agency: $any($event.target).value })" /></label>
+                  <label class="fld"><span>Case classification (300 Log)</span>
+                    <select [value]="row.oshaCaseClassification ?? ''" (change)="store.updateIncident(row.id, { oshaCaseClassification: $any($event.target).value || undefined })">
+                      <option value="">—</option><option value="death">G — Death</option><option value="daysAway">H — Days away</option><option value="restrictedOrTransfer">I — Restricted/transfer</option><option value="otherRecordable">J — Other recordable</option>
+                    </select>
+                  </label>
+                </div>
+                <div class="grid3">
+                  <label class="fld"><span>Days away (max 180)</span><input type="number" min="0" max="180" [value]="row.daysAway ?? ''" (change)="store.updateIncident(row.id, { daysAway: num($any($event.target).value) })" /></label>
+                  <label class="fld"><span>Days restricted (max 180)</span><input type="number" min="0" max="180" [value]="row.daysRestricted ?? ''" (change)="store.updateIncident(row.id, { daysRestricted: num($any($event.target).value) })" /></label>
+                  <div class="chk-stack">
+                    <label class="chk2"><input type="checkbox" [checked]="row.oshaRecordable || false" (change)="store.updateIncident(row.id, { oshaRecordable: $any($event.target).checked })" /> OSHA recordable</label>
+                    <label class="chk2"><input type="checkbox" [checked]="row.privacyConcern || false" (change)="store.updateIncident(row.id, { privacyConcern: $any($event.target).checked })" /> Privacy case (1904.29(b))</label>
+                  </div>
+                </div>
+              }
+            </fieldset>
+
+            <!-- Regulator reporting — label & deadline are jurisdiction-aware. -->
+            <fieldset class="scoring">
+              <legend>{{ regulatorLabel() }} reporting</legend>
+              @if (incidentDeadline(row).reportable) {
+                <p class="ai-note">
+                  <span class="src-badge" [attr.data-tone]="incidentSubmissionStatus(row) === 'overdue' ? 'critical' : incidentSubmissionStatus(row) === 'submitted' ? 'positive' : 'progress'">
+                    {{ incidentSubmissionStatus(row) === 'overdue' ? 'Overdue' : incidentSubmissionStatus(row) === 'submitted' ? 'Submitted' : 'Due' }}
+                  </span>
+                  {{ incidentDeadline(row).basis }}
+                </p>
+              }
+              <label class="chk2"><input type="checkbox" [checked]="row.reportableToRegulator || false" (change)="store.updateIncident(row.id, { reportableToRegulator: $any($event.target).checked })" /> {{ reportableLabel() }}</label>
+              <div class="grid3">
+                <label class="fld"><span>Reported to {{ regulatorLabel() }}</span><input type="date" [value]="row.reportedToRegulatorAt || ''" (change)="store.updateIncident(row.id, { reportedToRegulatorAt: $any($event.target).value })" /></label>
+                <label class="fld"><span>{{ regulatorLabel() }} reference</span><input [value]="row.regulatorReference || ''" (change)="store.updateIncident(row.id, { regulatorReference: $any($event.target).value })" /></label>
+                <label class="fld"><span>Reporting channel</span><input [value]="row.reportingChannel || ''" placeholder="Phone / online form / area office" (change)="store.updateIncident(row.id, { reportingChannel: $any($event.target).value })" /></label>
+              </div>
+            </fieldset>
+
+            <!-- Effectiveness / closure gate (cl. 10.2) — mirrors CAPA verification. -->
+            <fieldset class="scoring">
+              <legend>Effectiveness &amp; closure</legend>
+              <label class="chk2"><input type="checkbox" [checked]="row.verifiedEffective || false" (change)="store.updateIncident(row.id, { verifiedEffective: $any($event.target).checked })" /> Action verified effective</label>
+              <label class="fld"><span>Verification note</span><input [value]="row.verificationNote || ''" placeholder="What evidence confirms the cause is addressed" (change)="store.updateIncident(row.id, { verificationNote: $any($event.target).value })" /></label>
               <label class="fld"><span>Status</span>
-                <select [value]="row.status" (change)="store.updateIncident(row.id, { status: $any($event.target).value })">
-                  <option value="open">Open</option><option value="investigating">Investigating</option><option value="actioned">Actioned</option><option value="closed">Closed</option>
+                <select [value]="row.status" (change)="setIncidentStatus(row, $any($event.target).value)">
+                  <option value="open">Open</option><option value="investigating">Investigating</option><option value="actioned">Actioned</option><option value="closed" [disabled]="closureBlocked(row)">Closed</option>
                 </select>
               </label>
-              <label class="chk2"><input type="checkbox" [checked]="row.reportableToRegulator || false" (change)="store.updateIncident(row.id, { reportableToRegulator: $any($event.target).checked })" /> RIDDOR reportable</label>
+              @if (closureBlocked(row)) {
+                <p class="ai-hint">Verify effectiveness before this incident can be closed (cl. 10.2).</p>
+              }
+            </fieldset>
+
+            <!-- Incident → corrective action (cl. 10.2): spawn a finding/CAPA, or get a read-only suggestion. -->
+            <div class="ai-draft capa-suggest">
+              <div class="att-head">
+                <span>Corrective action</span>
+                @if (hasLinkedFinding(row)) {
+                  <a class="att-name" routerLink="/findings"><mat-icon aria-hidden="true">link</mat-icon>Linked finding</a>
+                }
+              </div>
+              <div class="ca-actions">
+                <button mat-stroked-button type="button" (click)="createCorrectiveAction(row)"><mat-icon aria-hidden="true">playlist_add_check</mat-icon>Create corrective action</button>
+                <button mat-stroked-button type="button" [disabled]="isIncidentSuggesting(row.id)" (click)="suggestIncidentCorrectiveAction(row)"><mat-icon aria-hidden="true">psychology</mat-icon>{{ isIncidentSuggesting(row.id) ? 'Suggesting…' : 'Suggest corrective action' }}</button>
+                @if (isUs()) {
+                  <button mat-stroked-button type="button" (click)="exportOsha301(row)"><mat-icon aria-hidden="true">download</mat-icon>OSHA 301</button>
+                } @else {
+                  <button mat-stroked-button type="button" (click)="exportRiddor(row)"><mat-icon aria-hidden="true">download</mat-icon>RIDDOR report</button>
+                }
+              </div>
+              @if (incidentCorrectiveAction(row.id); as ca) {
+                @if (incidentCorrectiveActionInfo(row.id); as info) {
+                  <p class="ai-note">
+                    <span class="src-badge" [attr.data-tone]="info.source === 'ai' ? 'progress' : 'neutral'">{{ info.source === 'ai' ? 'AI' : 'rule-based' }}</span>
+                    Suggested from this incident's data ({{ formatTime(info.generatedAt) }}) — review and adapt before committing.
+                  </p>
+                }
+                <p class="ca-summary">{{ ca.summary }}</p>
+                @if (ca.containment) {
+                  <div class="ca-section"><span class="lbl">Immediate containment</span><p class="ro">{{ ca.containment }}</p></div>
+                }
+                <div class="ca-section">
+                  <span class="lbl">Likely root causes to test</span>
+                  <ul class="ca-list">@for (rc of ca.rootCauseHypotheses; track $index) { <li>{{ rc }}</li> }</ul>
+                </div>
+                <div class="ca-section">
+                  <span class="lbl">Draft corrective-action plan</span>
+                  <ol class="ca-plan">
+                    @for (step of ca.correctiveActions; track $index) {
+                      <li><strong>{{ step.action }}</strong>@if (step.owner) { <span class="ca-owner">Owner: {{ step.owner }}</span> }<span class="ca-why">{{ step.why }}</span></li>
+                    }
+                  </ol>
+                </div>
+              }
             </div>
+
             <div class="results">
               @for (r of results; track r.value) {
                 <button type="button" class="rp {{ r.tone }}" [class.on]="row.result === r.value" (click)="store.updateIncident(row.id, { result: r.value })">{{ r.label }}</button>

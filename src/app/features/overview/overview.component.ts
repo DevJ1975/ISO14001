@@ -4,7 +4,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { RouterLink } from '@angular/router';
 
 import { AlertsService } from '../../core/alerts/alerts.service';
-import { metricVariance } from '../../core/domain';
+import { computeIncidentRates, metricVariance } from '../../core/domain';
 import { FieldAuditStore } from '../../core/field/field-audit-store';
 
 interface Bar {
@@ -81,6 +81,15 @@ export class OverviewComponent {
     const toBar = (label: string, count: number, tone: Bar['tone']): Bar => ({ label, count, pct: Math.round((count / max) * 100), tone });
     return [toBar('Verified', verified, 'positive'), toBar('In progress', open, 'progress'), toBar('Overdue', overdue, 'critical')];
   });
+
+  /**
+   * Computed safety-performance rates (TRIR/DART/LTIFR/severity) over the
+   * incident list and the stored hours-worked figure. Read-only here — the
+   * manual cl. 9.1 performance rows below are unaffected.
+   */
+  protected readonly incidentRates = computed(() =>
+    computeIncidentRates(this.store.incidents(), this.store.hoursWorked()),
+  );
 
   /** Performance indicators with actual-vs-target variance, for the trend strip. */
   protected readonly performance = computed(() =>

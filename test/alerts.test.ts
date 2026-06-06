@@ -143,6 +143,33 @@ describe('alerts engine', () => {
     assert.equal(alerts.find((a) => a.id === 'moc-m4'), undefined); // closed/settled
   });
 
+  it('flags a reportable incident whose regulator submission is overdue (OSHA 1904.39)', () => {
+    const alerts = buildAlerts(
+      emptyInput({
+        jurisdiction: 'US',
+        incidents: [
+          // Fatality occurred well before NOW with no submission → overdue critical.
+          { id: 'i1', title: 'Fatality', severity: 'high', status: 'investigating', incidentType: 'fatality', occurredAt: '2026-05-01T00:00:00.000Z' },
+          // Already submitted → no reporting alert (only the open-incident one).
+          { id: 'i2', title: 'Hospitalised', severity: 'high', status: 'investigating', incidentType: 'injury', reportableToRegulator: true, occurredAt: '2026-05-01T00:00:00.000Z', reportedToRegulatorAt: '2026-05-01T06:00:00.000Z' },
+        ],
+      }),
+    );
+    assert.equal(alerts.find((a) => a.id === 'incident-report-i1')?.severity, 'critical');
+    assert.equal(alerts.find((a) => a.id === 'incident-report-i1')?.category, 'Reporting');
+    assert.equal(alerts.find((a) => a.id === 'incident-report-i2'), undefined); // submitted
+  });
+
+  it('does not raise a reporting alert for a non-reportable incident', () => {
+    const alerts = buildAlerts(
+      emptyInput({
+        jurisdiction: 'UK',
+        incidents: [{ id: 'i1', title: 'First-aid only', severity: 'low', status: 'closed', incidentType: 'injury', injuryClassification: 'firstAid' }],
+      }),
+    );
+    assert.equal(alerts.some((a) => a.category === 'Reporting'), false);
+  });
+
   it('builds a date-sorted schedule of upcoming deadlines', () => {
     const events = buildSchedule(
       emptyInput({
