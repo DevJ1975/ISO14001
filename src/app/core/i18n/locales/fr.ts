@@ -52,6 +52,7 @@ export const fr: Partial<MessageCatalog> = {
   'shell.signOut': 'Se déconnecter',
   'shell.language': 'Langue',
   'shell.jurisdiction': 'Juridiction',
+  'shell.more': 'Plus',
 
   'login.signIn': 'Se connecter',
   'login.signingIn': 'Connexion…',

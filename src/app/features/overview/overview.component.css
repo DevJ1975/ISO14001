@@ -232,10 +232,15 @@
 }
 
 /* Aspect significance heat-map */
+.heatmap {
+  overflow-x: auto;
+}
+
 .hm-grid {
   display: grid;
   grid-template-columns: 24px repeat(5, 1fr);
   gap: 4px;
+  min-width: 280px;
   max-width: 420px;
 }
 

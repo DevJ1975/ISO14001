@@ -40,7 +40,7 @@
 }
 
 .chip {
-  min-height: 40px;
+  min-height: 44px;
   padding: 0 16px;
   border: 1px solid var(--border);
   border-radius: 999px;
@@ -394,6 +394,13 @@
 
   .decide {
     min-height: 58px;
+  }
+}
+
+/* Keep decision labels readable on the narrowest phones (≤360–380px). */
+@media (max-width: 380px) {
+  .decisions {
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 

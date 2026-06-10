@@ -79,12 +79,25 @@ export class ShellComponent {
     this.tour.start();
   }
 
+  /** "More" overflow menu (mobile only) open state. */
+  protected readonly moreOpen = signal(false);
+
   protected toggleNotifications(): void {
+    this.moreOpen.set(false);
     this.notifOpen.update((open) => !open);
   }
 
   protected closeNotifications(): void {
     this.notifOpen.set(false);
+  }
+
+  protected toggleMore(): void {
+    this.notifOpen.set(false);
+    this.moreOpen.update((open) => !open);
+  }
+
+  protected closeMore(): void {
+    this.moreOpen.set(false);
   }
 
   protected openNotification(link: string, fragment: string | undefined, id: string): void {
